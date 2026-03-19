@@ -1,0 +1,88 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║           COPY-PASTE COMMANDS - SIMPLEST WAY TO RUN                      ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+The batch file has quote issues. Here's the EASIEST solution:
+
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ STEP 1: Open PowerShell 7                                                │
+└───────────────────────────────────────────────────────────────────────────┘
+
+Press Win+R, type:   pwsh
+Then press Enter
+
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ STEP 2: Navigate to your scripts folder                                  │
+└───────────────────────────────────────────────────────────────────────────┘
+
+cd "C:\Users\hille\Downloads"
+
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ STEP 3: Copy-paste ONE of these commands                                 │
+└───────────────────────────────────────────────────────────────────────────┘
+
+# DEFAULT (2 parallel jobs):
+.\Convert-MoviesToMKV-Optimized-Fixed.ps1 -RootPath "Y:\"
+
+# FAST (4 parallel jobs):
+.\Convert-MoviesToMKV-Optimized-Fixed.ps1 -RootPath "Y:\" -MaxParallelJobs 4
+
+# TEST RUN (keep originals):
+.\Convert-MoviesToMKV-Optimized-Fixed.ps1 -RootPath "Y:\" -DeleteOriginal $false -MaxParallelJobs 4
+
+# CUSTOM PATH:
+.\Convert-MoviesToMKV-Optimized-Fixed.ps1 -RootPath "\\TRUENAS\Media\Movies" -MaxParallelJobs 4
+
+# SET DEFAULT LANGUAGE (no prompts):
+.\Convert-MoviesToMKV-Optimized-Fixed.ps1 -RootPath "Y:\" -DefaultLanguage "de" -MaxParallelJobs 4
+
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ OR: Create a Shortcut (One-Time Setup)                                   │
+└───────────────────────────────────────────────────────────────────────────┘
+
+1. Right-click on Desktop → New → Shortcut
+
+2. For "Type the location of the item", paste this (adjust the path):
+
+"C:\Program Files\PowerShell\7\pwsh.exe" -ExecutionPolicy Bypass -NoProfile -Command "& 'C:\Users\hille\Downloads\Convert-MoviesToMKV-Optimized-Fixed.ps1' -RootPath 'Y:\' -MaxParallelJobs 4"
+
+3. Click Next
+
+4. Name it: Convert Movies (Fast)
+
+5. Click Finish
+
+Now just double-click the shortcut anytime!
+
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ IF YOU GET "EXECUTION POLICY" ERROR                                      │
+└───────────────────────────────────────────────────────────────────────────┘
+
+Run this once in PowerShell 7 (as Administrator):
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+Then try again.
+
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ ALTERNATIVE: Use the Auto-Launcher Script                                │
+└───────────────────────────────────────────────────────────────────────────┘
+
+1. Open ANY PowerShell (even 5.1)
+2. Navigate to folder: cd "C:\Users\hille\Downloads"
+3. Run: .\Run-With-PowerShell7.ps1 -RootPath "Y:\" -MaxParallelJobs 4
+
+This script auto-detects and switches to PowerShell 7!
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+RECOMMENDED: Just open PowerShell 7 manually and run the command.
+It's faster than debugging batch files!
+
+═══════════════════════════════════════════════════════════════════════════

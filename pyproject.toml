@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "media-tool"
+version = "0.1.0"
+description = "Automated media processing for Jellyfin / NAS storage."
+requires-python = ">=3.11"
+dependencies = [
+    "typer[all]>=0.12",
+    "rich>=13",
+    "ffmpeg-python>=0.2",
+    "watchdog>=4",
+    "pydantic>=2",
+    # openai-whisper and torch are optional heavy deps — install separately
+    # "openai-whisper",
+    # "torch",
+    "pysubs2>=1.7",
+    # "PySide6",  # future GUI — install separately
+]
+
+[project.scripts]
+media-tool = "cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
