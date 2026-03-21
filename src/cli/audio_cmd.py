@@ -1,0 +1,471 @@
+"""
+src/cli/audio_cmd.py
+
+CLI interface for music processing.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional
+
+import typer
+from rich.console import Console
+from rich.table import Table
+from rich import box
+
+from core.audio import (
+    extract_audio_metadata_enhanced,
+    convert_audio,
+    organize_music,
+    improve_audio_file,
+    improve_audio_library,
+    AudioEnhancementResult,
+)
+
+app = typer.Typer(help="Process music files.")
+console = Console()
+err_console = Console(stderr=True, style="bold red")
+
+
+@app.command("scan")
+def scan_command(
+    directory: Path = typer.Argument(
+        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        help="Directory to scan for audio files.",
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o",
+        help="Output CSV file path. Defaults to <directory>/audio_list.csv",
+    ),
+    recursive: bool = typer.Option(
+        True, "--recursive/--no-recursive", "-r",
+        help="Scan subdirectories (default: on).",
+    ),
+    preview: bool = typer.Option(
+        False, "--preview", "-p",
+        help="Print a Rich table preview of the first 20 results in the terminal.",
+    ),
+) -> None:
+    """
+    Scan DIRECTORY for audio files and extract metadata.
+
+    Supported formats: MP3, FLAC, M4A, AAC, OGG, WMA.
+    """
+    console.rule("[bold cyan]media-tool · audio scan[/bold cyan]")
+    console.print(f"[dim]Directory :[/dim] {directory}")
+
+    resolved_output = output or directory / "audio_list.csv"
+    console.print(f"[dim]CSV output :[/dim] {resolved_output}")
+
+    metadata_list = []
+    for filepath in audio_files:
+        metadata = extract_audio_metadata_enhanced(filepath)
+        if metadata:
+            metadata_list.append(metadata)
+
+    if not metadata_list:
+        console.print("[yellow]No audio files found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    console.print(f"[dim]Files found:[/dim] {len(metadata_list)}\n")
+
+    # Export to CSV
+    _export_audio_csv(metadata_list, resolved_output)
+
+    console.print(
+        f"\n[bold green]✔  CSV saved:[/bold green] {resolved_output}\n"
+        f"   Total: {len(metadata_list)}"
+    )
+
+    # Optional preview
+    if preview:
+        _print_audio_preview(metadata_list[:20])
+        if len(metadata_list) > 20:
+            console.print(f"[dim]… and {len(metadata_list) - 20} more rows in the CSV.[/dim]")
+
+
+@app.command("organize")
+def organize_command(
+    source_dir: Path = typer.Argument(
+        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        help="Source directory containing music files.",
+    ),
+    target_dir: Path = typer.Argument(
+        ..., file_okay=False, dir_okay=True,
+        help="Target directory for organized files.",
+    ),
+    format: str = typer.Option(
+        "flac", "--format", "-f",
+        help="Target audio format (mp3, flac, m4a, aac, opus, ogg).",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", "-n",
+        help="Show what would be done without making changes.",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite",
+        help="Overwrite existing files in target directory.",
+    ),
+) -> None:
+    """
+    Organize music files into Jellyfin-compatible structure.
+
+    Structure: Music/Artist/Year - Album/Track - Title.ext
+    """
+    console.rule("[bold cyan]media-tool · audio organize[/bold cyan]")
+    console.print(f"[dim]Source:[/dim] {source_dir}")
+    console.print(f"[dim]Target:[/dim] {target_dir}")
+    console.print(f"[dim]Format:[/dim] {format}")
+
+    if dry_run:
+        console.print("[yellow]DRY RUN MODE - No files will be modified[/yellow]\n")
+
+    try:
+        counts = organize_music(
+            input_dir=source_dir,
+            output_dir=target_dir,
+            convert_format=format if not dry_run else None,
+            overwrite=overwrite,
+        )
+    except ValueError as e:
+        err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    console.print(
+        f"\n[bold]Summary:[/bold] "
+        f"Processed: {counts['processed']}  "
+        f"Converted: {counts['converted']}  "
+        f"Skipped: {counts['skipped']}  "
+        f"Errors: {counts['errors']}"
+    )
+
+    if counts['errors'] > 0:
+        raise typer.Exit(code=1)
+
+
+@app.command("convert")
+def convert_command(
+    input_file: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        help="Input audio file.",
+    ),
+    output_file: Path = typer.Argument(
+        ..., file_okay=True, dir_okay=False,
+        help="Output audio file path.",
+    ),
+    format: str = typer.Option(
+        "flac", "--format", "-f",
+        help="Target audio format (mp3, flac, m4a, aac, opus, ogg).",
+    ),
+    quality: Optional[str] = typer.Option(
+        None, "--quality", "-q",
+        help="Quality setting (format-specific, e.g. '0' for MP3, '256k' for AAC).",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite",
+        help="Overwrite output file if it exists.",
+    ),
+) -> None:
+    """
+    Convert a single audio file to a different format.
+    """
+    console.rule("[bold cyan]media-tool · audio convert[/bold cyan]")
+    console.print(f"[dim]Input :[/dim] {input_file}")
+    console.print(f"[dim]Output:[/dim] {output_file}")
+    console.print(f"[dim]Format:[/dim] {format}")
+
+    try:
+        result = convert_audio(
+            input_file=input_file,
+            output_file=output_file,
+            format=format,
+            quality=quality,
+            preserve_metadata=True,
+            overwrite=overwrite,
+        )
+    except ValueError as e:
+        err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    if result.success:
+        console.print(f"\n[bold green]✔  Converted successfully:[/bold green] {output_file}")
+    else:
+        err_console.print(f"\n[red]✘  Conversion failed:[/red] {input_file}")
+        if result.ffmpeg_result:
+            stderr_tail = "\n".join(result.ffmpeg_result.stderr.splitlines()[-20:])
+            console.print(f"\n[dim]ffmpeg stderr (tail):[/dim]\n{stderr_tail}", highlight=False)
+        raise typer.Exit(code=1)
+
+
+@app.command("improve")
+def improve_command(
+    input_file: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        help="Input audio file to improve.",
+    ),
+    output_file: Path = typer.Argument(
+        ..., file_okay=True, dir_okay=False,
+        help="Output improved audio file path.",
+    ),
+    no_silence_removal: bool = typer.Option(
+        False, "--no-silence-removal",
+        help="Skip silence removal from start/end.",
+    ),
+    no_normalization: bool = typer.Option(
+        False, "--no-normalization",
+        help="Skip volume normalization.",
+    ),
+    no_enhancement: bool = typer.Option(
+        False, "--no-enhancement",
+        help="Skip quality enhancement.",
+    ),
+    silence_threshold: float = typer.Option(
+        -50.0, "--silence-threshold",
+        help="Silence threshold in dB (default: -50.0).",
+    ),
+    target_level: float = typer.Option(
+        -16.0, "--target-level",
+        help="Target volume level in dB (default: -16.0).",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite",
+        help="Overwrite output file if it exists.",
+    ),
+) -> None:
+    """
+    Improve a single audio file with silence removal, volume normalization, and quality enhancement.
+    """
+    console.rule("[bold cyan]media-tool · audio improve[/bold cyan]")
+    console.print(f"[dim]Input :[/dim] {input_file}")
+    console.print(f"[dim]Output:[/dim] {output_file}")
+
+    result = improve_audio_file(
+        input_file=input_file,
+        output_file=output_file,
+        remove_silence_flag=not no_silence_removal,
+        normalize_volume=not no_normalization,
+        enhance_quality=not no_enhancement,
+        silence_threshold=silence_threshold,
+        target_level=target_level,
+        overwrite=overwrite,
+    )
+
+    if result.success:
+        operations = ", ".join(result.operations_performed) if result.operations_performed else "none"
+        console.print(f"\n[bold green]✔  Improved successfully:[/bold green] {output_file}")
+        console.print(f"[dim]Operations:[/dim] {operations}")
+    else:
+        err_console.print(f"\n[red]✘  Improvement failed:[/red] {input_file}")
+        if result.ffmpeg_result:
+            stderr_tail = "\n".join(result.ffmpeg_result.stderr.splitlines()[-20:])
+            console.print(f"\n[dim]ffmpeg stderr (tail):[/dim]\n{stderr_tail}", highlight=False)
+        raise typer.Exit(code=1)
+
+
+@app.command("improve-library")
+def improve_library_command(
+    input_dir: Path = typer.Argument(
+        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        help="Input directory containing audio files to improve.",
+    ),
+    output_dir: Path = typer.Argument(
+        ..., file_okay=False, dir_okay=True,
+        help="Output directory for improved audio files.",
+    ),
+    no_silence_removal: bool = typer.Option(
+        False, "--no-silence-removal",
+        help="Skip silence removal from start/end.",
+    ),
+    no_normalization: bool = typer.Option(
+        False, "--no-normalization",
+        help="Skip volume normalization.",
+    ),
+    no_enhancement: bool = typer.Option(
+        False, "--no-enhancement",
+        help="Skip quality enhancement.",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite",
+        help="Overwrite existing files in output directory.",
+    ),
+) -> None:
+    """
+    Improve an entire audio library with silence removal, volume normalization, and quality enhancement.
+
+    Processes all audio files in the input directory and saves improved versions
+    to the output directory, preserving the directory structure.
+    """
+    console.rule("[bold cyan]media-tool · audio improve-library[/bold cyan]")
+    console.print(f"[dim]Input dir :[/dim] {input_dir}")
+    console.print(f"[dim]Output dir:[/dim] {output_dir}")
+
+    try:
+        counts = improve_audio_library(
+            input_dir=input_dir,
+            output_dir=output_dir,
+            remove_silence_flag=not no_silence_removal,
+            normalize_volume=not no_normalization,
+            enhance_quality=not no_enhancement,
+            overwrite=overwrite,
+        )
+    except ValueError as e:
+        err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    console.print(
+        f"\n[bold]Summary:[/bold] "
+        f"Processed: {counts['processed']}  "
+        f"Improved: {counts['improved']}  "
+        f"Skipped: {counts['skipped']}  "
+        f"Errors: {counts['errors']}"
+    )
+
+    if counts['errors'] > 0:
+        raise typer.Exit(code=1)
+
+
+@app.command("workflow")
+def workflow_command(
+    input_dir: Path = typer.Argument(
+        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        help="Input directory containing mixed music library.",
+    ),
+    output_dir: Path = typer.Argument(
+        ..., file_okay=False, dir_okay=True,
+        help="Output directory for processed music library.",
+    ),
+    format: str = typer.Option(
+        "flac", "--format", "-f",
+        help="Target audio format (mp3, flac, m4a, aac, opus, ogg).",
+    ),
+    improve_audio: bool = typer.Option(
+        True, "--improve/--no-improve",
+        help="Apply audio improvements (silence removal, normalization, enhancement).",
+    ),
+    scan_only: bool = typer.Option(
+        False, "--scan-only",
+        help="Only scan and analyze, don't process files.",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite",
+        help="Overwrite existing files.",
+    ),
+) -> None:
+    """
+    Complete music library processing workflow.
+
+    This command provides a comprehensive solution for mixed music libraries:
+    1. Scan and analyze all audio files with metadata extraction
+    2. Improve audio quality (remove silence, normalize volume, enhance quality)
+    3. Organize files into proper directory structure
+    4. Convert to consistent format
+
+    Perfect for libraries with mixed sources (CD rips, downloads, different naming).
+    """
+    console.rule("[bold cyan]media-tool · audio workflow[/bold cyan]")
+    console.print(f"[dim]Input dir :[/dim] {input_dir}")
+    console.print(f"[dim]Output dir:[/dim] {output_dir}")
+    console.print(f"[dim]Format    :[/dim] {format}")
+    console.print(f"[dim]Improve   :[/dim] {'Yes' if improve_audio else 'No'}")
+
+    if scan_only:
+        console.print("[yellow]SCAN-ONLY MODE - No files will be modified[/yellow]\n")
+
+    try:
+        from core.audio.workflow import process_audio_library_workflow
+        results = process_audio_library_workflow(
+            input_dir=input_dir,
+            output_dir=output_dir,
+            format=format,
+            improve=improve_audio,
+            scan_only=scan_only,
+            overwrite=overwrite,
+        )
+    except Exception as e:
+        err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    console.print(
+        f"\n[bold]Summary:[/bold] "
+        f"Scanned: {results['statistics']['total_files']}  "
+        f"Improved: {results['statistics']['improved_files']}  "
+        f"Organized: {results['statistics']['organized_files']}  "
+        f"Converted: {results['statistics']['converted_files']}  "
+        f"Errors: {results['statistics']['errors']}"
+    )
+
+    if results['statistics']['errors'] > 0:
+        raise typer.Exit(code=1)
+
+
+def _export_audio_csv(metadata_list: list, output_path: Path) -> None:
+    """Export enhanced audio metadata to CSV."""
+    import csv
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_path.open("w", newline="", encoding="utf-8-sig") as fh:
+        fieldnames = [
+            "filename", "filepath", "duration_minutes", "codec_name",
+            "sample_rate", "channels", "bit_rate", "title", "artist",
+            "album", "genre", "year", "track_number", "is_music", "is_audiobook",
+            "musicbrainz_id", "metadata_confidence"
+        ]
+        writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter=";")
+        writer.writeheader()
+
+        for meta in metadata_list:
+            writer.writerow({
+                "filename": meta.filename,
+                "filepath": str(meta.filepath),
+                "duration_minutes": round(meta.duration_minutes, 2),
+                "codec_name": meta.codec_name,
+                "sample_rate": meta.sample_rate,
+                "channels": meta.channels,
+                "bit_rate": meta.bit_rate,
+                "title": meta.title,
+                "artist": meta.artist,
+                "album": meta.album,
+                "genre": meta.genre,
+                "year": meta.year,
+                "track_number": meta.track_number,
+                "is_music": meta.is_music,
+                "is_audiobook": meta.is_audiobook,
+                "musicbrainz_id": meta.musicbrainz_id,
+                "metadata_confidence": round(meta.metadata_confidence, 2),
+            })
+
+
+def _print_audio_preview(metadata_list: list) -> None:
+    """Print a Rich table preview of enhanced audio metadata."""
+    table = Table(
+        title="Audio Library Preview",
+        box=box.ROUNDED,
+        show_lines=False,
+        expand=True,
+    )
+    table.add_column("File", style="cyan", no_wrap=True, max_width=30)
+    table.add_column("Duration", justify="right")
+    table.add_column("Codec", justify="center")
+    table.add_column("Bitrate", justify="right")
+    table.add_column("Type", justify="center")
+    table.add_column("Title", max_width=25)
+    table.add_column("Artist", max_width=20)
+    table.add_column("Confidence", justify="right")
+
+    for meta in metadata_list:
+        audio_type = "Music" if meta.is_music else "Audiobook" if meta.is_audiobook else "Other"
+        confidence = f"{meta.metadata_confidence:.1f}" if meta.metadata_confidence > 0 else "-"
+        table.add_row(
+            meta.filename,
+            f"{meta.duration_minutes:.1f}m",
+            meta.codec_name.upper(),
+            f"{meta.bit_rate // 1000}k" if meta.bit_rate else "?",
+            audio_type,
+            meta.title or "-",
+            meta.artist or "-",
+            confidence,
+        )
+
+    console.print(table)

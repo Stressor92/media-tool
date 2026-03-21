@@ -1,0 +1,216 @@
+"""
+src/core/audio/workflow.py
+
+Complete audio library processing workflow for mixed music collections.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+
+from .metadata import extract_audio_metadata_enhanced, AudioMetadata
+from .enhancement import improve_audio_library
+from .organization import organize_music
+from .conversion import convert_audio
+
+logger = logging.getLogger(__name__)
+
+
+def process_audio_library_workflow(
+    input_dir: Path,
+    output_dir: Path,
+    format: str = "flac",
+    improve: bool = True,
+    scan_only: bool = False,
+    overwrite: bool = False,
+) -> Dict[str, Any]:
+    """
+    Complete music library processing workflow.
+
+    This function provides a comprehensive solution for mixed music libraries:
+    1. Scan and analyze all audio files with metadata extraction
+    2. Improve audio quality (remove silence, normalize volume, enhance quality)
+    3. Organize files into proper directory structure
+    4. Convert to consistent format
+
+    Args:
+        input_dir: Input directory containing mixed music library.
+        output_dir: Output directory for processed music library.
+        format: Target audio format (mp3, flac, m4a, aac, opus, ogg).
+        improve: Whether to apply audio improvements.
+        scan_only: Only scan and analyze, don't process files.
+        overwrite: Whether to overwrite existing files.
+
+    Returns:
+        Dictionary with processing results and statistics.
+    """
+    logger.info(f"Starting audio library workflow: {input_dir} → {output_dir}")
+
+    results = {
+        "scanned_files": [],
+        "improved_files": [],
+        "organized_files": [],
+        "converted_files": [],
+        "errors": [],
+        "statistics": {
+            "total_files": 0,
+            "processed_files": 0,
+            "improved_files": 0,
+            "organized_files": 0,
+            "converted_files": 0,
+            "errors": 0,
+        }
+    }
+
+    # Step 1: Scan and analyze all audio files
+    logger.info("Step 1: Scanning audio files...")
+    scan_results = _scan_audio_library(input_dir)
+    results["scanned_files"] = scan_results["files"]
+    results["statistics"]["total_files"] = len(scan_results["files"])
+
+    if scan_only:
+        logger.info("Scan-only mode: returning scan results")
+        return results
+
+    # Step 2: Improve audio quality (optional)
+    if improve:
+        logger.info("Step 2: Improving audio quality...")
+        temp_dir = output_dir / "_temp_improved"
+        temp_dir.mkdir(exist_ok=True)
+
+        try:
+            improvement_results = improve_audio_library(
+                input_dir=input_dir,
+                output_dir=temp_dir,
+                remove_silence_flag=True,
+                normalize_volume=True,
+                enhance_quality=True,
+                overwrite=overwrite,
+            )
+
+            results["improved_files"] = improvement_results.get("improved", [])
+            results["statistics"]["improved_files"] = improvement_results.get("improved", 0)
+
+            # Use improved files as input for next steps
+            processing_input_dir = temp_dir
+        except Exception as e:
+            logger.error(f"Audio improvement failed: {e}")
+            results["errors"].append(f"Improvement failed: {e}")
+            results["statistics"]["errors"] += 1
+            # Continue with original files
+            processing_input_dir = input_dir
+    else:
+        processing_input_dir = input_dir
+
+    # Step 3: Organize files into proper structure
+    logger.info("Step 3: Organizing files...")
+    try:
+        organization_results = organize_music(
+            input_dir=processing_input_dir,
+            output_dir=output_dir,
+            convert_format=None,  # We'll handle conversion separately
+            overwrite=overwrite,
+        )
+
+        results["organized_files"] = organization_results.get("processed", [])
+        results["statistics"]["organized_files"] = organization_results.get("processed", 0)
+        results["statistics"]["errors"] += organization_results.get("errors", 0)
+
+    except Exception as e:
+        logger.error(f"Organization failed: {e}")
+        results["errors"].append(f"Organization failed: {e}")
+        results["statistics"]["errors"] += 1
+        return results
+
+    # Step 4: Convert to consistent format
+    logger.info("Step 4: Converting to consistent format...")
+    try:
+        conversion_results = _convert_organized_library(
+            organized_dir=output_dir,
+            target_format=format,
+            overwrite=overwrite,
+        )
+
+        results["converted_files"] = conversion_results.get("converted", [])
+        results["statistics"]["converted_files"] = conversion_results.get("converted", 0)
+        results["statistics"]["errors"] += conversion_results.get("errors", 0)
+
+    except Exception as e:
+        logger.error(f"Conversion failed: {e}")
+        results["errors"].append(f"Conversion failed: {e}")
+        results["statistics"]["errors"] += 1
+
+    # Cleanup temporary directory
+    if improve and temp_dir.exists():
+        try:
+            import shutil
+            shutil.rmtree(temp_dir)
+            logger.info("Cleaned up temporary directory")
+        except Exception as e:
+            logger.warning(f"Failed to cleanup temp directory: {e}")
+
+    results["statistics"]["processed_files"] = (
+        results["statistics"]["improved_files"] +
+        results["statistics"]["organized_files"] +
+        results["statistics"]["converted_files"]
+    )
+
+    logger.info("Audio library workflow completed")
+    return results
+
+
+def _scan_audio_library(input_dir: Path) -> Dict[str, List[AudioMetadata]]:
+    """Scan audio library and extract metadata."""
+    files = []
+    audio_extensions = {'.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wav', '.wma'}
+
+    for file_path in input_dir.rglob('*'):
+        if file_path.is_file() and file_path.suffix.lower() in audio_extensions:
+            try:
+                metadata = extract_audio_metadata_enhanced(file_path)
+                files.append(metadata)
+            except Exception as e:
+                logger.warning(f"Failed to extract metadata from {file_path}: {e}")
+
+    return {"files": files}
+
+
+def _convert_organized_library(
+    organized_dir: Path,
+    target_format: str,
+    overwrite: bool = False,
+) -> Dict[str, Any]:
+    """Convert organized library to consistent format."""
+    converted = []
+    errors = 0
+
+    audio_extensions = {'.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wav', '.wma'}
+
+    for file_path in organized_dir.rglob('*'):
+        if file_path.is_file() and file_path.suffix.lower() in audio_extensions:
+            if file_path.suffix.lower() == f'.{target_format.lower()}':
+                continue  # Already in target format
+
+            try:
+                output_file = file_path.with_suffix(f'.{target_format}')
+                result = convert_audio(
+                    input_file=file_path,
+                    output_file=output_file,
+                    format=target_format,
+                    overwrite=overwrite,
+                )
+
+                if result.success:
+                    converted.append(str(output_file))
+                    # Remove original file after successful conversion
+                    file_path.unlink()
+                else:
+                    errors += 1
+
+            except Exception as e:
+                logger.error(f"Failed to convert {file_path}: {e}")
+                errors += 1
+
+    return {"converted": converted, "errors": errors}

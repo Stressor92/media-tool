@@ -15,7 +15,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCo
 from rich.table import Table
 from rich import box
 
-from core.inspector import VIDEO_EXTENSIONS, export_to_csv, inspect_file, scan_directory
+from core.video import VIDEO_EXTENSIONS, export_to_csv, inspect_file, scan_directory
 
 app = typer.Typer(help="Scan a media library and export video metadata to CSV.")
 console = Console()
@@ -71,7 +71,7 @@ def scan_command(
     console.print(f"[dim]Files found:[/dim] {len(files)}\n")
 
     # Inspect with progress bar
-    from core.inspector import inspect_file, VideoInfo
+    from core.video import inspect_file, VideoInfo
     results: list[VideoInfo] = []
 
     with Progress(

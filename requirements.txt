@@ -7,3 +7,5 @@ openai-whisper
 torch
 pysubs2
 PySide6
+mutagen>=1.47  # For advanced audio metadata handling
+musicbrainzngs>=0.7  # For MusicBrainz integration (optional)

@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
-from core.upscaler import (
+from core.video import (
     BatchUpscaleSummary,
     UpscaleOptions,
     UpscaleStatus,

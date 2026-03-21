@@ -12,7 +12,7 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from core.merger import MergeStatus, merge_directory, merge_dual_audio, detect_language_files, derive_output_name
+from core.video import  merge_directory, merge_dual_audio, derive_output_name
 
 app = typer.Typer(help="Merge German + English MP4 files into one dual-audio MKV.")
 console = Console()

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "media-tool"
 version = "0.1.0"
-description = "Automated media processing for Jellyfin / NAS storage."
+description = "Automated media processing for Jellyfin / NAS storage (video, audio, music, audiobooks)."
 requires-python = ">=3.11"
 dependencies = [
     "typer[all]>=0.12",
@@ -18,6 +18,8 @@ dependencies = [
     # "torch",
     "pysubs2>=1.7",
     # "PySide6",  # future GUI — install separately
+    "mutagen>=1.47",  # For advanced audio metadata
+    # "musicbrainzngs>=0.7",  # Optional: MusicBrainz integration
 ]
 
 [project.scripts]

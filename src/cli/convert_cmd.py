@@ -21,7 +21,7 @@ from rich.table import Table
 from rich import box
 from rich.text import Text
 
-from core.converter import (
+from core.video import (
     BatchConversionSummary,
     ConversionStatus,
     batch_convert_directory,
