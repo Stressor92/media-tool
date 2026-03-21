@@ -157,52 +157,59 @@ def extract_audio_metadata_enhanced(filepath: Path) -> AudioMetadataEnhanced | N
     if not basic:
         return None
 
-    enhanced = AudioMetadataEnhanced(**basic.__dict__)
-
     # Parse filename
     parsed = _parse_filename_metadata(basic.filename)
-    enhanced.parsed_artist = parsed.get('artist')
-    enhanced.parsed_album = parsed.get('album')
-    enhanced.parsed_title = parsed.get('title')
-    enhanced.parsed_track_number = parsed.get('track')
-    enhanced.parsed_year = parsed.get('year')
+
+    # Initialize enhanced data
+    enhanced_data = basic.__dict__.copy()
+    enhanced_data.update({
+        'parsed_artist': parsed.get('artist'),
+        'parsed_album': parsed.get('album'),
+        'parsed_title': parsed.get('title'),
+        'parsed_track_number': parsed.get('track'),
+        'parsed_year': parsed.get('year'),
+        'musicbrainz_id': None,
+        'release_id': None,
+        'artist_id': None,
+        'metadata_confidence': 0.0
+    })
 
     # Try MusicBrainz if we have artist and title
-    search_artist = enhanced.artist or enhanced.parsed_artist
-    search_title = enhanced.title or enhanced.parsed_title
-    search_album = enhanced.album or enhanced.parsed_album
+    search_artist = enhanced_data['artist'] or enhanced_data['parsed_artist']
+    search_title = enhanced_data['title'] or enhanced_data['parsed_title']
+    search_album = enhanced_data['album'] or enhanced_data['parsed_album']
 
     if search_artist and search_title:
         mb_data = _query_musicbrainz(search_artist, search_title, search_album)
         if mb_data:
-            enhanced.musicbrainz_id = mb_data.get('musicbrainz_id')
-            enhanced.release_id = mb_data.get('release_id')
-            enhanced.artist_id = mb_data.get('artist_id')
+            enhanced_data['musicbrainz_id'] = mb_data.get('musicbrainz_id')
+            enhanced_data['release_id'] = mb_data.get('release_id')
+            enhanced_data['artist_id'] = mb_data.get('artist_id')
 
             # Update metadata with MusicBrainz data if not present
-            if not enhanced.title and mb_data.get('title'):
-                enhanced.title = mb_data['title']
-            if not enhanced.artist and mb_data.get('artist'):
-                enhanced.artist = mb_data['artist']
-            if not enhanced.album and mb_data.get('album'):
-                enhanced.album = mb_data['album']
-            if not enhanced.year and mb_data.get('year'):
-                enhanced.year = mb_data['year']
+            if not enhanced_data['title'] and mb_data.get('title'):
+                enhanced_data['title'] = mb_data['title']
+            if not enhanced_data['artist'] and mb_data.get('artist'):
+                enhanced_data['artist'] = mb_data['artist']
+            if not enhanced_data['album'] and mb_data.get('album'):
+                enhanced_data['album'] = mb_data['album']
+            if not enhanced_data['year'] and mb_data.get('year'):
+                enhanced_data['year'] = mb_data['year']
 
-            enhanced.metadata_confidence = 0.9  # High confidence from MusicBrainz
+            enhanced_data['metadata_confidence'] = 0.9  # High confidence from MusicBrainz
         else:
             # Fallback to parsed data
-            if not enhanced.title and enhanced.parsed_title:
-                enhanced.title = enhanced.parsed_title
-            if not enhanced.artist and enhanced.parsed_artist:
-                enhanced.artist = enhanced.parsed_artist
-            if not enhanced.album and enhanced.parsed_album:
-                enhanced.album = enhanced.parsed_album
-            if not enhanced.track_number and enhanced.parsed_track_number:
-                enhanced.track_number = enhanced.parsed_track_number
-            if not enhanced.year and enhanced.parsed_year:
-                enhanced.year = enhanced.parsed_year
+            if not enhanced_data['title'] and enhanced_data['parsed_title']:
+                enhanced_data['title'] = enhanced_data['parsed_title']
+            if not enhanced_data['artist'] and enhanced_data['parsed_artist']:
+                enhanced_data['artist'] = enhanced_data['parsed_artist']
+            if not enhanced_data['album'] and enhanced_data['parsed_album']:
+                enhanced_data['album'] = enhanced_data['parsed_album']
+            if not enhanced_data['track_number'] and enhanced_data['parsed_track_number']:
+                enhanced_data['track_number'] = enhanced_data['parsed_track_number']
+            if not enhanced_data['year'] and enhanced_data['parsed_year']:
+                enhanced_data['year'] = enhanced_data['parsed_year']
 
-            enhanced.metadata_confidence = 0.5  # Medium confidence from parsing
+            enhanced_data['metadata_confidence'] = 0.5  # Medium confidence from parsing
 
-    return enhanced
+    return AudioMetadataEnhanced(**enhanced_data)
