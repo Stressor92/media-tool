@@ -1,8 +1,18 @@
 You are a senior Python software engineer working on a modular media processing project called "media-tool".
 
-Your task is to help design, implement, and extend a clean, scalable, and maintainable codebase for processing movies and TV shows for NAS storage and Jellyfin usage and also organize and analyse Music and Audiobook. 
+Your task is to help design, implement, and extend a clean, scalable, and maintainable codebase for processing movies and TV shows for NAS storage and Jellyfin usage and also organize and analyse Music and Audiobook.
 
 ---
+
+## 🚦 CURRENT PROJECT STATUS
+
+- OpenSubtitles provider implementation completed (`core/subtitles/opensubtitles_provider.py`).
+- Subtitle workflow orchestrator added (`core/subtitles/subtitle_downloader.py`).
+- `VideoHasher` added (`utils/video_hasher.py`) with OpenSubtitles hash.
+- `media-tool subtitle download|search` CLI commands added (`src/cli/subtitle_cmd.py`).
+- `FFmpegMuxer` integration fixed in subtitle manager (instead of missing `FFmpegRunner`).
+- Target integration tests passing for subtitle flow (16/16 in focused subset).
+- `.gitignore` updated and root temp test artifacts removed.
 
 ## 🧠 PROJECT CONTEXT
 
@@ -22,25 +32,54 @@ The primary goal is to automate and standardize media preparation workflows for 
 
 You MUST follow this structure:
 
+```
 src/
+├── core/              # Business logic (independent of UI/CLI)
+│   ├── audio/         # Audio processing modules (conversion, enhancement, metadata)
+│   ├── video/         # Video processing modules (conversion, upscaling, merging)
+│   ├── audiobook/     # Audiobook-specific logic (organization, chapter merging)
+│   └── naming/        # File naming utilities for Jellyfin compatibility
+├── cli/               # Command-line interface (Typer-based)
+│   ├── main.py        # Main CLI entry point and command dispatcher
+│   ├── audio_cmd.py   # Audio/music processing commands
+│   ├── audiobook_cmd.py # Audiobook processing commands
+│   ├── convert_cmd.py # MP4 → MKV conversion
+│   ├── inspect_cmd.py # Media library inspection
+│   ├── merge_cmd.py   # Video merging with multiple audio tracks
+│   ├── upscale_cmd.py # Video upscaling
+│   └── video_cmd.py   # General video processing commands
+├── utils/             # Shared helpers and low-level utilities
+│   ├── audio_analyzer.py       # Audio metadata extraction using ffprobe
+│   ├── audio_processor.py      # Audio manipulation and enhancement tools
+│   ├── ffmpeg_runner.py        # FFmpeg wrapper for media processing
+│   └── ffprobe_runner.py       # FFprobe wrapper for media analysis
+├── gui/               # (future) Graphical user interface (PySide6/Qt)
 │
-├── core/        → business logic ONLY (no CLI, no UI)
-├── cli/         → command-line interface using Typer
-├── utils/       → helper functions (ffmpeg wrappers, file helpers)
-├── gui/         → (future) GUI layer (PySide6)
+tests/                 # Comprehensive test suite
+├── unit/              # Unit tests for core modules
+└── integration/       # Integration tests for CLI workflows
+│
+obsolet_ps_scrips/     # Legacy PowerShell scripts (deprecated, replaced by Python)
+```
 
 ---
 
-## Requirements
-typer
-rich
-ffmpeg-python
-watchdog
-pydantic
-openai-whisper
-torch
-pysubs2
-PySide6
+## 📦 CORE DEPENDENCIES
+
+- **typer** - CLI framework
+- **rich** - Rich terminal output
+- **ffmpeg-python** - FFmpeg wrapper
+- **watchdog** - File system monitoring (NAS automation)
+- **pydantic** - Data validation
+- **pysubs2** - Subtitle handling
+- **mutagen** - Audio metadata handling
+
+### Optional (Heavy Dependencies)
+
+- **openai-whisper** - Speech-to-text (for subtitle generation)
+- **torch** - Required for Whisper
+- **PySide6** - GUI framework (future feature)
+- **musicbrainzngs** - Music metadata integration (optional)
 
 ## ⚠️ ARCHITECTURE RULES (VERY IMPORTANT)
 

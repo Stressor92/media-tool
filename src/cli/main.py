@@ -8,7 +8,6 @@ Mounts all sub-command groups. This is the only place where sub-apps are wired t
 from __future__ import annotations
 
 import logging
-import sys
 
 import typer
 from rich.logging import RichHandler
@@ -20,6 +19,7 @@ from cli.merge_cmd import app as merge_app
 from cli.audio_cmd import app as audio_app
 from cli.video_cmd import app as video_app
 from cli.audiobook_cmd import app as audiobook_app
+from cli.subtitle_cmd import app as subtitle_app
 
 # ---------------------------------------------------------------------------
 # Logging bootstrap
@@ -53,6 +53,7 @@ app.add_typer(merge_app, name="merge", help="Merge German + English MP4 files in
 app.add_typer(audio_app, name="audio", help="Process music files.")
 app.add_typer(video_app, name="video", help="Process video files.")
 app.add_typer(audiobook_app, name="audiobook", help="Process audiobook files.")
+app.add_typer(subtitle_app, name="subtitle", help="Download and manage subtitles from OpenSubtitles.org.")
 
 
 # ---------------------------------------------------------------------------

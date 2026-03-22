@@ -11,9 +11,6 @@ Tests validate the complete audio processing workflow including:
 - Complete audio workflow processing
 """
 
-import pytest
-import csv
-from pathlib import Path
 from core.audio import (
     extract_audio_metadata_enhanced,
     convert_audio,
@@ -177,7 +174,8 @@ class TestAudioOrganizeIntegration:
         results = organize_music(source_dir, target_dir, "flac")
 
         # Verify some basic behavior
-        assert isinstance(results, list)
+        assert isinstance(results, dict)
+        assert "processed" in results or "errors" in results
         # Note: Actual organization depends on metadata extraction
 
     def test_organize_empty_directory(self, tmp_path):
@@ -190,7 +188,8 @@ class TestAudioOrganizeIntegration:
         results = organize_music(source_dir, target_dir, "flac")
 
         # Should handle empty directory gracefully
-        assert isinstance(results, list)
+        assert isinstance(results, dict)
+        assert "processed" in results
 
 
 class TestAudioImproveIntegration:
@@ -229,8 +228,8 @@ class TestAudioImproveIntegration:
         results = improve_audio_library(source_dir, target_dir)
 
         # Verify results
-        assert isinstance(results, list)
-        assert len(results) >= 0  # May be empty if no valid audio files
+        assert isinstance(results, dict)
+        assert "processed" in results or "improved" in results or "errors" in results
 
 
 class TestAudioWorkflowIntegration:

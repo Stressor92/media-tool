@@ -35,6 +35,21 @@ from .upscaler import (
     batch_upscale_directory,
     upscale_dvd,
 )
+from .whisper_engine import (
+    HallucinationDetector,
+    HallucinationWarning,
+    TranscriptionResult,
+    WhisperConfig,
+    WhisperEngine,
+    WhisperModel,
+)
+from .subtitle_generator import (
+    GenerationResult,
+    SubtitleGenerator,
+)
+from .subtitle_processor import (
+    SubtitleTimingProcessor,
+)
 
 __all__ = [
     # Converter
@@ -64,4 +79,16 @@ __all__ = [
     "UpscaleStatus",
     "batch_upscale_directory",
     "upscale_dvd",
+    # Whisper Engine
+    "HallucinationDetector",
+    "HallucinationWarning",
+    "TranscriptionResult",
+    "WhisperConfig",
+    "WhisperEngine",
+    "WhisperModel",
+    # Subtitle Generator
+    "GenerationResult",
+    "SubtitleGenerator",
+    # Subtitle Processor
+    "SubtitleTimingProcessor",
 ]

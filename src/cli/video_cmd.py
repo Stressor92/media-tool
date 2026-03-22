@@ -245,6 +245,92 @@ def merge_command(
         raise typer.Exit(code=1)
 
 
+@app.command("subtitle")
+def subtitle_command(
+    input_file: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        help="Input video file to generate subtitles for.",
+    ),
+    language: str = typer.Option(
+        "en", "--language", "-l",
+        help="Language code for transcription (e.g., 'en', 'de').",
+    ),
+    model: str = typer.Option(
+        "large-v3", "--model", "-m",
+        help="Whisper model to use (tiny, base, small, medium, large-v3).",
+    ),
+    output_file: Optional[Path] = typer.Option(
+        None, "--output", "-o",
+        help="Output MKV file path (default: input with _subtitled suffix).",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite", "-y",
+        help="Overwrite output file if it exists.",
+    ),
+    skip_hallucination_check: bool = typer.Option(
+        False, "--skip-hallucination-check",
+        help="Skip hallucination detection (not recommended).",
+    ),
+) -> None:
+    """
+    Generate subtitles for a video file using Whisper AI.
+
+    Extracts audio, transcribes with Whisper, and muxes subtitles into MKV.
+    Supports hallucination detection and multiple Whisper backends.
+    """
+    console.rule("[bold cyan]media-tool · video subtitle[/bold cyan]")
+    console.print(f"[dim]Input file:[/dim] {input_file}")
+    console.print(f"[dim]Language:[/dim] {language}")
+    console.print(f"[dim]Model:[/dim] {model}")
+
+    if output_file:
+        console.print(f"[dim]Output:[/dim] {output_file}")
+    else:
+        output_file = input_file.with_stem(f"{input_file.stem}_subtitled").with_suffix(".mkv")
+        console.print(f"[dim]Output (auto):[/dim] {output_file}")
+
+    try:
+        from core.video import SubtitleGenerator, WhisperModel, WhisperConfig
+
+        # Create config
+        config = WhisperConfig(
+            model=WhisperModel(model),
+            language=language,
+        )
+
+        # Create generator
+        generator = SubtitleGenerator(config=config)
+
+        # Generate subtitles
+        result = generator.generate_subtitles(
+            video_path=input_file,
+            output_mkv_path=output_file,
+            overwrite=overwrite,
+            detect_hallucinations=not skip_hallucination_check,
+        )
+
+        if result.success:
+            console.print(f"\n[green]✓[/green] Subtitles generated and muxed to {output_file}")
+            console.print(f"[dim]Processing time:[/dim] {result.processing_time:.1f}s")
+            console.print(f"[dim]Audio duration:[/dim] {result.audio_duration:.1f}s")
+
+            if result.hallucination_warnings:
+                console.print(f"\n[yellow]⚠️  Hallucination warnings:[/yellow]")
+                for warning in result.hallucination_warnings:
+                    console.print(f"  - {warning}")
+        else:
+            err_console.print(f"\n[red]✘  Subtitle generation failed:[/red] {result.error_message}")
+            if result.hallucination_warnings:
+                console.print(f"\n[yellow]Warnings:[/yellow]")
+                for warning in result.hallucination_warnings:
+                    console.print(f"  - {warning}")
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+
 @app.command("upscale")
 def upscale_command(
     input_file: Path = typer.Argument(

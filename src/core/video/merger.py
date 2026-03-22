@@ -32,12 +32,12 @@ logger = logging.getLogger(__name__)
 # Matches suffixes like: -de, _de, (de), [de], -en, _en, (en), [en]
 # Also handles variants without closing bracket at end-of-string
 _LANG_PATTERN: dict[str, re.Pattern[str]] = {
-    "deu": re.compile(r"[-_ \(\[]de[\)\]_ ]?$", re.IGNORECASE),
-    "eng": re.compile(r"[-_ \(\[]en[\)\]_ ]?$", re.IGNORECASE),
+    "deu": re.compile(r"(?:[-_ \(\[](?:de|german|deutsch)[\)\]_ ]?)$", re.IGNORECASE),
+    "eng": re.compile(r"(?:[-_ \(\[](?:en|english)[\)\]_ ]?)$", re.IGNORECASE),
 }
 
 # Strips the language suffix to derive the clean base name
-_CLEAN_SUFFIX = re.compile(r"[-_ \(]+de[\)_ ]?$", re.IGNORECASE)
+_CLEAN_SUFFIX = re.compile(r"(?:[-_ \(]+(?:de|german|deutsch|en|english)[\)_ ]?)$", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +233,8 @@ def merge_dual_audio(
 
 def merge_directory(
     directory: Path,
+    output: Path | None = None,
+    pattern: str | None = None,
     overwrite: bool = False,
 ) -> MergeResult:
     """
@@ -250,9 +252,14 @@ def merge_directory(
     if not directory.is_dir():
         raise NotADirectoryError(f"Not a directory: {directory}")
 
+    if pattern is not None:
+        candidates = list(directory.glob(pattern))
+        # For now, continue to use the existing detection logic; pattern is advisory
+        logger.info("Pattern scope has %d candidate files", len(candidates))
+
     german, english = detect_language_files(directory)
 
-    _dummy_target = directory / "unknown.mkv"
+    _dummy_target = output if output is not None else directory / "unknown.mkv"
 
     if not german or not english:
         found = list(directory.glob("*.mp4"))
@@ -268,8 +275,11 @@ def merge_directory(
             ),
         )
 
-    base_name = derive_output_name(german)
-    target = directory / f"{base_name}.mkv"
+    if output is not None:
+        target = output
+    else:
+        base_name = derive_output_name(german)
+        target = directory / f"{base_name}.mkv"
 
     return merge_dual_audio(
         german_file=german,

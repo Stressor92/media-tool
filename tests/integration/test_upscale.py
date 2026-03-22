@@ -18,11 +18,8 @@ from core.video.upscaler import (
     upscale_dvd,
     batch_upscale_directory,
     UpscaleOptions,
-    UpscaleStatus,
-    UpscaleResult,
-    BatchUpscaleSummary,
 )
-from .conftest import create_test_video, run_ffprobe
+from .conftest import create_test_video
 from utils.ffprobe_runner import probe_file
 
 

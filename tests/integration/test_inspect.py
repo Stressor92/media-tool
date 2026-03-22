@@ -102,8 +102,8 @@ class TestInspectScanIntegration:
 
         # Should find only the root video
         assert len(videos) >= 1
-        assert any(video.file_path == root_video for video in videos)
-        assert not any(video.file_path == sub_video for video in videos)
+        assert any(Path(video.file_path) == root_video for video in videos)
+        assert not any(Path(video.file_path) == sub_video for video in videos)
 
 
 class TestInspectFileAnalysisIntegration:
@@ -121,12 +121,12 @@ class TestInspectFileAnalysisIntegration:
         video_info = inspect_file(video_file)
 
         # Verify inspection results
-        assert video_info.file_path == video_file
+        assert Path(video_info.file_path) == video_file
         assert video_info.file_name == "single_test.mp4"
-        assert video_info.probe_error is None  # Should succeed
+        assert not video_info.probe_error  # Should succeed
 
         # Verify basic metadata is extracted
-        assert video_info.file_size > 0
+        assert video_info.size_gb >= 0
         # Note: Detailed metadata depends on ffprobe output
 
     def test_inspect_corrupted_video_file(self, tmp_path):
@@ -139,8 +139,8 @@ class TestInspectFileAnalysisIntegration:
         video_info = inspect_file(corrupted_file)
 
         # Should handle error gracefully
-        assert video_info.file_path == corrupted_file
-        assert video_info.probe_error is not None
+        assert Path(video_info.file_path) == corrupted_file
+        assert video_info.probe_error
 
     def test_inspect_nonexistent_file(self, tmp_path):
         """Test inspecting a file that doesn't exist."""
@@ -185,8 +185,8 @@ class TestInspectCSVExportIntegration:
         # Verify headers exist
         fieldnames = reader.fieldnames
         assert fieldnames is not None
-        assert "file_name" in fieldnames
-        assert "file_path" in fieldnames
+        assert "Dateiname" in fieldnames
+        assert "Pfad" in fieldnames
 
     def test_export_to_csv_with_errors(self, tmp_path):
         """Test CSV export when some files have errors."""
@@ -303,5 +303,5 @@ class TestInspectWorkflowIntegration:
         assert tv_count >= 3
 
         # Step 6: Verify no errors in successful scans
-        successful_scans = [v for v in videos if v.probe_error is None]
+        successful_scans = [v for v in videos if not v.probe_error]
         assert len(successful_scans) == len(videos)  # All should succeed

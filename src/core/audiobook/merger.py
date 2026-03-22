@@ -9,9 +9,8 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Tuple
 
-from ..audio.conversion import convert_audio
 from .metadata import extract_audiobook_metadata_enhanced
 
 logger = logging.getLogger(__name__)
@@ -197,6 +196,7 @@ def merge_audiobook_library(
     output_dir: Path,
     format: str = "m4a",
     overwrite: bool = False,
+    dry_run: bool = False,
 ) -> Dict[str, any]:
     """
     Scan a directory for chapter-based audiobooks and merge them.
@@ -248,6 +248,18 @@ def merge_audiobook_library(
         output_file = output_dir / f"{safe_title}.{format}"
 
         logger.info(f"Merging '{book_title}' - {len(chapters)} chapters → {output_file.name}")
+
+        if dry_run:
+            # In dry run mode, do not perform actual merging.
+            results["merged_books"].append({
+                "title": book_title,
+                "chapters": len(chapters),
+                "output_file": str(output_file),
+                "size_mb": None,
+                "dry_run": True,
+            })
+            logger.info(f"Dry run: would merge '{book_title}'")
+            continue
 
         # Merge chapters
         merge_result = merge_audiobook_chapters(

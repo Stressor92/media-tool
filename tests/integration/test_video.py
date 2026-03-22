@@ -12,7 +12,6 @@ Tests validate the complete video processing workflow including:
 """
 
 import pytest
-import csv
 from pathlib import Path
 from core.video import (
     convert_mp4_to_mkv,
@@ -338,7 +337,7 @@ class TestVideoWorkflowIntegration:
 
         for video in videos:
             if Path(video.file_path).suffix.lower() == '.mp4':
-                output_mkv = converted_dir / f"{video.file_path.stem}.mkv"
+                output_mkv = converted_dir / f"{Path(video.file_path).stem}.mkv"
                 result = convert_mp4_to_mkv(
                     source=video.file_path,
                     target=output_mkv,

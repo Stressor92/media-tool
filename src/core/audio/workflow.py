@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 
 from .metadata import extract_audio_metadata_enhanced, AudioMetadata
 from .enhancement import improve_audio_library

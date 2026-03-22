@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import subprocess
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -82,3 +83,70 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
         stderr=result.stderr,
         stdout=result.stdout,
     )
+
+
+@dataclass(frozen=True)
+class MuxResult:
+    success: bool
+    output_file: Path
+    error_message: Optional[str] = None
+
+
+class FFmpegMuxer:
+    """Safe MKV muxing operations."""
+
+    @staticmethod
+    def add_subtitle_to_mkv(
+        mkv_path: Path,
+        srt_path: Path,
+        language: str = "eng",
+        title: str = "English (Whisper AI)"
+    ) -> MuxResult:
+        if not mkv_path.exists():
+            return MuxResult(success=False, output_file=mkv_path, error_message="MKV file does not exist")
+        if not srt_path.exists():
+            return MuxResult(success=False, output_file=mkv_path, error_message="SRT file does not exist")
+
+        backup_file = mkv_path.with_suffix(mkv_path.suffix + ".backup")
+        mkv_temp = mkv_path.with_suffix(".tmp.mkv")
+
+        try:
+            mkv_path.rename(backup_file)
+
+            cmd = [
+                "-y",
+                "-i", str(backup_file),
+                "-i", str(srt_path),
+                "-map", "0",
+                "-map", "1",
+                "-c", "copy",
+                "-c:s", "srt",
+                "-metadata:s:s:0", f"language={language}",
+                "-metadata:s:s:0", f"title={title}",
+                str(mkv_temp)
+            ]
+
+            result = run_ffmpeg(cmd)
+            if not result.success:
+                backup_file.rename(mkv_path)
+                return MuxResult(success=False, output_file=mkv_path, error_message=f"ffmpeg mux failed: {result.stderr}")
+
+            # Validate size
+            orig_size = backup_file.stat().st_size
+            out_size = mkv_temp.stat().st_size
+            if out_size < orig_size * 0.90 or out_size > orig_size * 1.10:
+                # rollback
+                mkv_temp.unlink(missing_ok=True)
+                backup_file.rename(mkv_path)
+                return MuxResult(success=False, output_file=mkv_path, error_message="Mux output size out of expected range")
+
+            mkv_temp.replace(mkv_path)
+            backup_file.unlink(missing_ok=True)
+            return MuxResult(success=True, output_file=mkv_path)
+
+        except Exception as exc:
+            # recover
+            if backup_file.exists() and not mkv_path.exists():
+                backup_file.rename(mkv_path)
+            return MuxResult(success=False, output_file=mkv_path, error_message=str(exc))
+

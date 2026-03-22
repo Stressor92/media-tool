@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from utils.audio_processor import AudioConversionResult
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 
 logger = logging.getLogger(__name__)
@@ -70,7 +69,7 @@ def remove_silence(
         f"start_duration={silence_duration}:"
         f"stop_threshold={silence_threshold}dB:"
         f"stop_duration={silence_duration}",
-        "-c:a", "copy"  # Copy audio codec to avoid re-encoding
+        "-c:a", "aac"  # Use AAC codec for re-encoding with filters
     ])
 
     # Output options
@@ -130,7 +129,7 @@ def normalize_audio(
     args.extend([
         "-af",
         f"loudnorm=I={target_level}:TP=-1.5:LRA=11",
-        "-c:a", "copy"  # Copy audio codec to avoid re-encoding
+        "-c:a", "aac"  # Use AAC codec for re-encoding with filters
     ])
 
     # Output options
@@ -295,8 +294,9 @@ def improve_audio_file(
 
     if filters:
         args.extend(["-af", ",".join(filters)])
-
-    args.extend(["-c:a", "copy"])  # Copy audio codec to preserve quality
+        args.extend(["-c:a", "aac"])  # Use AAC codec for re-encoding with filters
+    else:
+        args.extend(["-c:a", "copy"])  # Only use codec copy when no filters are applied
 
     # Output options
     if overwrite:

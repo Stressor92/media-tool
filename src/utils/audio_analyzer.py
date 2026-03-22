@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from .ffprobe_runner import ProbeResult, probe_file
+from .ffprobe_runner import probe_file
 
 logger = logging.getLogger(__name__)
 

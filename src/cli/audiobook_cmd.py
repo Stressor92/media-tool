@@ -15,7 +15,6 @@ from rich.table import Table
 from rich import box
 
 from core.audiobook import (
-    extract_audiobook_metadata_enhanced,
     scan_audiobook_library,
     organize_audiobooks,
     detect_chapter_files,

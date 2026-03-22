@@ -10,11 +10,7 @@ Tests validate the complete audiobook processing workflow including:
 - Complete audiobook workflow processing
 """
 
-import pytest
-import csv
-from pathlib import Path
 from core.audiobook import (
-    extract_audiobook_metadata_enhanced,
     scan_audiobook_library,
     organize_audiobooks,
     detect_chapter_files,
@@ -45,7 +41,7 @@ class TestAudiobookScanIntegration:
 
         # Verify results
         assert len(metadata_list) >= 2  # May find more depending on implementation
-        assert all(metadata.file_path.exists() for metadata in metadata_list)
+        assert all(metadata.filepath.exists() for metadata in metadata_list)
 
     def test_scan_empty_audiobook_directory(self, tmp_path):
         """Test scanning a directory with no audiobook files."""
@@ -94,7 +90,7 @@ class TestAudiobookOrganizeIntegration:
         results = organize_audiobooks(source_dir, target_dir, "m4a")
 
         # Verify results structure
-        assert isinstance(results, list)
+        assert isinstance(results, dict)
         # Note: Actual organization depends on metadata extraction
 
     def test_organize_audiobooks_with_chapters(self, tmp_path):
@@ -113,7 +109,7 @@ class TestAudiobookOrganizeIntegration:
         results = organize_audiobooks(source_dir, target_dir, "m4a")
 
         # Verify results
-        assert isinstance(results, list)
+        assert isinstance(results, dict)
 
 
 class TestAudiobookMergeIntegration:
@@ -135,7 +131,7 @@ class TestAudiobookMergeIntegration:
         detected = detect_chapter_files(tmp_path)
 
         # Verify detection
-        assert isinstance(detected, list)
+        assert isinstance(detected, dict)
         # Note: Actual detection depends on naming pattern recognition
 
     def test_merge_audiobook_chapters(self, tmp_path):
@@ -158,7 +154,9 @@ class TestAudiobookMergeIntegration:
         results = merge_audiobook_library(source_dir, target_dir, "m4a", overwrite=False)
 
         # Verify results
-        assert isinstance(results, list)
+        assert isinstance(results, dict)
+        assert "books_found" in results
+        assert "books_merged" in results
 
     def test_merge_dry_run(self, tmp_path):
         """Test merge functionality in dry-run mode."""
@@ -178,7 +176,8 @@ class TestAudiobookMergeIntegration:
         results = merge_audiobook_library(source_dir, target_dir, "m4a", dry_run=True)
 
         # In dry run, should not create output files
-        assert isinstance(results, list)
+        assert isinstance(results, dict)
+        assert "books_found" in results
         # Target directory might not exist in dry run
 
     def test_merge_different_formats(self, tmp_path):
@@ -204,8 +203,8 @@ class TestAudiobookMergeIntegration:
         results_m4a = merge_audiobook_library(source_dir, target_dir, "m4a", overwrite=False)
 
         # Verify results
-        assert isinstance(results_mp3, list)
-        assert isinstance(results_m4a, list)
+        assert isinstance(results_mp3, dict)
+        assert isinstance(results_m4a, dict)
 
     def test_merge_overwrite_behavior(self, tmp_path):
         """Test merge overwrite behavior."""
@@ -223,15 +222,15 @@ class TestAudiobookMergeIntegration:
 
         # First merge
         results1 = merge_audiobook_library(source_dir, target_dir, "m4a", overwrite=False)
-        assert isinstance(results1, list)
+        assert isinstance(results1, dict)
 
         # Second merge without overwrite - should skip
         results2 = merge_audiobook_library(source_dir, target_dir, "m4a", overwrite=False)
-        assert isinstance(results2, list)
+        assert isinstance(results2, dict)
 
         # Third merge with overwrite
         results3 = merge_audiobook_library(source_dir, target_dir, "m4a", overwrite=True)
-        assert isinstance(results3, list)
+        assert isinstance(results3, dict)
 
 
 class TestAudiobookWorkflowIntegration:
@@ -261,8 +260,8 @@ class TestAudiobookWorkflowIntegration:
 
         # Then organize
         organize_results = organize_audiobooks(source_dir, target_dir, "m4a")
-        assert isinstance(organize_results, list)
+        assert isinstance(organize_results, dict)
 
         # Finally merge chapters
         merge_results = merge_audiobook_library(target_dir, target_dir, "m4a", overwrite=False)
-        assert isinstance(merge_results, list)
+        assert isinstance(merge_results, dict)

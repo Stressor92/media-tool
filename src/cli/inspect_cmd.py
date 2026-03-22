@@ -15,7 +15,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCo
 from rich.table import Table
 from rich import box
 
-from core.video import VIDEO_EXTENSIONS, export_to_csv, inspect_file, scan_directory
+from core.video import VIDEO_EXTENSIONS, export_to_csv
 
 app = typer.Typer(help="Scan a media library and export video metadata to CSV.")
 console = Console()

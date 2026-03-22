@@ -18,19 +18,10 @@ def run_ffmpeg(args: list[str], cwd: Path | None = None) -> subprocess.Completed
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
 
 
-def run_ffprobe(file_path: Path) -> Dict[str, Any]:
-    """Run ffprobe on a file and return parsed JSON info."""
-    cmd = [
-        "ffprobe",
-        "-show_streams",
-        "-show_format",
-        "-of", "json",
-        "-i", str(file_path)
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"ffprobe failed: {result.stderr}")
-    return json.loads(result.stdout)
+def run_ffprobe(file_path: Path):
+    """Run ffprobe on a file and return a ProbeResult object."""
+    from utils.ffprobe_runner import probe_file
+    return probe_file(file_path)
 
 
 def create_test_video(
@@ -124,21 +115,21 @@ def get_stream_info(file_path: Path) -> Dict[str, Any]:
 def assert_video_streams(file_path: Path, expected_count: int = 1):
     """Assert that file has expected number of video streams."""
     info = get_stream_info(file_path)
-    video_streams = [s for s in info["streams"] if s["codec_type"] == "video"]
+    video_streams = [s for s in info.streams if s["codec_type"] == "video"]
     assert len(video_streams) == expected_count, f"Expected {expected_count} video streams, got {len(video_streams)}"
 
 
 def assert_audio_streams(file_path: Path, expected_count: int = 1):
     """Assert that file has expected number of audio streams."""
     info = get_stream_info(file_path)
-    audio_streams = [s for s in info["streams"] if s["codec_type"] == "audio"]
+    audio_streams = [s for s in info.streams if s["codec_type"] == "audio"]
     assert len(audio_streams) == expected_count, f"Expected {expected_count} audio streams, got {len(audio_streams)}"
 
 
 def assert_audio_languages(file_path: Path, expected_languages: list[str]):
     """Assert that audio streams have expected languages."""
     info = get_stream_info(file_path)
-    audio_streams = [s for s in info["streams"] if s["codec_type"] == "audio"]
+    audio_streams = [s for s in info.streams if s["codec_type"] == "audio"]
     actual_languages = [s.get("tags", {}).get("language", "und") for s in audio_streams]
     assert actual_languages == expected_languages, f"Expected languages {expected_languages}, got {actual_languages}"
 
@@ -146,7 +137,7 @@ def assert_audio_languages(file_path: Path, expected_languages: list[str]):
 def assert_resolution(file_path: Path, expected_width: int, expected_height: int):
     """Assert that video has expected resolution."""
     info = get_stream_info(file_path)
-    video_streams = [s for s in info["streams"] if s["codec_type"] == "video"]
+    video_streams = [s for s in info.streams if s["codec_type"] == "video"]
     assert len(video_streams) > 0, "No video streams found"
 
     stream = video_streams[0]
@@ -159,7 +150,7 @@ def assert_resolution(file_path: Path, expected_width: int, expected_height: int
 def assert_container_format(file_path: Path, expected_format: str):
     """Assert that file has expected container format."""
     info = get_stream_info(file_path)
-    format_name = info["format"]["format_name"]
+    format_name = info.format["format_name"]
     assert expected_format in format_name, f"Expected format {expected_format}, got {format_name}"
 
 

@@ -10,31 +10,55 @@ Automated workflows for NAS environments
 Future GUI application
 Integration with tools like ffmpeg, Whisper, and Jellyfin
 
+## 🚦 CURRENT PROJECT STATUS
+
+- OpenSubtitles API provider is implemented and tested.
+- Subtitle download workflow in core and CLI is working (including best-match logic and MKV embedding via FFmpegMuxer).
+- Core subtitle classes: `SubtitleProvider`, `SubtitleMatch`, `MovieInfo`, `DownloadResult` are in place.
+- `VideoHasher` has been added with OpenSubtitles hash algorithm and TC.
+- Unit/integration tests for subtitle provider and workflow are added and passing.
+- `.gitignore` now excludes temp test files and artifacts.
+- Some unrelated legacy integration tests still fail due existing environment/ffmpeg path issues. #TODO
+
+## 🧰 How to run full suite and interpret legacy failures
+
+Run the full tests with `pytest -q`; a few known integration tests may fail in environments without full ffmpeg/video fixture support (these are pre-existing behavior checks). 
+
 Architecture
 
 The project follows a layered architecture designed for modularity, extensibility, and separation of concerns:
 
+```
 src/
+├── core/              # Business logic (independent of UI/CLI)
+│   ├── audio/         # Audio processing modules (conversion, enhancement, metadata)
+│   ├── video/         # Video processing modules (conversion, upscaling, merging)
+│   ├── audiobook/     # Audiobook-specific logic (organization, chapter merging)
+│   └── naming/        # File naming utilities for Jellyfin compatibility
+├── cli/               # Command-line interface (Typer-based)
+│   ├── main.py        # Main CLI entry point and command dispatcher
+│   ├── audio_cmd.py   # Audio/music processing commands
+│   ├── audiobook_cmd.py # Audiobook processing commands
+│   ├── convert_cmd.py # MP4 → MKV conversion
+│   ├── inspect_cmd.py # Media library inspection
+│   ├── merge_cmd.py   # Video merging with multiple audio tracks
+│   ├── upscale_cmd.py # Video upscaling
+│   └── video_cmd.py   # General video processing commands
+├── utils/             # Shared helpers and low-level utilities
+│   ├── audio_analyzer.py       # Audio metadata extraction using ffprobe
+│   ├── audio_processor.py      # Audio manipulation and enhancement tools
+│   ├── ffmpeg_runner.py        # FFmpeg wrapper for media processing
+│   ├── ffprobe_runner.py       # FFprobe wrapper for media analysis
+│   └── whisper_models/         # Whisper model storage (optional, future)
+├── gui/               # (future) Graphical user interface (PySide6/Qt) #TODO
 │
-├── core/           # Business logic (independent of UI/CLI)
-│   ├── audio/      # Audio processing modules (conversion, enhancement, metadata)
-│   ├── video/      # Video processing modules (conversion, upscaling, merging)
-│   ├── audiobook/  # Audiobook-specific logic (organization, chapter merging)
-│   └── naming/     # File naming and organization utilities for Jellyfin compatibility
-├── cli/            # Command-line interface (Typer-based)
-│   ├── main.py     # Main CLI entry point and command dispatcher
-│   ├── audio_cmd.py, audiobook_cmd.py, convert_cmd.py, etc.  # Specific command implementations
-├── utils/          # Shared helpers and low-level utilities
-│   ├── audio_analyzer.py  # Audio metadata extraction using ffprobe
-│   ├── ffmpeg_runner.py, ffprobe_runner.py  # FFmpeg/FFprobe wrappers for media processing
-│   └── audio_processor.py  # Audio manipulation and enhancement tools
-├── gui/            # (future) Graphical user interface (PySide6/Qt for drag-and-drop workflows)
+tests/                 # Comprehensive test suite
+├── unit/              # Unit tests for core modules
+├── integration/       # Integration tests for CLI workflows
+└── conftest.py        # Pytest fixtures and configuration
 │
-tests/              # Comprehensive test suite for reliability
-├── unit/           # Unit tests for individual functions and modules
-└── integration/    # Integration tests for full workflows and CLI commands
-│
-obsolet_ps_scrips/  # Legacy PowerShell scripts (deprecated, replaced by Python modules)
+obsolet_ps_scrips/     # Legacy PowerShell scripts (deprecated, replaced by Python)
+```
 
 Principles
 Core logic is UI-independent
@@ -79,12 +103,13 @@ Organize by artist/album structure
 Generate playlists and library statistics
 Audiobook chapter detection and metadata
 
-6. 📜 Subtitle Generation (Future)
+6. 📜 Subtitle Generation
 
 Extract audio from video
 Generate subtitles using Whisper
 Auto-sync subtitles
 Add subtitles to MKV container
+Get Subtitels vi API with download
 
 7. 📂 NAS Automation
 
@@ -95,7 +120,7 @@ Clean up
 Rename for Jellyfin
 Move to correct library folder
 
-8. 🎨 GUI Application (Future)
+8. 🎨 GUI Application (Future) #TODO
 
 Drag & Drop media processing
 Visual progress tracking
@@ -105,7 +130,7 @@ Built with PySide6 (Qt)
 ## Installation & Setup
 
 ### Prerequisites
-- Python 3.10 or higher
+- Python 3.11 or higher
 - FFmpeg and FFprobe (for media processing)
 - git (for cloning the repository)
 

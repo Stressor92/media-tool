@@ -7,9 +7,7 @@ No filesystem access required — all functions take strings and return strings.
 
 from __future__ import annotations
 
-from pathlib import Path
 
-import pytest
 
 from core.naming.jellyfin import (
     _sanitize_filename,

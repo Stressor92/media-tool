@@ -67,8 +67,8 @@ def scan_audiobook_library(directory: Path, recursive: bool = True) -> List[Audi
     """
     metadata_list = []
 
-    # Common audiobook file extensions
-    extensions = {".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wma"}
+    # Common audiobook file extensions (includes .m4b which is standard for protected audiobooks)
+    extensions = {".mp3", ".flac", ".m4a", ".m4b", ".aac", ".ogg", ".wma"}
 
     for ext in extensions:
         pattern = f"**/*{ext}" if recursive else f"*{ext}"

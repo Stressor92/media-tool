@@ -20,7 +20,6 @@ from core.audio import (
     organize_music,
     improve_audio_file,
     improve_audio_library,
-    AudioEnhancementResult,
 )
 
 app = typer.Typer(help="Process music files.")
@@ -57,6 +56,13 @@ def scan_command(
 
     resolved_output = output or directory / "audio_list.csv"
     console.print(f"[dim]CSV output :[/dim] {resolved_output}")
+
+    # Find audio files
+    extensions = {".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wma"}
+    audio_files = []
+    pattern = "recursive/**/*" if recursive else "*"
+    for ext in extensions:
+        audio_files.extend(directory.rglob(f"*{ext}"))
 
     metadata_list = []
     for filepath in audio_files:

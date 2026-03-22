@@ -1,11 +1,15 @@
-typer
-rich
-ffmpeg-python
-watchdog
-pydantic
-openai-whisper
-torch
-pysubs2
-PySide6
-mutagen>=1.47  # For advanced audio metadata handling
-musicbrainzngs>=0.7  # For MusicBrainz integration (optional)
+typer[all]>=0.12
+rich>=13
+ffmpeg-python>=0.2
+watchdog>=4
+pydantic>=2
+pysubs2>=1.7
+mutagen>=1.47
+faster-whisper>=1.0
+requests>=2.31.0
+
+# Optional heavy dependencies - install separately if needed:
+# openai-whisper
+# torch
+# PySide6
+# musicbrainzngs>=0.7

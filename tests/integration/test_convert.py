@@ -4,8 +4,6 @@ Integration tests for video conversion functionality.
 Tests MP4 → MKV conversion with real ffmpeg execution.
 """
 
-import pytest
-from pathlib import Path
 
 from core.video.converter import convert_mp4_to_mkv
 
@@ -96,12 +94,12 @@ class TestVideoConversion:
         # Without overwrite, should skip
         result = convert_mp4_to_mkv(input_mp4, output_mkv, overwrite=False)
         assert result.skipped
-        assert output_mkv.read_text() == "existing content"
+        assert output_mkv.read_bytes() == b"existing content"
 
         # With overwrite, should convert
         result = convert_mp4_to_mkv(input_mp4, output_mkv, overwrite=True)
         assert result.succeeded
-        assert output_mkv.read_text() != "existing content"
+        assert output_mkv.read_bytes() != b"existing content"
 
     def test_convert_invalid_input(self, tmp_path, ffmpeg_available):
         """Test conversion with invalid input file."""
@@ -143,7 +141,7 @@ class TestBatchConversion:
 
         # Check output files exist
         for original in files:
-            output_mkv = tmp_path / original.stem / f"{original.stem}.mkv"
+            output_mkv = input_dir / original.stem / f"{original.stem}.mkv"
             assert output_mkv.exists()
             from tests.integration.conftest import assert_container_format
             assert_container_format(output_mkv, "matroska")

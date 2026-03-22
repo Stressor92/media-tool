@@ -19,6 +19,8 @@ dependencies = [
     "pysubs2>=1.7",
     # "PySide6",  # future GUI — install separately
     "mutagen>=1.47",  # For advanced audio metadata
+    "faster-whisper>=1.0",  # For GPU-accelerated Whisper transcription
+    "requests>=2.31.0",  # For OpenSubtitles API
     # "musicbrainzngs>=0.7",  # Optional: MusicBrainz integration
 ]
 

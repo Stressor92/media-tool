@@ -5,7 +5,6 @@ Tests merging German + English MP4 files into single MKV with real ffmpeg.
 """
 
 import pytest
-from pathlib import Path
 
 from core.video.merger import merge_dual_audio, merge_directory
 
