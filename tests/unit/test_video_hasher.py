@@ -13,15 +13,10 @@ from utils.video_hasher import VideoHasher
 class TestVideoHasher:
     """Test OpenSubtitles hash calculation."""
 
-    def test_calculate_hash_known_file(self, tmp_path):
-        """Test hash calculation with a known file."""
-        # Create a small test file with known content
-        test_file = tmp_path / "test.mp4"
-        test_data = b"test video content for hashing" * 4400  # Make it larger than 128KB
-        test_file.write_bytes(test_data)
-
+    def test_calculate_hash_known_file(self, large_binary_file):
+        """Test hash calculation with a valid large file."""
         hasher = VideoHasher()
-        hash_result = hasher.calculate_hash(test_file)
+        hash_result = hasher.calculate_hash(large_binary_file)
 
         # Should return a 16-character hex string
         assert len(hash_result) == 16

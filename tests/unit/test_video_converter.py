@@ -123,8 +123,8 @@ class TestConversionResult:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = ConversionResult(
@@ -274,8 +274,8 @@ class TestConvertMp4ToMkv:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = convert_mp4_to_mkv(source, target)
@@ -295,8 +295,8 @@ class TestConvertMp4ToMkv:
             success=False,
             return_code=1,
             command=["ffmpeg"],
-            stderr="Error: Unknown encoder",
-            stdout="",
+            stderr_bytes=b"Error: Unknown encoder",
+            stdout_bytes=b"",
         )
         
         result = convert_mp4_to_mkv(source, target)
@@ -329,8 +329,8 @@ class TestConvertMp4ToMkv:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = convert_mp4_to_mkv(source, target, overwrite=True)
@@ -349,8 +349,8 @@ class TestConvertMp4ToMkv:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         convert_mp4_to_mkv(source, target, audio_language="eng", audio_title="English")
@@ -372,8 +372,8 @@ class TestConvertMp4ToMkv:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         convert_mp4_to_mkv(source, target)
@@ -393,8 +393,8 @@ class TestConvertMp4ToMkv:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         convert_mp4_to_mkv(source, target)
@@ -414,8 +414,8 @@ class TestConvertMp4ToMkv:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = convert_mp4_to_mkv(source, target)
@@ -433,8 +433,8 @@ class TestConvertMp4ToMkv:
             success=False,
             return_code=1,
             command=["ffmpeg"],
-            stderr="Codec error",
-            stdout="",
+            stderr_bytes=b"Codec error",
+            stdout_bytes=b"",
         )
         
         result = convert_mp4_to_mkv(source, target)
@@ -457,8 +457,8 @@ class TestConvertMp4ToMkv:
             success=False,
             return_code=1,
             command=["ffmpeg"],
-            stderr="Error",
-            stdout="",
+            stderr_bytes=b"Error",
+            stdout_bytes=b"",
         )
         
         result = convert_mp4_to_mkv(source, target, overwrite=True)
@@ -482,8 +482,8 @@ class TestConversionIntegration:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         files = []
@@ -512,8 +512,8 @@ class TestConversionIntegration:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         # First try without overwrite - should skip
@@ -597,8 +597,8 @@ class TestBatchConvertDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         summary = batch_convert_directory(tmp_media_dir)
@@ -620,8 +620,8 @@ class TestBatchConvertDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         summary = batch_convert_directory(tmp_media_dir)
@@ -640,8 +640,8 @@ class TestBatchConvertDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         summary = batch_convert_directory(tmp_media_dir, output_root=output_root)
@@ -666,8 +666,8 @@ class TestBatchConvertDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         # Non-recursive should only find top-level file
@@ -687,8 +687,8 @@ class TestBatchConvertDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         summary = batch_convert_directory(
@@ -714,8 +714,8 @@ class TestBatchConvertDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         # With overwrite=False, should skip
@@ -753,8 +753,8 @@ class TestBatchConvertDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         summary = batch_convert_directory(tmp_media_dir)

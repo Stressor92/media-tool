@@ -36,7 +36,14 @@ class WhisperModel(str, Enum):
 
 @dataclass
 class HallucinationWarning:
-    """Warning about potential hallucination detected in transcription."""
+    """Warning about potential hallucination detected in transcription.
+    
+    Attributes:
+        type: Category of hallucination (repeated_text, known_pattern, etc.)
+        message: Human-readable warning message
+        confidence: Confidence level (0.0-1.0)
+        details: Additional diagnostic information
+    """
     
     type: Literal["repeated_text", "known_pattern", "oversized_output", "long_silence", "timeout"]
     message: str
@@ -49,7 +56,17 @@ class HallucinationWarning:
 
 @dataclass
 class TranscriptionResult:
-    """Result of Whisper transcription."""
+    """Result of Whisper transcription.
+    
+    Attributes:
+        success: Whether transcription completed successfully
+        srt_path: Path to generated SRT file
+        wav_duration: Duration of input WAV in seconds
+        estimated_duration: Estimated transcription duration
+        hallucination_warnings: List of detected hallucination warnings
+        error_message: Error message if transcription failed
+        processing_time: Total transcription time in seconds
+    """
     
     success: bool
     srt_path: Optional[Path] = None
@@ -275,7 +292,16 @@ class HallucinationDetector:
 
 @dataclass
 class WhisperConfig:
-    """Configuration for Whisper transcription."""
+    """Configuration for Whisper transcription.
+    
+    Attributes:
+        model: Whisper model size (tiny, base, small, medium, large-v3)
+        language: ISO 639-1 language code (default: 'en' for English)
+        output_format: Output format (srt, vtt, txt)
+        device: Computation device (cpu, cuda, mps)
+        compute_type: Precision type for faster-whisper (float32, float16, int8)
+        temperature: Temperature for output randomness (0.0 = deterministic)
+    """
     
     model: WhisperModel = WhisperModel.LARGE
     language: str = "en"
@@ -542,12 +568,13 @@ class WhisperEngine:
                 cmd,
                 timeout=self.TRANSCRIPTION_TIMEOUT,
                 capture_output=True,
-                text=True,
+                # ✅ NO text=True - capture as bytes
                 check=False
             )
             
             if result.returncode != 0:
-                self.logger.error(f"Whisper failed: {result.stderr}")
+                stderr_str = result.stderr.decode("utf-8", errors="replace")
+                self.logger.error(f"Whisper failed: {stderr_str}")
                 raise RuntimeError(f"Whisper exited with code {result.returncode}")
             
             # Verify output was created
@@ -608,10 +635,11 @@ class WhisperEngine:
                         str(wav_path)
                     ],
                     capture_output=True,
-                    text=True,
+                    # ✅ NO text=True - capture as bytes
                     timeout=10
                 )
-                return float(result.stdout.strip())
+                stdout_str = result.stdout.decode("utf-8", errors="replace")
+                return float(stdout_str.strip())
             except Exception as e:
                 raise RuntimeError(f"Cannot get duration: {e}")
     

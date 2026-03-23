@@ -2,13 +2,17 @@
 tests/unit/test_audio_processor.py
 
 Unit tests for audio processing extensions.
+
+Uses standard mock fixtures from conftest.py for consistent mocking.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, Mock
 
+import pytest
 
 from src.utils.audio_processor import AudioExtractionResult, extract_for_speech
+from src.utils.ffmpeg_runner import FFmpegResult
 
 
 class TestAudioExtractionResult:
@@ -35,31 +39,64 @@ class TestAudioExtractionResult:
         assert result.channels == 1
 
 
-@patch('subprocess.run')
-@patch('pathlib.Path.exists')
-def test_extract_for_speech_success(mock_exists, mock_run):
-    """Test successful audio extraction for speech."""
-    mock_exists.return_value = True
-    mock_run.return_value = MagicMock(returncode=0, stdout="60.0", stderr="")
-
-    video_path = Path("test.mkv")
-    result = extract_for_speech(video_path)
-
+def test_extract_for_speech_success(tmp_path):
+    """Test successful audio extraction for speech.
+    
+    Uses mocked FFmpeg and FFprobe for fast, isolated testing.
+    """
+    from src.utils.ffprobe_runner import ProbeResult
+    
+    video_path = tmp_path / "test.mkv"
+    output_wav = tmp_path / "test.wav"
+    video_path.touch()
+    output_wav.touch()  # Pre-create output to simulate success
+    
+    with patch('src.utils.audio_processor.run_ffmpeg') as mock_ffmpeg:
+        # Mock successful FFmpeg execution
+        mock_ffmpeg.return_value = FFmpegResult(
+            success=True,
+            return_code=0,
+            command=["ffmpeg"],
+            stderr_bytes=b"",
+            stdout_bytes=b"",
+        )
+        
+        with patch('src.utils.ffprobe_runner.probe_file') as mock_probe:
+            # Mock FFprobe returning audio info
+            mock_probe.return_value = ProbeResult(
+                success=True,
+                return_code=0,
+                data={"format": {"duration": "60.0"}},
+                stderr="",
+            )
+            
+            result = extract_for_speech(video_path, output_wav_path=output_wav)
+    
     assert result.success
-    assert result.wav_path.exists()
+    assert result.output_file == output_wav
     assert result.duration == 60.0
-    mock_run.assert_called()
+    mock_ffmpeg.assert_called()
 
 
-@patch('subprocess.run')
-@patch('pathlib.Path.exists')
-def test_extract_for_speech_failure(mock_exists, mock_run):
-    """Test failed audio extraction."""
-    mock_exists.return_value = True
-    mock_run.return_value = MagicMock(returncode=1, stderr="FFmpeg error")
-
-    video_path = Path("test.mkv")
-    result = extract_for_speech(video_path)
-
+def test_extract_for_speech_failure(tmp_path):
+    """Test failed audio extraction.
+    
+    Verifies error handling when FFmpeg fails.
+    """
+    video_path = tmp_path / "test.mkv"
+    video_path.touch()
+    
+    with patch('src.utils.audio_processor.run_ffmpeg') as mock_ffmpeg:
+        # Configure mock to return failure
+        mock_ffmpeg.return_value = FFmpegResult(
+            success=False,
+            return_code=1,
+            command=["ffmpeg"],
+            stderr_bytes=b"FFmpeg error: Invalid file format",
+            stdout_bytes=b"",
+        )
+        
+        result = extract_for_speech(video_path)
+    
     assert not result.success
-    assert "FFmpeg error" in result.error_message
+    assert "FFmpeg error" in result.error_message or "Invalid" in result.error_message

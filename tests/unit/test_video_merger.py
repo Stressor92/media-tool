@@ -283,8 +283,8 @@ class TestMergeDualAudio:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = merge_dual_audio(german, english, target)
@@ -305,8 +305,8 @@ class TestMergeDualAudio:
             success=False,
             return_code=1,
             command=["ffmpeg"],
-            stderr="Error: codec not found",
-            stdout="",
+            stderr_bytes=b"Error: codec not found",
+            stdout_bytes=b"",
         )
         
         result = merge_dual_audio(german, english, target)
@@ -343,8 +343,8 @@ class TestMergeDualAudio:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = merge_dual_audio(german, english, target, overwrite=True)
@@ -367,8 +367,8 @@ class TestMergeDualAudio:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         merge_dual_audio(german, english, target)
@@ -395,8 +395,8 @@ class TestMergeDualAudio:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = merge_dual_audio(german, english, target)
@@ -425,8 +425,8 @@ class TestMergeIntegration:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         # Detect
@@ -467,8 +467,8 @@ class TestMergeDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = merge_directory(tmp_media_dir / "input")
@@ -533,8 +533,8 @@ class TestMergeDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = merge_directory(tmp_media_dir / "input")
@@ -553,8 +553,8 @@ class TestMergeDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = merge_directory(tmp_media_dir / "input", overwrite=True)
@@ -584,8 +584,8 @@ class TestMergeDirectory:
             success=True,
             return_code=0,
             command=["ffmpeg"],
-            stderr="",
-            stdout="",
+            stderr_bytes=b"",
+            stdout_bytes=b"",
         )
         
         result = merge_directory(tmp_media_dir / "input")

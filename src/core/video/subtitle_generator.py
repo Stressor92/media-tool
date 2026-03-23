@@ -30,7 +30,20 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class GenerationResult:
-    """Result of subtitle generation process."""
+    """Result of subtitle generation process.
+    
+    Attributes:
+        success: Whether generation completed successfully
+        mkv_path: Path to the input MKV file
+        output_mkv_path: Path to the output MKV with subtitles
+        audio_duration: Duration of extracted audio in seconds
+        srt_path: Path to the generated SRT file
+        backup_path: Path to backup of original MKV
+        processing_time: Total processing time in seconds
+        steps_completed: List of completed processing steps
+        warnings: List of non-critical warnings
+        error_message: Error message if generation failed
+    """
     
     success: bool
     mkv_path: Optional[Path] = None
@@ -162,10 +175,8 @@ class SubtitleGenerator:
             audio_result = extract_for_speech(
                 mkv_path,
                 wav_path,
-                enhance_mode=self.enhance_mode,
-                progress_callback=lambda msg, prog: progress_callback(
-                    f"Audio extraction: {msg}", 0.1 + prog * 0.2
-                ) if progress_callback else None
+                sample_rate=16000,
+                channels=1
             )
             
             if not audio_result.success:
@@ -339,14 +350,16 @@ class SubtitleGenerator:
                     str(mkv_path)
                 ],
                 capture_output=True,
-                text=True,
+                # ✅ NO text=True - capture as bytes
                 timeout=10
             )
             
             if result.returncode != 0:
-                return {"valid": False, "error": f"FFprobe failed: {result.stderr}"}
+                stderr_str = result.stderr.decode("utf-8", errors="replace")
+                return {"valid": False, "error": f"FFprobe failed: {stderr_str}"}
             
-            lines = result.stdout.strip().split('\n')
+            stdout_str = result.stdout.decode("utf-8", errors="replace")
+            lines = stdout_str.strip().split('\n')
             if len(lines) < 2:
                 return {"valid": False, "error": "Cannot determine file format"}
             
@@ -369,12 +382,13 @@ class SubtitleGenerator:
                     str(mkv_path)
                 ],
                 capture_output=True,
-                text=True,
+                # ✅ NO text=True - capture as bytes
                 timeout=10
             )
             
             if result.returncode == 0:
-                languages = result.stdout.strip().split('\n')
+                stdout_str = result.stdout.decode("utf-8", errors="replace")
+                languages = stdout_str.strip().split('\n')
                 if any(lang.strip() == "eng" for lang in languages if lang.strip()):
                     return {"valid": False, "error": "MKV already contains English subtitles"}
             

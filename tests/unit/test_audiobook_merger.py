@@ -20,6 +20,7 @@ from core.audiobook.merger import (
     merge_audiobook_library,
     _sanitize_filename,
 )
+from utils.ffmpeg_runner import FFmpegResult
 
 
 # ---------------------------------------------------------------------------
@@ -390,7 +391,7 @@ class TestMergeAudiobookChapters:
         with patch('utils.ffmpeg_runner.run_ffmpeg') as mock_ffmpeg, \
              patch('core.audiobook.merger.extract_audiobook_metadata_enhanced') as mock_metadata:
             
-            mock_ffmpeg.return_value = MagicMock(success=True, return_code=0, stderr="", stdout="")
+            mock_ffmpeg.return_value = FFmpegResult(success=True, return_code=0, command=[], stderr_bytes=b"", stdout_bytes=b"")
             mock_metadata.return_value = None
             
             result = merge_audiobook_chapters([chapter1, chapter2], output)
@@ -431,7 +432,7 @@ class TestMergeAudiobookChapters:
              patch('core.audiobook.merger.extract_audiobook_metadata_enhanced') as mock_metadata:
             
             mock_metadata.return_value = MagicMock(title="Test Book", artist="Test Author")
-            mock_ffmpeg.return_value = MagicMock(success=True, return_code=0, stderr="", stdout="")
+            mock_ffmpeg.return_value = FFmpegResult(success=True, return_code=0, command=[], stderr_bytes=b"", stdout_bytes=b"")
             
             result = merge_audiobook_chapters([chapter1], output, preserve_metadata=True)
             
@@ -448,7 +449,7 @@ class TestMergeAudiobookChapters:
         chapter1.touch()
         
         with patch('utils.ffmpeg_runner.run_ffmpeg') as mock_ffmpeg:
-            mock_ffmpeg.return_value = MagicMock(success=False, return_code=1, stderr="FFmpeg error")
+            mock_ffmpeg.return_value = FFmpegResult(success=False, return_code=1, command=[], stderr_bytes=b"FFmpeg error", stdout_bytes=b"")
             
             result = merge_audiobook_chapters([chapter1], output)
             

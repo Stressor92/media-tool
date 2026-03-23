@@ -90,29 +90,34 @@ def probe_file(path: Path) -> ProbeResult:
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            # ✅ NO text=True - capture as bytes
         )
     except FileNotFoundError as exc:
         raise FileNotFoundError(
             "ffprobe executable not found. Is ffmpeg installed and on PATH?"
         ) from exc
 
+    # Decode stderr safely for error reporting
+    stderr_str = result.stderr.decode("utf-8", errors="replace")
+    
     if result.returncode != 0:
         logger.warning(
             "ffprobe failed (exit %d) on %s:\n%s",
             result.returncode,
             path,
-            result.stderr[-1000:],
+            stderr_str[-1000:],
         )
         return ProbeResult(
             success=False,
             return_code=result.returncode,
             data={},
-            stderr=result.stderr,
+            stderr=stderr_str,
         )
 
     try:
-        data = json.loads(result.stdout)
+        # Decode stdout safely and parse JSON
+        stdout_str = result.stdout.decode("utf-8", errors="replace")
+        data = json.loads(stdout_str)
     except json.JSONDecodeError as exc:
         logger.error("ffprobe returned invalid JSON for %s: %s", path, exc)
         return ProbeResult(
@@ -126,7 +131,7 @@ def probe_file(path: Path) -> ProbeResult:
         success=True,
         return_code=result.returncode,
         data=data,
-        stderr=result.stderr,
+        stderr=stderr_str,
     )
 
 
@@ -158,16 +163,17 @@ def probe_cropdetect(path: Path, skip_seconds: int = 5, sample_seconds: int = 10
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            # ✅ NO text=True - capture as bytes
         )
     except FileNotFoundError as exc:
         raise FileNotFoundError(
             "ffmpeg executable not found. Is it installed and on PATH?"
         ) from exc
 
-    # cropdetect output is written to stderr by ffmpeg
+    # Decode stderr safely for crop detection output
+    stderr_str = result.stderr.decode("utf-8", errors="replace")
     crop_lines = [
-        line for line in result.stderr.splitlines()
+        line for line in stderr_str.splitlines()
         if "crop=" in line
     ]
 

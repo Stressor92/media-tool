@@ -191,16 +191,11 @@ def extract_for_speech(
     if ffmpeg_result.success and output_wav_path.exists():
         # Get duration using ffprobe
         try:
-            from .ffmpeg_runner import run_ffprobe
-            probe_cmd = [
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
-                str(output_wav_path)
-            ]
-            probe_result = run_ffprobe(probe_cmd)
+            from .ffprobe_runner import probe_file
+            probe_result = probe_file(output_wav_path)
             if probe_result.success:
-                duration = float(probe_result.stdout.strip())
+                duration_str = probe_result.format.get("duration", "0")
+                duration = float(duration_str)
         except Exception as e:
             logger.warning(f"Could not get WAV duration: {e}")
     

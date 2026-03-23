@@ -29,12 +29,22 @@ class FFmpegResult:
     success: bool
     return_code: int
     command: list[str]
-    stderr: str
-    stdout: str = ""
+    stderr_bytes: bytes = b""
+    stdout_bytes: bytes = b""
 
     @property
     def failed(self) -> bool:
         return not self.success
+    
+    @property
+    def stderr(self) -> str:
+        """Decoded stderr with safe error handling for non-ASCII chars."""
+        return self.stderr_bytes.decode("utf-8", errors="replace")
+    
+    @property
+    def stdout(self) -> str:
+        """Decoded stdout with safe error handling for non-ASCII chars."""
+        return self.stdout_bytes.decode("utf-8", errors="replace")
 
 
 def run_ffmpeg(args: list[str]) -> FFmpegResult:
@@ -46,7 +56,7 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
               Do NOT include "ffmpeg" itself — it is prepended automatically.
 
     Returns:
-        FFmpegResult with success flag, return code, and captured stderr/stdout.
+        FFmpegResult with success flag, return code, and captured stderr/stdout (as bytes).
 
     Raises:
         FileNotFoundError: If ffmpeg is not installed / not on PATH.
@@ -59,7 +69,7 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            # ✅ NO text=True, NO encoding - capture as bytes
         )
     except FileNotFoundError as exc:
         raise FileNotFoundError(
@@ -69,19 +79,21 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
     success = result.returncode == 0
 
     if not success:
+        # Decode stderr safely for logging
+        stderr_str = result.stderr.decode("utf-8", errors="replace")
         logger.warning(
             "ffmpeg exited with code %d.\nCommand: %s\nStderr: %s",
             result.returncode,
             " ".join(command),
-            result.stderr[-2000:],  # tail to avoid huge logs
+            stderr_str[-2000:],  # tail to avoid huge logs
         )
 
     return FFmpegResult(
         success=success,
         return_code=result.returncode,
         command=command,
-        stderr=result.stderr,
-        stdout=result.stdout,
+        stderr_bytes=result.stderr,
+        stdout_bytes=result.stdout,
     )
 
 
