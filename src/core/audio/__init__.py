@@ -4,7 +4,15 @@ src/core/audio/
 Core business logic for music processing.
 """
 
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
 from .metadata import extract_audio_metadata_enhanced, AudioMetadataEnhanced
+from .metadata_extractor import AudioFileMetadata, MetadataExtractor
+from .library_scanner import LibraryScanner
+from .csv_exporter import CSVExporter, CSVExportError
 from .conversion import convert_audio
 from .organization import organize_music
 from .enhancement import (
@@ -15,11 +23,25 @@ from .enhancement import (
     normalize_audio,
     remove_silence,
 )
-from .audio_tagger import AudioTagger
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .audio_tagger import AudioTagger
+
+try:
+    from .audio_tagger import AudioTagger
+except ImportError:
+    logger.debug("AudioTagger unavailable because optional tagging dependencies are not installed")
 
 __all__ = [
     "extract_audio_metadata_enhanced",
     "AudioMetadataEnhanced",
+    "AudioFileMetadata",
+    "MetadataExtractor",
+    "LibraryScanner",
+    "CSVExporter",
+    "CSVExportError",
     "convert_audio",
     "organize_music",
     "AudioEnhancementResult",
@@ -28,5 +50,7 @@ __all__ = [
     "improve_audio_library",
     "normalize_audio",
     "remove_silence",
-    "AudioTagger",
 ]
+
+if "AudioTagger" in globals():
+    __all__.append("AudioTagger")

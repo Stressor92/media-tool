@@ -10,12 +10,19 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from rich.console import Console
-from rich.table import Table
 from rich import box
+from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.table import Table
+
+from utils.config import build_missing_config_hint, get_config, has_config_file
 
 from core.audio import (
-    extract_audio_metadata_enhanced,
+    AudioFileMetadata,
+    CSVExportError,
+    CSVExporter,
+    LibraryScanner,
+    MetadataExtractor,
     convert_audio,
     organize_music,
     improve_audio_file,
@@ -35,7 +42,15 @@ def scan_command(
     ),
     output: Optional[Path] = typer.Option(
         None, "--output", "-o",
-        help="Output CSV file path. Defaults to <directory>/audio_list.csv",
+        help="Output CSV file path. Defaults to <directory>/music_library.csv",
+    ),
+    max_workers: int = typer.Option(
+        4, "--max-workers", min=1, max=16,
+        help="Parallel worker count for metadata extraction.",
+    ),
+    include_errors: bool = typer.Option(
+        True, "--include-errors/--exclude-errors",
+        help="Include unreadable files with error details in the CSV.",
     ),
     recursive: bool = typer.Option(
         True, "--recursive/--no-recursive", "-r",
@@ -47,40 +62,67 @@ def scan_command(
     ),
 ) -> None:
     """
-    Scan DIRECTORY for audio files and extract metadata.
-
-    Supported formats: MP3, FLAC, M4A, AAC, OGG, WMA.
+    Scan DIRECTORY for audio files and generate a detailed CSV report.
     """
     console.rule("[bold cyan]media-tool · audio scan[/bold cyan]")
     console.print(f"[dim]Directory :[/dim] {directory}")
 
-    resolved_output = output or directory / "audio_list.csv"
+    resolved_output = output or directory / "music_library.csv"
     console.print(f"[dim]CSV output :[/dim] {resolved_output}")
+    console.print(f"[dim]Workers   :[/dim] {max_workers}")
 
-    # Find audio files
-    extensions = {".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wma"}
-    audio_files: list[Path] = []
-    for ext in extensions:
-        audio_files.extend(directory.rglob(f"*{ext}"))
+    extractor = MetadataExtractor()
+    scanner = LibraryScanner(metadata_extractor=extractor, max_workers=max_workers)
+    exporter = CSVExporter()
 
-    metadata_list = []
-    for filepath in audio_files:
-        metadata = extract_audio_metadata_enhanced(filepath)
-        if metadata:
-            metadata_list.append(metadata)
+    progress_task_id: int | None = None
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        progress_task_id = progress.add_task("Processing files...", total=None)
+
+        def update_progress(current: int, total: int) -> None:
+            if progress_task_id is None:
+                return
+            progress.update(
+                progress_task_id,
+                description=f"Processing files ({current}/{total})...",
+                completed=current,
+                total=total,
+            )
+
+        metadata_list = scanner.scan(directory, progress_callback=update_progress, recursive=recursive)
 
     if not metadata_list:
         console.print("[yellow]No audio files found.[/yellow]")
         raise typer.Exit(code=0)
 
-    console.print(f"[dim]Files found:[/dim] {len(metadata_list)}\n")
+    successful = len([item for item in metadata_list if not item.error_message])
+    errors = len(metadata_list) - successful
 
-    # Export to CSV
-    _export_audio_csv(metadata_list, resolved_output)
+    console.print("\n[green]✓ Scan complete[/green]")
+    console.print(f"  Total files: {len(metadata_list)}")
+    console.print(f"  Successful: {successful}")
+    if errors:
+        console.print(f"  [yellow]Errors: {errors}[/yellow]")
+
+    _print_library_statistics(metadata_list)
+
+    console.print("\n[cyan]Exporting to CSV...[/cyan]")
+    try:
+        rows_written = exporter.export(metadata_list, resolved_output, include_errors=include_errors)
+    except CSVExportError as exc:
+        err_console.print(f"Export failed: {exc}")
+        raise typer.Exit(code=1)
 
     console.print(
-        f"\n[bold green]✔  CSV saved:[/bold green] {resolved_output}\n"
-        f"   Total: {len(metadata_list)}"
+        f"[bold green]✔  Exported {rows_written} rows to {resolved_output}[/bold green]"
     )
 
     # Optional preview
@@ -336,19 +378,28 @@ def identify_command(
         ..., exists=True, file_okay=True, dir_okay=False, readable=True,
         help="Input audio file for metadata identification.",
     ),
-    acoustid_api_key: str = typer.Option(
-        ..., "--acoustid-api-key", "-k",
-        help="AcoustID API key required for fingerprint lookup.",
+    acoustid_api_key: str | None = typer.Option(
+        None, "--acoustid-api-key", "-k",
+        help="AcoustID API key. Defaults to config if available.",
     ),
 ) -> None:
     """Identify a single audio file using AcoustID + MusicBrainz."""
     from core.audio import AudioTagger
 
+    resolved_api_key = acoustid_api_key or get_config().api.acoustid_api_key
+    if not resolved_api_key:
+        err_console.print("Error: AcoustID API key required.")
+        if has_config_file():
+            err_console.print("Set [api].acoustid_api_key in media-tool.toml or pass --acoustid-api-key.")
+        else:
+            err_console.print(build_missing_config_hint())
+        raise typer.Exit(code=1)
+
     console.rule("[bold cyan]media-tool · audio identify[/bold cyan]")
     console.print(f"[dim]Input :[/dim] {input_file}")
     console.print("[dim]Resolving via AcoustID/MusicBrainz...[/dim]")
 
-    tagger = AudioTagger(acoustid_api_key=acoustid_api_key)
+    tagger = AudioTagger(acoustid_api_key=resolved_api_key)
     try:
         matches = tagger.identify(str(input_file))
     except Exception as e:
@@ -385,9 +436,9 @@ def auto_tag_command(
         ..., exists=True, file_okay=True, dir_okay=False, readable=True,
         help="Input audio file to auto-tag using AcoustID metadata.",
     ),
-    acoustid_api_key: str = typer.Option(
-        ..., "--acoustid-api-key", "-k",
-        help="AcoustID API key required for fingerprint lookup.",
+    acoustid_api_key: str | None = typer.Option(
+        None, "--acoustid-api-key", "-k",
+        help="AcoustID API key. Defaults to config if available.",
     ),
     min_confidence: float = typer.Option(
         0.70, "--min-confidence", "-c",
@@ -401,18 +452,30 @@ def auto_tag_command(
     """Auto-tag a file with metadata from AcoustID + MusicBrainz."""
     from core.audio import AudioTagger
 
+    config = get_config()
+    resolved_api_key = acoustid_api_key or config.api.acoustid_api_key
+    resolved_min_confidence = min_confidence if min_confidence != 0.70 else config.defaults.audio.min_confidence
+
+    if not resolved_api_key:
+        err_console.print("Error: AcoustID API key required.")
+        if has_config_file():
+            err_console.print("Set [api].acoustid_api_key in media-tool.toml or pass --acoustid-api-key.")
+        else:
+            err_console.print(build_missing_config_hint())
+        raise typer.Exit(code=1)
+
     console.rule("[bold cyan]media-tool · audio auto-tag[/bold cyan]")
     console.print(f"[dim]Input :[/dim] {input_file}")
 
-    tagger = AudioTagger(acoustid_api_key=acoustid_api_key)
+    tagger = AudioTagger(acoustid_api_key=resolved_api_key)
     try:
-        metadata = tagger.auto_tag(str(input_file), force=force, min_confidence=min_confidence)
+        metadata = tagger.auto_tag(str(input_file), force=force, min_confidence=resolved_min_confidence)
     except Exception as e:
         err_console.print(f"Error: {e}")
         raise typer.Exit(code=1)
 
     if not metadata:
-        console.print(f"[yellow]No metadata applied. Confidence threshold {min_confidence} not reached.[/yellow]")
+        console.print(f"[yellow]No metadata applied. Confidence threshold {resolved_min_confidence} not reached.[/yellow]")
         raise typer.Exit(code=0)
 
     console.print(f"[bold green]✔  Metadata applied to {input_file}[/bold green]")
@@ -495,46 +558,40 @@ def workflow_command(
         raise typer.Exit(code=1)
 
 
-def _export_audio_csv(metadata_list: list, output_path: Path) -> None:
-    """Export enhanced audio metadata to CSV."""
-    import csv
+def _print_library_statistics(metadata_list: list[AudioFileMetadata]) -> None:
+    """Print summary statistics for a completed library scan."""
+    from collections import Counter
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    successful_results = [item for item in metadata_list if not item.error_message]
+    if not successful_results:
+        return
 
-    with output_path.open("w", newline="", encoding="utf-8-sig") as fh:
-        fieldnames = [
-            "filename", "filepath", "duration_minutes", "codec_name",
-            "sample_rate", "channels", "bit_rate", "title", "artist",
-            "album", "genre", "year", "track_number", "is_music", "is_audiobook",
-            "musicbrainz_id", "metadata_confidence"
-        ]
-        writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter=";")
-        writer.writeheader()
+    total_size_gb = sum(item.file_size_mb for item in successful_results) / 1024
+    total_duration_hours = sum(item.duration_seconds for item in successful_results) / 3600
+    format_counter = Counter(item.extension for item in successful_results)
+    lossless_count = sum(1 for item in successful_results if item.is_lossless)
+    tagged_count = sum(1 for item in successful_results if item.is_tagged)
 
-        for meta in metadata_list:
-            writer.writerow({
-                "filename": meta.filename,
-                "filepath": str(meta.filepath),
-                "duration_minutes": round(meta.duration_minutes, 2),
-                "codec_name": meta.codec_name,
-                "sample_rate": meta.sample_rate,
-                "channels": meta.channels,
-                "bit_rate": meta.bit_rate,
-                "title": meta.title,
-                "artist": meta.artist,
-                "album": meta.album,
-                "genre": meta.genre,
-                "year": meta.year,
-                "track_number": meta.track_number,
-                "is_music": meta.is_music,
-                "is_audiobook": meta.is_audiobook,
-                "musicbrainz_id": meta.musicbrainz_id,
-                "metadata_confidence": round(meta.metadata_confidence, 2),
-            })
+    console.print("\n[bold]Library Statistics:[/bold]")
+    console.print(f"  Total size: {total_size_gb:.2f} GB")
+    console.print(f"  Total duration: {total_duration_hours:.1f} hours")
+    console.print(f"  Lossless: {lossless_count} ({(lossless_count / len(successful_results)) * 100:.1f}%)")
+    console.print(f"  Tagged: {tagged_count} ({(tagged_count / len(successful_results)) * 100:.1f}%)")
+
+    table = Table(title="Format Breakdown", box=box.ROUNDED)
+    table.add_column("Format", style="cyan")
+    table.add_column("Count", justify="right", style="yellow")
+    table.add_column("Percentage", justify="right", style="green")
+
+    for extension, count in format_counter.most_common(10):
+        percentage = (count / len(successful_results)) * 100
+        table.add_row(extension, str(count), f"{percentage:.1f}%")
+
+    console.print(table)
 
 
-def _print_audio_preview(metadata_list: list) -> None:
-    """Print a Rich table preview of enhanced audio metadata."""
+def _print_audio_preview(metadata_list: list[AudioFileMetadata]) -> None:
+    """Print a Rich table preview of library scan metadata."""
     table = Table(
         title="Audio Library Preview",
         box=box.ROUNDED,
@@ -545,23 +602,21 @@ def _print_audio_preview(metadata_list: list) -> None:
     table.add_column("Duration", justify="right")
     table.add_column("Codec", justify="center")
     table.add_column("Bitrate", justify="right")
-    table.add_column("Type", justify="center")
+    table.add_column("Tagged", justify="center")
     table.add_column("Title", max_width=25)
     table.add_column("Artist", max_width=20)
-    table.add_column("Confidence", justify="right")
+    table.add_column("Album", max_width=20)
 
     for meta in metadata_list:
-        audio_type = "Music" if meta.is_music else "Audiobook" if meta.is_audiobook else "Other"
-        confidence = f"{meta.metadata_confidence:.1f}" if meta.metadata_confidence > 0 else "-"
         table.add_row(
-            meta.filename,
-            f"{meta.duration_minutes:.1f}m",
-            meta.codec_name.upper(),
-            f"{meta.bit_rate // 1000}k" if meta.bit_rate else "?",
-            audio_type,
+            meta.file_name,
+            f"{meta.duration_seconds / 60:.1f}m",
+            (meta.codec or "?").upper(),
+            f"{meta.bitrate_kbps}k" if meta.bitrate_kbps else "?",
+            "Yes" if meta.is_tagged else "No",
             meta.title or "-",
             meta.artist or "-",
-            confidence,
+            meta.album or "-",
         )
 
     console.print(table)

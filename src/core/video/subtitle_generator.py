@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
-from utils.audio_processor import extract_for_speech
+from utils import audio_processor
 from utils.ffmpeg_runner import FFmpegMuxer
 from core.video.subtitle_processor import SubtitleTimingProcessor
 from core.video.whisper_engine import WhisperEngine, WhisperConfig, WhisperModel
@@ -205,7 +205,7 @@ class SubtitleGenerator:
             if progress_callback:
                 progress_callback("Extracting audio for speech recognition...", 0.1)
             
-            audio_result = extract_for_speech(
+            audio_result = audio_processor.extract_for_speech(
                 mkv_path,
                 wav_path,
                 sample_rate=16000,

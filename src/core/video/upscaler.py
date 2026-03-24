@@ -61,6 +61,7 @@ class UpscaleOptions:
     All defaults mirror the original PowerShell script.
     """
 
+    target_width: int = 1280
     target_height: int = 720
     crf: int = 21
     preset: str = "medium"
@@ -234,9 +235,8 @@ def _build_filter_chain(
     if crop_filter:
         filters.append(crop_filter)
 
-    # Scale to target height, compute width from DAR (must be even)
-    h = opts.target_height
-    filters.append(f"scale=trunc({h}*dar/2)*2:{h}:flags=lanczos")
+    # Scale to the configured HD target profile.
+    filters.append(f"scale={opts.target_width}:{opts.target_height}:flags=lanczos")
 
     # Soft deband
     filters.append(f"gradfun={opts.gradfun_strength:.1f}")

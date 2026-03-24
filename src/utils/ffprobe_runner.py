@@ -19,6 +19,8 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+from utils.config import get_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +36,12 @@ class ProbeResult:
     @property
     def failed(self) -> bool:
         return not self.success
+
+    def __getitem__(self, key: str) -> object:
+        return self.data[key]
+
+    def get(self, key: str, default: object = None) -> object:
+        return self.data.get(key, default)
 
     # ------------------------------------------------------------------
     # Convenience accessors
@@ -75,7 +83,7 @@ def probe_file(path: Path) -> ProbeResult:
         FileNotFoundError: If ffprobe is not installed / not on PATH.
     """
     command = [
-        "ffprobe",
+        get_config().tools.ffprobe,
         "-v", "quiet",
         "-print_format", "json",
         "-show_format",
@@ -94,7 +102,7 @@ def probe_file(path: Path) -> ProbeResult:
         )
     except FileNotFoundError as exc:
         raise FileNotFoundError(
-            "ffprobe executable not found. Is ffmpeg installed and on PATH?"
+            f"ffprobe executable not found: {command[0]}"
         ) from exc
 
     # Decode stderr safely for error reporting
@@ -148,7 +156,7 @@ def probe_cropdetect(path: Path, skip_seconds: int = 5, sample_seconds: int = 10
         sample_seconds: How many seconds to analyse for crop detection.
     """
     command = [
-        "ffmpeg",
+        get_config().tools.ffmpeg,
         "-ss", str(skip_seconds),
         "-t",  str(sample_seconds),
         "-i", str(path),
@@ -167,7 +175,7 @@ def probe_cropdetect(path: Path, skip_seconds: int = 5, sample_seconds: int = 10
         )
     except FileNotFoundError as exc:
         raise FileNotFoundError(
-            "ffmpeg executable not found. Is it installed and on PATH?"
+            f"ffmpeg executable not found: {command[0]}"
         ) from exc
 
     # Decode stderr safely for crop detection output

@@ -1,0 +1,24 @@
+# Copy this file to media-tool.toml and fill in your local values.
+# The real media-tool.toml file is ignored by Git.
+
+[api]
+opensubtitles_api_key = ""
+acoustid_api_key = ""
+opensubtitles_user_agent = "media-tool v1.0"
+
+[tools]
+ffmpeg = "ffmpeg"
+ffprobe = "ffprobe"
+
+[paths]
+library_root = ""
+incoming_root = ""
+temp_dir = ""
+
+[defaults.subtitles]
+languages = ["en"]
+embed = true
+auto = true
+
+[defaults.audio]
+min_confidence = 0.7

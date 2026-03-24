@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from utils.config import get_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,7 +63,7 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
     Raises:
         FileNotFoundError: If ffmpeg is not installed / not on PATH.
     """
-    command = ["ffmpeg"] + args
+    command = [get_config().tools.ffmpeg] + args
     logger.debug("Running ffmpeg: %s", " ".join(command))
 
     try:
@@ -73,7 +75,7 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
         )
     except FileNotFoundError as exc:
         raise FileNotFoundError(
-            "ffmpeg executable not found. Is it installed and on PATH?"
+            f"ffmpeg executable not found: {command[0]}"
         ) from exc
 
     success = result.returncode == 0

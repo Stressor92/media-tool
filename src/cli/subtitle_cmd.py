@@ -16,6 +16,7 @@ from rich.console import Console
 from core.subtitles.opensubtitles_provider import OpenSubtitlesProvider
 from core.subtitles.subtitle_provider import MovieInfo
 from core.subtitles.subtitle_downloader import SubtitleDownloadManager
+from utils.config import build_missing_config_hint, get_config, has_config_file
 from utils.video_hasher import VideoHasher
 from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
@@ -27,7 +28,7 @@ console = Console()
 @app.command()
 def download(
     path: Path = typer.Argument(..., help="MKV file or directory"),
-    languages: str = typer.Option("en", help="Comma-separated language codes (en,de,fr)"),
+    languages: str | None = typer.Option(None, help="Comma-separated language codes (en,de,fr). Defaults to config."),
     auto: bool = typer.Option(True, help="Auto-select best match"),
     embed: bool = typer.Option(True, help="Embed into MKV (vs external file)"),
     interactive: bool = typer.Option(False, help="Show matches and let user choose"),
@@ -52,19 +53,30 @@ def download(
         media-tool subtitle download /path/to/movies
     """
 
-    if not api_key:
+    config = get_config()
+    resolved_api_key = api_key or config.api.opensubtitles_api_key
+    resolved_languages = languages or ",".join(config.defaults.subtitles.languages)
+
+    if not resolved_api_key:
         console.print("[red]Error: OpenSubtitles API key required[/red]")
         console.print("Get your free key at: https://www.opensubtitles.com/api")
-        console.print("Set via: export OPENSUBTITLES_API_KEY=your_key")
+        if has_config_file():
+            console.print("Set it in media-tool.toml under [api].opensubtitles_api_key or pass --api-key.")
+        else:
+            console.print(build_missing_config_hint())
+        console.print("Legacy env override still works: OPENSUBTITLES_API_KEY=your_key")
         raise typer.Exit(1)
 
     # Setup components
-    provider = OpenSubtitlesProvider(api_key)
+    provider = OpenSubtitlesProvider(
+        resolved_api_key,
+        user_agent=config.api.opensubtitles_user_agent,
+    )
     ffmpeg_runner = FFmpegMuxer()
     manager = SubtitleDownloadManager(provider, ffmpeg_runner)
 
     # Parse languages
-    language_list = [lang.strip() for lang in languages.split(",")]
+    language_list = [lang.strip() for lang in resolved_languages.split(",") if lang.strip()]
 
     # Get files to process
     if path.is_file():
@@ -111,7 +123,7 @@ def download(
 @app.command()
 def search(
     path: Path = typer.Argument(..., help="MKV file to search subtitles for"),
-    languages: str = typer.Option("en", help="Comma-separated language codes"),
+    languages: str | None = typer.Option(None, help="Comma-separated language codes. Defaults to config."),
     limit: int = typer.Option(10, help="Max results to show"),
     api_key: str | None = typer.Option(None, envvar="OPENSUBTITLES_API_KEY")
 ) -> None:
@@ -121,13 +133,24 @@ def search(
     Useful for checking availability before batch processing
     """
 
-    if not api_key:
+    config = get_config()
+    resolved_api_key = api_key or config.api.opensubtitles_api_key
+    resolved_languages = languages or ",".join(config.defaults.subtitles.languages)
+
+    if not resolved_api_key:
         console.print("[red]Error: OpenSubtitles API key required[/red]")
         console.print("Get your free key at: https://www.opensubtitles.com/api")
+        if has_config_file():
+            console.print("Set it in media-tool.toml under [api].opensubtitles_api_key or pass --api-key.")
+        else:
+            console.print(build_missing_config_hint())
         raise typer.Exit(1)
 
     # Setup
-    provider = OpenSubtitlesProvider(api_key)
+    provider = OpenSubtitlesProvider(
+        resolved_api_key,
+        user_agent=config.api.opensubtitles_user_agent,
+    )
     hasher = VideoHasher()
     ffmpeg_runner = FFmpegMuxer()
     manager = SubtitleDownloadManager(provider, ffmpeg_runner)
@@ -152,7 +175,7 @@ def search(
         raise typer.Exit(1)
 
     # Search
-    language_list = [lang.strip() for lang in languages.split(",")]
+    language_list = [lang.strip() for lang in resolved_languages.split(",") if lang.strip()]
     matches = provider.search(movie_info, language_list, limit)
 
     if not matches:

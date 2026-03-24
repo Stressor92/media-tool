@@ -1,0 +1,306 @@
+"""Typed application configuration loader for media-tool."""
+
+from __future__ import annotations
+
+import json
+import os
+import tomllib
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+CONFIG_FILE_NAME = "media-tool.toml"
+EXAMPLE_CONFIG_FILE_NAME = "media-tool.example.toml"
+ENV_PREFIX = "MEDIA_TOOL_"
+
+
+class ConfigError(RuntimeError):
+    """Raised when configuration loading or validation fails."""
+
+
+class ApiConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    opensubtitles_api_key: str | None = None
+    acoustid_api_key: str | None = None
+    opensubtitles_user_agent: str = "media-tool v1.0"
+
+    @field_validator("opensubtitles_api_key", "acoustid_api_key", mode="before")
+    @classmethod
+    def _normalize_optional_secret(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
+
+    @field_validator("opensubtitles_user_agent")
+    @classmethod
+    def _validate_user_agent(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("opensubtitles_user_agent must not be empty")
+        return normalized
+
+
+class ToolConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ffmpeg: str = "ffmpeg"
+    ffprobe: str = "ffprobe"
+
+    @field_validator("ffmpeg", "ffprobe")
+    @classmethod
+    def _validate_tool_command(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("tool command must not be empty")
+        return normalized
+
+
+class PathConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    library_root: Path | None = None
+    incoming_root: Path | None = None
+    temp_dir: Path | None = None
+
+    @field_validator("library_root", "incoming_root", "temp_dir", mode="before")
+    @classmethod
+    def _normalize_optional_path(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return None
+            return Path(stripped).expanduser()
+        return value
+
+
+class SubtitleDefaults(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    languages: list[str] = Field(default_factory=lambda: ["en"])
+    embed: bool = True
+    auto: bool = True
+
+    @field_validator("languages")
+    @classmethod
+    def _normalize_languages(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip().lower() for item in value if item.strip()]
+        if not normalized:
+            raise ValueError("defaults.subtitles.languages must contain at least one language")
+        return normalized
+
+
+class AudioDefaults(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+
+
+class DefaultConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subtitles: SubtitleDefaults = Field(default_factory=SubtitleDefaults)
+    audio: AudioDefaults = Field(default_factory=AudioDefaults)
+
+
+class AppConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    api: ApiConfig = Field(default_factory=ApiConfig)
+    tools: ToolConfig = Field(default_factory=ToolConfig)
+    paths: PathConfig = Field(default_factory=PathConfig)
+    defaults: DefaultConfig = Field(default_factory=DefaultConfig)
+
+
+_CONFIG_CACHE: AppConfig | None = None
+_CONFIG_CACHE_KEY: tuple[str | None, tuple[tuple[str, str], ...]] | None = None
+
+
+def get_project_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def get_default_config_path() -> Path:
+    return Path.cwd() / CONFIG_FILE_NAME
+
+
+def get_example_config_path() -> Path:
+    return get_project_root() / EXAMPLE_CONFIG_FILE_NAME
+
+
+def find_config_file(config_path: str | Path | None = None) -> Path | None:
+    if config_path is not None:
+        explicit = Path(config_path).expanduser()
+        return explicit if explicit.exists() else None
+
+    env_path = os.getenv(f"{ENV_PREFIX}CONFIG")
+    candidates: list[Path] = []
+    if env_path:
+        candidates.append(Path(env_path).expanduser())
+
+    cwd_candidate = get_default_config_path()
+    candidates.append(cwd_candidate)
+
+    repo_candidate = get_project_root() / CONFIG_FILE_NAME
+    if repo_candidate != cwd_candidate:
+        candidates.append(repo_candidate)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
+def has_config_file(config_path: str | Path | None = None) -> bool:
+    return find_config_file(config_path) is not None
+
+
+def reset_config_cache() -> None:
+    global _CONFIG_CACHE, _CONFIG_CACHE_KEY
+    _CONFIG_CACHE = None
+    _CONFIG_CACHE_KEY = None
+
+
+def build_missing_config_hint() -> str:
+    default_path = get_default_config_path()
+    return (
+        f"Create {default_path} from {EXAMPLE_CONFIG_FILE_NAME}, or set "
+        f"{ENV_PREFIX}CONFIG to a custom file. You can also override individual settings "
+        f"with env vars such as {ENV_PREFIX}API__OPENSUBTITLES_API_KEY."
+    )
+
+
+def get_config(config_path: str | Path | None = None) -> AppConfig:
+    global _CONFIG_CACHE, _CONFIG_CACHE_KEY
+
+    resolved_path = find_config_file(config_path)
+    cache_key = _build_cache_key(resolved_path)
+    if _CONFIG_CACHE is not None and _CONFIG_CACHE_KEY == cache_key:
+        return _CONFIG_CACHE
+
+    config = _load_config(resolved_path)
+    _CONFIG_CACHE = config
+    _CONFIG_CACHE_KEY = cache_key
+    return config
+
+
+def _build_cache_key(config_path: Path | None) -> tuple[str | None, tuple[tuple[str, str], ...]]:
+    normalized_path = str(config_path.resolve()) if config_path is not None else None
+    env_items = tuple(sorted((key, value) for key, value in os.environ.items() if _is_relevant_env_var(key)))
+    return normalized_path, env_items
+
+
+def _load_config(config_path: Path | None) -> AppConfig:
+    raw_config: dict[str, Any] = {}
+
+    if config_path is not None:
+        try:
+            with config_path.open("rb") as handle:
+                parsed = tomllib.load(handle)
+        except tomllib.TOMLDecodeError as exc:
+            raise ConfigError(f"Invalid TOML in {config_path}: {exc}") from exc
+        except OSError as exc:
+            raise ConfigError(f"Unable to read config file {config_path}: {exc}") from exc
+
+        if not isinstance(parsed, dict):
+            raise ConfigError(f"Config file {config_path} must contain a TOML table at the top level")
+        raw_config = parsed
+
+    merged = _deep_merge(raw_config, _env_overrides())
+
+    try:
+        return AppConfig.model_validate(merged)
+    except ValidationError as exc:
+        source = str(config_path) if config_path is not None else "defaults and environment"
+        raise ConfigError(f"Invalid media-tool configuration from {source}: {exc}") from exc
+
+
+def _env_overrides() -> dict[str, Any]:
+    overrides: dict[str, Any] = {}
+
+    for key, value in os.environ.items():
+        if key == f"{ENV_PREFIX}CONFIG":
+            continue
+
+        mapped_path = _legacy_env_mapping(key)
+        if mapped_path is None and key.startswith(ENV_PREFIX):
+            mapped_path = [segment.lower() for segment in key[len(ENV_PREFIX):].split("__") if segment]
+
+        if not mapped_path:
+            continue
+
+        _insert_nested_value(overrides, mapped_path, _parse_env_value(mapped_path[-1], value))
+
+    return overrides
+
+
+def _legacy_env_mapping(key: str) -> list[str] | None:
+    mapping = {
+        "OPENSUBTITLES_API_KEY": ["api", "opensubtitles_api_key"],
+        "ACOUSTID_API_KEY": ["api", "acoustid_api_key"],
+        "FFMPEG_BIN": ["tools", "ffmpeg"],
+        "FFPROBE_BIN": ["tools", "ffprobe"],
+    }
+    return mapping.get(key)
+
+
+def _parse_env_value(field_name: str, value: str) -> Any:
+    normalized = value.strip()
+
+    if field_name == "languages":
+        if normalized.startswith("["):
+            try:
+                parsed = json.loads(normalized)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed]
+        return [item.strip() for item in normalized.split(",") if item.strip()]
+
+    lowered = normalized.lower()
+    if lowered in {"true", "false"}:
+        return lowered == "true"
+    if lowered == "none" or lowered == "null":
+        return None
+
+    try:
+        return json.loads(normalized)
+    except json.JSONDecodeError:
+        return normalized
+
+
+def _insert_nested_value(target: dict[str, Any], path: list[str], value: Any) -> None:
+    current = target
+    for segment in path[:-1]:
+        next_value = current.get(segment)
+        if not isinstance(next_value, dict):
+            next_value = {}
+            current[segment] = next_value
+        current = next_value
+    current[path[-1]] = value
+
+
+def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    merged: dict[str, Any] = dict(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _is_relevant_env_var(key: str) -> bool:
+    return key.startswith(ENV_PREFIX) or key in {
+        "OPENSUBTITLES_API_KEY",
+        "ACOUSTID_API_KEY",
+        "FFMPEG_BIN",
+        "FFPROBE_BIN",
+    }

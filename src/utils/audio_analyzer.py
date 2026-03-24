@@ -16,11 +16,26 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
-from .ffprobe_runner import probe_file
+from .ffprobe_runner import ProbeResult, probe_file
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AudioTechnicalMetadata:
+    """Technical audio metadata derived from ffprobe."""
+
+    duration_seconds: float = 0.0
+    codec: str | None = None
+    bitrate_kbps: int | None = None
+    sample_rate_hz: int | None = None
+    channels: int | None = None
+    bit_depth: int | None = None
+
+
+ProbeFileFunc = Callable[[Path], ProbeResult]
 
 
 @dataclass(frozen=True)
@@ -81,6 +96,45 @@ class AudioMetadata:
         return bool(self.artist and self.album and not self.is_audiobook)
 
 
+def extract_audio_technical_metadata(
+    filepath: Path,
+    probe_func: ProbeFileFunc = probe_file,
+) -> AudioTechnicalMetadata | None:
+    """Extract technical audio metadata from ffprobe output."""
+    probe = probe_func(filepath)
+    if probe.failed:
+        logger.warning("Failed to probe %s: %s", filepath, probe.stderr)
+        return None
+
+    audio_streams = probe.audio_streams()
+    if not audio_streams:
+        logger.warning("No audio streams found in %s", filepath)
+        return None
+
+    stream = audio_streams[0]
+    format_info = probe.format
+
+    duration = _safe_float(
+        format_info.get("duration") or stream.get("duration"),
+        default=0.0,
+    )
+    stream_bit_rate = _safe_int(stream.get("bit_rate"))
+    format_bit_rate = _safe_int(format_info.get("bit_rate"))
+    bit_rate = stream_bit_rate or format_bit_rate
+    sample_rate = _safe_int(stream.get("sample_rate"))
+    channels = _safe_int(stream.get("channels"))
+    bit_depth = _safe_int(stream.get("bits_per_sample")) or _safe_int(stream.get("bits_per_raw_sample"))
+
+    return AudioTechnicalMetadata(
+        duration_seconds=duration,
+        codec=str(stream.get("codec_name")) if stream.get("codec_name") else None,
+        bitrate_kbps=int(bit_rate / 1000) if bit_rate is not None else None,
+        sample_rate_hz=sample_rate,
+        channels=channels,
+        bit_depth=bit_depth,
+    )
+
+
 def extract_audio_metadata(filepath: Path) -> AudioMetadata | None:
     """
     Extract comprehensive audio metadata from a file.
@@ -91,10 +145,11 @@ def extract_audio_metadata(filepath: Path) -> AudioMetadata | None:
     Returns:
         AudioMetadata object or None if extraction failed.
     """
-    probe = probe_file(filepath)
-    if probe.failed:
-        logger.warning("Failed to probe %s: %s", filepath, probe.stderr)
+    technical = extract_audio_technical_metadata(filepath)
+    if technical is None:
         return None
+
+    probe = probe_file(filepath)
 
     # Get first audio stream
     audio_streams = probe.audio_streams()
@@ -107,21 +162,17 @@ def extract_audio_metadata(filepath: Path) -> AudioMetadata | None:
 
     # Extract basic metadata
     try:
-        duration = float(format_info.get("duration", 0))
-        bit_rate = int(format_info.get("bit_rate", 0))
         file_size = int(format_info.get("size", 0))
     except (ValueError, TypeError):
         logger.warning("Invalid format metadata in %s", filepath)
         return None
 
     # Extract stream metadata
-    codec_name = stream.get("codec_name", "unknown")
-    sample_rate = int(stream.get("sample_rate", 0))
-    channels = int(stream.get("channels", 0))
+    codec_name = technical.codec or "unknown"
+    sample_rate = technical.sample_rate_hz or 0
+    channels = technical.channels or 0
     channel_layout = stream.get("channel_layout", "")
-    bits_per_sample = stream.get("bits_per_sample")
-    if bits_per_sample:
-        bits_per_sample = int(bits_per_sample)
+    bits_per_sample = technical.bit_depth
 
     # Extract tags
     tags = stream.get("tags", {}) or format_info.get("tags", {})
@@ -150,8 +201,8 @@ def extract_audio_metadata(filepath: Path) -> AudioMetadata | None:
         filepath=filepath,
         filename=filepath.name,
         file_size_bytes=file_size,
-        duration_seconds=duration,
-        bit_rate=bit_rate,
+        duration_seconds=technical.duration_seconds,
+        bit_rate=(technical.bitrate_kbps or 0) * 1000,
         codec_name=codec_name,
         sample_rate=sample_rate,
         channels=channels,
@@ -173,6 +224,24 @@ def extract_audio_metadata(filepath: Path) -> AudioMetadata | None:
         series=tags.get("series"),
         series_part=safe_int(tags.get("series_part") or tags.get("part")),
     )
+
+
+def _safe_int(value: object, default: int | None = None) -> int | None:
+    if value is None:
+        return default
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: object, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    try:
+        return float(str(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def scan_audio_directory(

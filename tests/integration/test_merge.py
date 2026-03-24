@@ -66,6 +66,7 @@ class TestDualAudioMerge:
         output_mkv = tmp_path / "output.mkv"
         # Create existing file
         output_mkv.write_text("existing")
+        existing_bytes = output_mkv.read_bytes()
 
         # Without overwrite, should skip
         result = merge_dual_audio(german_mp4, english_mp4, output_mkv, overwrite=False)
@@ -75,7 +76,7 @@ class TestDualAudioMerge:
         # With overwrite, should merge
         result = merge_dual_audio(german_mp4, english_mp4, output_mkv, overwrite=True)
         assert result.succeeded
-        assert output_mkv.read_text() != "existing"
+        assert output_mkv.read_bytes() != existing_bytes
 
     def test_merge_missing_files(self, tmp_path, ffmpeg_available):
         """Test merge with missing input files."""

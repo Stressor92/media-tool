@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from core.audio.metadata_providers.acoustid_provider import AcoustIDProvider
 from core.audio.metadata_providers.provider import TrackMatch, TrackMetadata
 from utils.mutagen_tagger import MutagenTagger
@@ -30,7 +29,7 @@ class AudioTagger:
             return None
 
         metadata = best.metadata
-        MutagenTagger.write_metadata(Path(file_path), metadata, force=force)
+        MutagenTagger.write_metadata(file_path, metadata, force=force)
         return metadata
 
     @staticmethod

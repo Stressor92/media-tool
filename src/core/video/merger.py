@@ -37,7 +37,7 @@ _LANG_PATTERN: dict[str, re.Pattern[str]] = {
 }
 
 # Strips the language suffix to derive the clean base name
-_CLEAN_SUFFIX = re.compile(r"(?:[-_ \(]+(?:de|german|deutsch|en|english)[\)_ ]?)$", re.IGNORECASE)
+_CLEAN_SUFFIX = re.compile(r"(?:[-_ \(\[]+(?:de|german|deutsch|en|english)[\)\]_ ]?)$", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------

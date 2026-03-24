@@ -146,9 +146,14 @@ python -m venv .venv
 .venv\Scripts\activate  # Windows
 source .venv/bin/activate  # Linux/macOS
 
-# Install in development mode
+# Install development dependencies and the project itself
+pip install -r requirements.txt
 pip install -e .
 ```
+
+Notes:
+- `pyacoustid` is the installable package name for the Python module imported as `acoustid`
+- `requirements.txt` is the recommended dev/test environment because it includes tooling such as `pytest`, `mypy`, and `pre-commit`
 
 ### Verify Installation
 
@@ -179,6 +184,103 @@ pre-commit run --all-files
 ```
 
 GitHub Actions runs the same mypy command on pushes and pull requests via [.github/workflows/mypy.yml](.github/workflows/mypy.yml).
+
+## Testing
+
+Use the same development environment as above:
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+Run the full suite:
+
+```bash
+python -m pytest -q
+```
+
+Run a focused test file:
+
+```bash
+python -m pytest tests/unit/test_acoustid_provider.py -q
+```
+
+If you need the AcoustID-related tests manually, install package names exactly as published on PyPI:
+
+```bash
+python -m pip install pyacoustid musicbrainzngs
+```
+
+The import name in Python remains `acoustid`, but the package name to install is `pyacoustid`.
+
+## Configuration
+
+`media-tool` now supports a central local configuration file for API keys, tool paths, and common defaults.
+
+Why TOML:
+- the project already uses TOML in `pyproject.toml`
+- Python 3.11+ includes `tomllib`, so no extra parser dependency is needed
+- it stays readable for paths, booleans, lists, and nested sections
+
+### Setup
+
+1. Copy `media-tool.example.toml` to `media-tool.toml`
+2. Fill in the values you actually use locally
+3. Keep `media-tool.toml` private; it is ignored by Git
+
+Example:
+
+```toml
+[api]
+opensubtitles_api_key = "your-key"
+acoustid_api_key = "your-key"
+
+[tools]
+ffmpeg = "ffmpeg"
+ffprobe = "ffprobe"
+
+[defaults.subtitles]
+languages = ["en", "de"]
+
+[defaults.audio]
+min_confidence = 0.8
+```
+
+### Environment Overrides
+
+You can override the config file path:
+
+```bash
+set MEDIA_TOOL_CONFIG=C:\path\to\media-tool.toml
+```
+
+You can also override individual settings without editing the file:
+
+```bash
+set MEDIA_TOOL_API__OPENSUBTITLES_API_KEY=your-key
+set MEDIA_TOOL_DEFAULTS__SUBTITLES__LANGUAGES=en,de
+set MEDIA_TOOL_TOOLS__FFMPEG=C:\tools\ffmpeg.exe
+```
+
+Legacy environment variables still work for compatibility:
+
+```bash
+set OPENSUBTITLES_API_KEY=your-key
+set ACOUSTID_API_KEY=your-key
+set FFMPEG_BIN=C:\tools\ffmpeg.exe
+set FFPROBE_BIN=C:\tools\ffprobe.exe
+```
+
+### Current Usage
+
+The subtitle commands now read their OpenSubtitles API key and default language list from config when the CLI options are omitted:
+
+```bash
+media-tool subtitle download movie.mkv
+```
+
+The audio tagging commands can do the same for `acoustid_api_key`, and the low-level FFmpeg/FFprobe runners now honor configured binary paths globally.
 
 ## Quick Start & Common Workflows
 
@@ -214,6 +316,12 @@ media-tool video inspect "Y:\Videos" --output video_library.csv
 #### Scan and Analyze Music Library
 ```bash
 media-tool audio scan "M:\Music" --output music_library.csv
+```
+
+Generates a detailed CSV report with file properties, tags, technical audio specs, derived fields, and per-file error details for large-library analysis or migration.
+
+```bash
+media-tool audio scan "M:\Music" --output music_library.csv --max-workers 8
 ```
 
 #### Convert Audio Formats (to FLAC)
