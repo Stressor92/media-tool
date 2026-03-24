@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-from src.core.video import (
+from core.video import (
     HallucinationDetector,
     WhisperConfig,
     WhisperEngine,

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from rich import box
 from rich.console import Console
 
 from core.video import (
@@ -235,8 +236,10 @@ def merge_command(
 
     if result.status.name == "SUCCESS":
         console.print(f"\n[green]✓[/green] Successfully merged to {result.target}")
-        console.print(f"[dim]German source:[/dim] {result.german_source.name}")
-        console.print(f"[dim]English source:[/dim] {result.english_source.name}")
+        if result.german_source is not None:
+            console.print(f"[dim]German source:[/dim] {result.german_source.name}")
+        if result.english_source is not None:
+            console.print(f"[dim]English source:[/dim] {result.english_source.name}")
     else:
         err_console.print(f"\n[red]✘  Merge failed:[/red] {result.message}")
         if result.ffmpeg_result and result.ffmpeg_result.stderr:
@@ -379,7 +382,7 @@ def upscale_command(
         from core.video import UpscaleOptions
         opts = UpscaleOptions(
             target_height=target_height,
-            video_codec=video_codec,
+            codec=video_codec,
             preset=preset,
             crf=crf,
             overwrite=overwrite,

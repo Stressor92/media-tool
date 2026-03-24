@@ -15,6 +15,7 @@ from .enhancement import (
     normalize_audio,
     remove_silence,
 )
+from .audio_tagger import AudioTagger
 
 __all__ = [
     "extract_audio_metadata_enhanced",
@@ -27,4 +28,5 @@ __all__ = [
     "improve_audio_library",
     "normalize_audio",
     "remove_silence",
+    "AudioTagger",
 ]

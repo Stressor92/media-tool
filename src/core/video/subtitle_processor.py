@@ -145,13 +145,13 @@ class SubtitleTimingProcessor:
                 result.errors.append(f"Invalid index in block: {lines[0]}")
 
             # timestamp
-            if not self.SRT_TIMESTAMP_RE.match(lines[1]):
+            match = self.SRT_TIMESTAMP_RE.match(lines[1])
+            if match is None:
                 result.is_valid = False
                 result.errors.append(f"Invalid timestamp format: {lines[1]}")
             else:
-                groups = self.SRT_TIMESTAMP_RE.match(lines[1])
-                start = self._to_seconds(groups.group(1), groups.group(2), groups.group(3), groups.group(4))
-                end = self._to_seconds(groups.group(5), groups.group(6), groups.group(7), groups.group(8))
+                start = self._to_seconds(match.group(1), match.group(2), match.group(3), match.group(4))
+                end = self._to_seconds(match.group(5), match.group(6), match.group(7), match.group(8))
 
                 if start < last_end:
                     result.is_valid = False

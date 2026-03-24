@@ -294,8 +294,8 @@ class TestBatchConversion:
         assert summary.total == 2
         assert len(summary.succeeded) == 2
 
-    def test_batch_convert_empty_directory(self, tmp_path, ffmpeg_available):
-        """Test batch conversion on empty directory."""
+    def test_batch_convert_empty_directory_results_collection(self, tmp_path, ffmpeg_available):
+        """Test batch conversion on empty directory with results collection assertions."""
         from core.video.converter import batch_convert_directory
 
         empty_dir = tmp_path / "empty"

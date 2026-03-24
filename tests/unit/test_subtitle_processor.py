@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 
-from src.core.video import SubtitleTimingProcessor
+from core.video import SubtitleTimingProcessor
 
 
 class TestSubtitleTimingProcessor:

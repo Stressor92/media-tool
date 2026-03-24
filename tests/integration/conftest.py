@@ -11,6 +11,8 @@ from typing import Dict, Any
 
 import pytest
 
+from utils.ffprobe_runner import ProbeResult
+
 
 def run_ffmpeg(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
     """Run ffmpeg command and return completed process."""
@@ -18,7 +20,7 @@ def run_ffmpeg(args: list[str], cwd: Path | None = None) -> subprocess.Completed
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
 
 
-def run_ffprobe(file_path: Path):
+def run_ffprobe(file_path: Path) -> ProbeResult:
     """Run ffprobe on a file and return a ProbeResult object."""
     from utils.ffprobe_runner import probe_file
     return probe_file(file_path)
@@ -107,7 +109,7 @@ def create_test_audio(
     return output_path
 
 
-def get_stream_info(file_path: Path) -> Dict[str, Any]:
+def get_stream_info(file_path: Path) -> ProbeResult:
     """Get stream information from a media file."""
     return run_ffprobe(file_path)
 

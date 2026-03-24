@@ -23,7 +23,7 @@ from typing import Callable, Optional
 from utils.audio_processor import extract_for_speech
 from utils.ffmpeg_runner import FFmpegMuxer
 from core.video.subtitle_processor import SubtitleTimingProcessor
-from core.video.whisper_engine import WhisperEngine, WhisperConfig
+from core.video.whisper_engine import WhisperEngine, WhisperConfig, WhisperModel
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,12 @@ class GenerationResult:
     @property
     def has_subtitles(self) -> bool:
         """True if subtitles were successfully added."""
-        return self.success and self.mkv_path and self.mkv_path.exists()
+        return bool(self.success and self.mkv_path and self.mkv_path.exists())
+
+    @property
+    def hallucination_warnings(self) -> list[str]:
+        """Backward-compatible alias for warnings emitted during transcription."""
+        return self.warnings
 
 
 class SubtitleGenerator:
@@ -67,7 +72,8 @@ class SubtitleGenerator:
     
     def __init__(
         self,
-        whisper_model: WhisperConfig | str = "large-v3",
+        whisper_model: WhisperConfig | WhisperModel | str = WhisperModel.LARGE,
+        config: WhisperConfig | None = None,
         enhance_mode: str = "light",
         keep_temp_files: bool = False
     ):
@@ -79,10 +85,13 @@ class SubtitleGenerator:
             enhance_mode: Audio enhancement mode
             keep_temp_files: Keep WAV/SRT files after completion
         """
-        if isinstance(whisper_model, WhisperConfig):
+        if config is not None:
+            self.whisper_config = config
+        elif isinstance(whisper_model, WhisperConfig):
             self.whisper_config = whisper_model
         else:
-            self.whisper_config = WhisperConfig(model=whisper_model)
+            model = whisper_model if isinstance(whisper_model, WhisperModel) else WhisperModel(whisper_model)
+            self.whisper_config = WhisperConfig(model=model)
 
         self.enhance_mode = enhance_mode
         self.keep_temp_files = keep_temp_files
@@ -96,22 +105,45 @@ class SubtitleGenerator:
 
     def generate_subtitles(
         self,
-        source_mkv: Path,
-        target_mkv: Path,
+        source_mkv: Path | None = None,
+        target_mkv: Path | None = None,
         progress_callback: Optional[Callable[[str, float], None]] = None,
+        video_path: Path | None = None,
+        output_mkv_path: Path | None = None,
+        overwrite: bool = False,
+        detect_hallucinations: bool = True,
     ) -> GenerationResult:
         """Generate subtitles for source MKV and write to target MKV."""
+        source_mkv = source_mkv or video_path
+        target_mkv = target_mkv or output_mkv_path
+
+        if source_mkv is None or target_mkv is None:
+            return GenerationResult(
+                success=False,
+                error_message="Both source and target MKV paths are required",
+            )
+
         if not source_mkv.exists():
             return GenerationResult(
                 success=False,
                 error_message=f"Source file not found: {source_mkv}",
             )
 
+        if target_mkv.exists() and source_mkv != target_mkv and not overwrite:
+            return GenerationResult(
+                success=False,
+                error_message=f"Target file already exists: {target_mkv}",
+            )
+
         if source_mkv != target_mkv:
             target_mkv.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_mkv, target_mkv)
 
-        result = self.generate(target_mkv, progress_callback=progress_callback)
+        result = self.generate(
+            target_mkv,
+            progress_callback=progress_callback,
+            detect_hallucinations=detect_hallucinations,
+        )
         result.output_mkv_path = target_mkv
         result.audio_duration = getattr(result, 'audio_duration', None)
         return result
@@ -119,7 +151,8 @@ class SubtitleGenerator:
     def generate(
         self,
         mkv_path: Path,
-        progress_callback: Optional[Callable[[str, float], None]] = None
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+        detect_hallucinations: bool = True,
     ) -> GenerationResult:
         """
         Generate subtitles for MKV file.
@@ -194,7 +227,8 @@ class SubtitleGenerator:
                 srt_path,
                 progress_callback=lambda msg, prog: progress_callback(
                     f"Transcription: {msg}", 0.3 + prog * 0.4
-                ) if progress_callback else None
+                ) if progress_callback else None,
+                detect_hallucinations=detect_hallucinations,
             )
             
             if not transcription_result.success:

@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch, Mock
 
 import pytest
 
-from src.utils.audio_processor import AudioExtractionResult, extract_for_speech
-from src.utils.ffmpeg_runner import FFmpegResult
+from utils.audio_processor import AudioExtractionResult, extract_for_speech
+from utils.ffmpeg_runner import FFmpegResult
 
 
 class TestAudioExtractionResult:
@@ -44,14 +44,14 @@ def test_extract_for_speech_success(tmp_path):
     
     Uses mocked FFmpeg and FFprobe for fast, isolated testing.
     """
-    from src.utils.ffprobe_runner import ProbeResult
+    from utils.ffprobe_runner import ProbeResult
     
     video_path = tmp_path / "test.mkv"
     output_wav = tmp_path / "test.wav"
     video_path.touch()
     output_wav.touch()  # Pre-create output to simulate success
     
-    with patch('src.utils.audio_processor.run_ffmpeg') as mock_ffmpeg:
+    with patch('utils.audio_processor.run_ffmpeg') as mock_ffmpeg:
         # Mock successful FFmpeg execution
         mock_ffmpeg.return_value = FFmpegResult(
             success=True,
@@ -61,7 +61,7 @@ def test_extract_for_speech_success(tmp_path):
             stdout_bytes=b"",
         )
         
-        with patch('src.utils.ffprobe_runner.probe_file') as mock_probe:
+        with patch('utils.ffprobe_runner.probe_file') as mock_probe:
             # Mock FFprobe returning audio info
             mock_probe.return_value = ProbeResult(
                 success=True,
@@ -86,7 +86,7 @@ def test_extract_for_speech_failure(tmp_path):
     video_path = tmp_path / "test.mkv"
     video_path.touch()
     
-    with patch('src.utils.audio_processor.run_ffmpeg') as mock_ffmpeg:
+    with patch('utils.audio_processor.run_ffmpeg') as mock_ffmpeg:
         # Configure mock to return failure
         mock_ffmpeg.return_value = FFmpegResult(
             success=False,

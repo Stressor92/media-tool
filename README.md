@@ -156,6 +156,30 @@ pip install -e .
 media-tool --help  # Shows all available commands
 ```
 
+## Type Checking
+
+Install development dependencies and the project itself:
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+Run mypy manually:
+
+```bash
+python -m mypy .
+```
+
+Set up the pre-commit hook:
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+GitHub Actions runs the same mypy command on pushes and pull requests via [.github/workflows/mypy.yml](.github/workflows/mypy.yml).
+
 ## Quick Start & Common Workflows
 
 ### 1. Video Processing

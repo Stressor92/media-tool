@@ -67,7 +67,7 @@ def organize_audiobooks(
 
     # Find audio files
     extensions = {".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wma"}
-    audio_files = []
+    audio_files: list[Path] = []
     for ext in extensions:
         audio_files.extend(input_dir.rglob(f"*{ext}"))
 

@@ -59,8 +59,7 @@ def scan_command(
 
     # Find audio files
     extensions = {".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wma"}
-    audio_files = []
-    pattern = "recursive/**/*" if recursive else "*"
+    audio_files: list[Path] = []
     for ext in extensions:
         audio_files.extend(directory.rglob(f"*{ext}"))
 
@@ -329,6 +328,97 @@ def improve_library_command(
 
     if counts['errors'] > 0:
         raise typer.Exit(code=1)
+
+
+@app.command("identify")
+def identify_command(
+    input_file: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        help="Input audio file for metadata identification.",
+    ),
+    acoustid_api_key: str = typer.Option(
+        ..., "--acoustid-api-key", "-k",
+        help="AcoustID API key required for fingerprint lookup.",
+    ),
+) -> None:
+    """Identify a single audio file using AcoustID + MusicBrainz."""
+    from core.audio import AudioTagger
+
+    console.rule("[bold cyan]media-tool · audio identify[/bold cyan]")
+    console.print(f"[dim]Input :[/dim] {input_file}")
+    console.print("[dim]Resolving via AcoustID/MusicBrainz...[/dim]")
+
+    tagger = AudioTagger(acoustid_api_key=acoustid_api_key)
+    try:
+        matches = tagger.identify(str(input_file))
+    except Exception as e:
+        err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    if not matches:
+        console.print("[yellow]No matches found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    table = Table(title="AcoustID Matches", box=box.MINIMAL_DOUBLE_HEAD)
+    table.add_column("Rank", justify="right")
+    table.add_column("Title")
+    table.add_column("Artist")
+    table.add_column("Album")
+    table.add_column("Confidence", justify="right")
+
+    for idx, match in enumerate(matches, 1):
+        data = match.metadata
+        table.add_row(
+            str(idx),
+            data.title or "-",
+            data.artist or "-",
+            data.album or "-",
+            f"{match.confidence:.2f}",
+        )
+
+    console.print(table)
+
+
+@app.command("auto-tag")
+def auto_tag_command(
+    input_file: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        help="Input audio file to auto-tag using AcoustID metadata.",
+    ),
+    acoustid_api_key: str = typer.Option(
+        ..., "--acoustid-api-key", "-k",
+        help="AcoustID API key required for fingerprint lookup.",
+    ),
+    min_confidence: float = typer.Option(
+        0.70, "--min-confidence", "-c",
+        help="Minimum confidence threshold to apply tags.",
+    ),
+    force: bool = typer.Option(
+        False, "--force", "-f",
+        help="Overwrite existing tags if present.",
+    ),
+) -> None:
+    """Auto-tag a file with metadata from AcoustID + MusicBrainz."""
+    from core.audio import AudioTagger
+
+    console.rule("[bold cyan]media-tool · audio auto-tag[/bold cyan]")
+    console.print(f"[dim]Input :[/dim] {input_file}")
+
+    tagger = AudioTagger(acoustid_api_key=acoustid_api_key)
+    try:
+        metadata = tagger.auto_tag(str(input_file), force=force, min_confidence=min_confidence)
+    except Exception as e:
+        err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    if not metadata:
+        console.print(f"[yellow]No metadata applied. Confidence threshold {min_confidence} not reached.[/yellow]")
+        raise typer.Exit(code=0)
+
+    console.print(f"[bold green]✔  Metadata applied to {input_file}[/bold green]")
+    console.print(f"[dim]Title:[/dim] {metadata.title}")
+    console.print(f"[dim]Artist:[/dim] {metadata.artist}")
+    console.print(f"[dim]Album:[/dim] {metadata.album}")
 
 
 @app.command("workflow")

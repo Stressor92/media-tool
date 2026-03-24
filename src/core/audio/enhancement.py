@@ -349,7 +349,7 @@ def improve_audio_library(
         raise NotADirectoryError(f"Input directory not found: {input_dir}")
 
     # Find audio files
-    audio_files = []
+    audio_files: list[Path] = []
     for ext in extensions:
         audio_files.extend(input_dir.rglob(f"*{ext}"))
 

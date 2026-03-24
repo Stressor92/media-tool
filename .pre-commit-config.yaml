@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: .venv/Scripts/python.exe -m mypy .
+        language: system
+        pass_filenames: false
+        require_serial: true
+        types_or: [python]

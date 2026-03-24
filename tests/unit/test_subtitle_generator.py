@@ -9,16 +9,16 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-from src.core.video import SubtitleGenerator
+from core.video import SubtitleGenerator
 
 
 class TestSubtitleGenerator:
     """Test SubtitleGenerator functionality."""
 
-    @patch('src.core.video.subtitle_generator.WhisperEngine')
-    @patch('src.utils.audio_processor.extract_for_speech')
-    @patch('src.core.video.subtitle_generator.SubtitleTimingProcessor')
-    @patch('src.utils.ffmpeg_runner.FFmpegMuxer.add_subtitle_to_mkv')
+    @patch('core.video.subtitle_generator.WhisperEngine')
+    @patch('utils.audio_processor.extract_for_speech')
+    @patch('core.video.subtitle_generator.SubtitleTimingProcessor')
+    @patch('utils.ffmpeg_runner.FFmpegMuxer.add_subtitle_to_mkv')
     def test_generate_subtitles_success(self, mock_mux, mock_processor, mock_extract, mock_whisper, test_video_720p):
         """Test successful subtitle generation with valid video file."""
         # Setup mocks - important: scale_factor must be numeric for format string
@@ -52,7 +52,7 @@ class TestSubtitleGenerator:
             if output_path.exists():
                 output_path.unlink()
 
-    @patch('src.utils.audio_processor.extract_for_speech')
+    @patch('utils.audio_processor.extract_for_speech')
     def test_generate_subtitles_extract_fail(self, mock_extract, test_video_720p):
         """Test subtitle generation when audio extraction fails."""
         mock_extract.return_value = MagicMock(success=False, error_message="Extract failed")
@@ -69,8 +69,8 @@ class TestSubtitleGenerator:
             if output_path.exists():
                 output_path.unlink()
 
-    @patch('src.core.video.subtitle_generator.WhisperEngine')
-    @patch('src.utils.audio_processor.extract_for_speech')
+    @patch('core.video.subtitle_generator.WhisperEngine')
+    @patch('utils.audio_processor.extract_for_speech')
     def test_generate_subtitles_transcribe_fail(self, mock_extract, mock_whisper, test_video_720p):
         """Test subtitle generation when transcription fails."""
         mock_extract.return_value = MagicMock(success=True, wav_path=Path("test.wav"), duration=60.0)
@@ -91,10 +91,10 @@ class TestSubtitleGenerator:
             if output_path.exists():
                 output_path.unlink()
 
-    @patch('src.core.video.subtitle_generator.WhisperEngine')
-    @patch('src.utils.audio_processor.extract_for_speech')
-    @patch('src.core.video.subtitle_generator.SubtitleTimingProcessor')
-    @patch('src.utils.ffmpeg_runner.FFmpegMuxer.add_subtitle_to_mkv')
+    @patch('core.video.subtitle_generator.WhisperEngine')
+    @patch('utils.audio_processor.extract_for_speech')
+    @patch('core.video.subtitle_generator.SubtitleTimingProcessor')
+    @patch('utils.ffmpeg_runner.FFmpegMuxer.add_subtitle_to_mkv')
     def test_generate_subtitles_mux_fail(self, mock_mux, mock_processor, mock_extract, mock_whisper, test_video_720p):
         """Test subtitle generation when muxing fails."""
         mock_extract.return_value = MagicMock(success=True, wav_path=Path("test.wav"), duration=5.0)
@@ -124,10 +124,10 @@ class TestSubtitleGenerator:
             if output_path.exists():
                 output_path.unlink()
 
-    @patch('src.core.video.subtitle_generator.WhisperEngine')
-    @patch('src.utils.audio_processor.extract_for_speech')
-    @patch('src.core.video.subtitle_generator.SubtitleTimingProcessor')
-    @patch('src.utils.ffmpeg_runner.FFmpegMuxer.add_subtitle_to_mkv')
+    @patch('core.video.subtitle_generator.WhisperEngine')
+    @patch('utils.audio_processor.extract_for_speech')
+    @patch('core.video.subtitle_generator.SubtitleTimingProcessor')
+    @patch('utils.ffmpeg_runner.FFmpegMuxer.add_subtitle_to_mkv')
     def test_generate_subtitles_with_warnings(self, mock_mux, mock_processor, mock_extract, mock_whisper, test_video_720p):
         """Test subtitle generation with hallucination warnings reveals valid video handling."""
         warnings = [MagicMock(type="known_pattern", message="Warning")]

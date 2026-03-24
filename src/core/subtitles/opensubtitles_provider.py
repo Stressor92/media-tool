@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import requests
 
@@ -63,8 +63,8 @@ class OpenSubtitlesProvider(SubtitleProvider):
         self.session.headers.update(self.headers)
 
         # Rate limiting
-        self.last_request_time = 0
-        self.min_request_interval = 0.25  # 4 requests/second max
+        self.last_request_time: float = 0.0
+        self.min_request_interval: float = 0.25  # 4 requests/second max
 
     def search(
         self,
@@ -224,7 +224,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
             reverse=True
         )[0]
 
-    def _rate_limit(self):
+    def _rate_limit(self) -> None:
         """Implement client-side rate limiting."""
         now = time.time()
         elapsed = now - self.last_request_time
@@ -236,7 +236,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
 
         self.last_request_time = time.time()
 
-    def _make_request(self, method: str, url: str, **kwargs) -> Optional[requests.Response]:
+    def _make_request(self, method: str, url: str, **kwargs: Any) -> Optional[requests.Response]:
         """Make HTTP request with retry logic and error handling."""
 
         for attempt in range(self.max_retries):
@@ -250,7 +250,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
                     # Rate limit exceeded - wait longer
                     reset_time = response.headers.get("X-RateLimit-Reset")
                     if reset_time:
-                        wait_time = max(int(reset_time) - int(time.time()), 10)
+                        wait_time = max(float(reset_time) - time.time(), 10.0)
                         logger.warning(f"Rate limit exceeded, waiting {wait_time}s")
                         time.sleep(wait_time)
                         continue

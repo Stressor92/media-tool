@@ -48,7 +48,7 @@ class HallucinationWarning:
     type: Literal["repeated_text", "known_pattern", "oversized_output", "long_silence", "timeout"]
     message: str
     confidence: float  # 0.0-1.0
-    details: dict = field(default_factory=dict)
+    details: dict[str, object] = field(default_factory=dict)
     
     def __str__(self) -> str:
         return f"[{self.type.upper()}] {self.message} (confidence: {self.confidence:.0%})"
@@ -105,8 +105,10 @@ class HallucinationDetector:
     # Silent period threshold (seconds text with no sound)
     LONG_SILENCE_THRESHOLD = 60.0
     
-    def __init__(self):
-        self.compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.KNOWN_PATTERNS]
+    def __init__(self) -> None:
+        self.compiled_patterns: list[re.Pattern[str]] = [
+            re.compile(pattern, re.IGNORECASE) for pattern in self.KNOWN_PATTERNS
+        ]
         self.logger = logging.getLogger(__name__)
     
     def detect(
@@ -124,7 +126,7 @@ class HallucinationDetector:
         Returns:
             List of HallucinationWarning objects
         """
-        warnings = []
+        warnings: list[HallucinationWarning] = []
         
         if not srt_path.exists():
             warnings.append(HallucinationWarning(
@@ -166,7 +168,7 @@ class HallucinationDetector:
     
     def _check_known_patterns(self, srt_content: str) -> list[HallucinationWarning]:
         """Check for known hallucination patterns."""
-        warnings = []
+        warnings: list[HallucinationWarning] = []
         
         for pattern in self.compiled_patterns:
             matches = pattern.findall(srt_content)
@@ -186,7 +188,7 @@ class HallucinationDetector:
     
     def _check_repeated_lines(self, srt_content: str) -> list[HallucinationWarning]:
         """Check for repeated identical subtitle lines."""
-        warnings = []
+        warnings: list[HallucinationWarning] = []
         
         # Extract subtitle texts by splitting into blocks
         blocks = re.split(r'\n\s*\n', srt_content.strip())
@@ -205,7 +207,7 @@ class HallucinationDetector:
             return warnings
         
         # Check for repeated identical text
-        text_counts = {}
+        text_counts: dict[str, int] = {}
         for line in subtitle_lines:
             # Normalize: strip whitespace, lowercase
             normalized = line.strip().lower()
@@ -227,7 +229,7 @@ class HallucinationDetector:
     
     def _check_oversized_output(self, srt_path: Path, wav_duration: float) -> list[HallucinationWarning]:
         """Check if SRT file is unusually large compared to WAV duration."""
-        warnings = []
+        warnings: list[HallucinationWarning] = []
         
         srt_size = srt_path.stat().st_size
         
@@ -252,7 +254,7 @@ class HallucinationDetector:
     
     def _check_long_silence(self, srt_content: str) -> list[HallucinationWarning]:
         """Check for long silent periods with text (common hallucination)."""
-        warnings = []
+        warnings: list[HallucinationWarning] = []
         
         # Parse timestamp gaps
         entries = re.findall(
@@ -384,7 +386,7 @@ class WhisperEngine:
             self._run_whisper(wav_path, output_srt_path, progress_callback)
             
             # Check hallucinations
-            warnings = []
+            warnings: list[HallucinationWarning] = []
             if detect_hallucinations:
                 if progress_callback:
                     progress_callback("Checking for hallucinations...", 0.9)

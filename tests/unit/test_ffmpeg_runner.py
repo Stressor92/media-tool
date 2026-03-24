@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-from src.utils.ffmpeg_runner import FFmpegMuxer
+from utils.ffmpeg_runner import FFmpegMuxer
 
 
 class TestFFmpegMuxer:
@@ -27,7 +27,7 @@ class TestFFmpegMuxer:
 
         return mkv_path, srt_path
 
-    @patch('src.utils.ffmpeg_runner.run_ffmpeg')
+    @patch('utils.ffmpeg_runner.run_ffmpeg')
     def test_add_subtitle_to_mkv_success(self, mock_run_ffmpeg):
         """Test successful subtitle muxing."""
         mock_run_ffmpeg.return_value = MagicMock(success=True)
@@ -73,7 +73,7 @@ class TestFFmpegMuxer:
         finally:
             mkv_path.unlink()
 
-    @patch('src.utils.ffmpeg_runner.run_ffmpeg')
+    @patch('utils.ffmpeg_runner.run_ffmpeg')
     def test_add_subtitle_to_mkv_ffmpeg_fail(self, mock_run_ffmpeg):
         """Test muxing when FFmpeg fails."""
         mock_run_ffmpeg.return_value = MagicMock(success=False, stderr="FFmpeg error")
@@ -90,7 +90,7 @@ class TestFFmpegMuxer:
             mkv_path.unlink()
             srt_path.unlink()
 
-    @patch('src.utils.ffmpeg_runner.run_ffmpeg')
+    @patch('utils.ffmpeg_runner.run_ffmpeg')
     def test_add_subtitle_to_mkv_size_check(self, mock_run_ffmpeg):
         """Test muxing with size validation."""
         mock_run_ffmpeg.return_value = MagicMock(success=True)

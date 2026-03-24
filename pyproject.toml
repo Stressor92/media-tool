@@ -21,7 +21,8 @@ dependencies = [
     "mutagen>=1.47",  # For advanced audio metadata
     "faster-whisper>=1.0",  # For GPU-accelerated Whisper transcription
     "requests>=2.31.0",  # For OpenSubtitles API
-    # "musicbrainzngs>=0.7",  # Optional: MusicBrainz integration
+    "pyacoustid>=1.1",  # AcoustID fingerprint lookup
+    "musicbrainzngs>=0.7",  # MusicBrainz metadata lookup
 ]
 
 [project.scripts]

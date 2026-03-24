@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import Any, Dict, List, Tuple, TypedDict
 
 from .metadata import extract_audiobook_metadata_enhanced
 
@@ -31,6 +31,22 @@ CHAPTER_PATTERNS = [
 ]
 
 
+class MergedBookInfo(TypedDict, total=False):
+    title: str
+    chapters: int
+    output_file: str
+    size_mb: float | None
+    dry_run: bool
+
+
+class MergeLibraryResult(TypedDict):
+    books_found: int
+    books_merged: int
+    total_chapters: int
+    merged_books: list[MergedBookInfo]
+    errors: list[str]
+
+
 def detect_chapter_files(directory: Path) -> Dict[str, List[Tuple[Path, int]]]:
     """
     Detect and group chapter files by book title.
@@ -41,7 +57,7 @@ def detect_chapter_files(directory: Path) -> Dict[str, List[Tuple[Path, int]]]:
     Returns:
         Dict mapping book titles to lists of (file_path, chapter_number) tuples.
     """
-    book_chapters = {}
+    book_chapters: dict[str, list[tuple[Path, int]]] = {}
 
     # Common audiobook extensions
     extensions = {".mp3", ".m4a", ".aac", ".ogg", ".flac"}
@@ -102,7 +118,7 @@ def merge_audiobook_chapters(
     output_file: Path,
     preserve_metadata: bool = True,
     overwrite: bool = False,
-) -> Dict[str, any]:
+) -> dict[str, Any]:
     """
     Merge multiple audiobook chapter files into a single file.
 
@@ -197,7 +213,7 @@ def merge_audiobook_library(
     format: str = "m4a",
     overwrite: bool = False,
     dry_run: bool = False,
-) -> Dict[str, any]:
+) -> MergeLibraryResult:
     """
     Scan a directory for chapter-based audiobooks and merge them.
 
@@ -220,12 +236,13 @@ def merge_audiobook_library(
             "books_found": 0,
             "books_merged": 0,
             "total_chapters": 0,
+            "merged_books": [],
             "errors": ["No chapter files detected"],
         }
 
     logger.info(f"Found {len(book_chapters)} potential books with chapters")
 
-    results = {
+    results: MergeLibraryResult = {
         "books_found": len(book_chapters),
         "books_merged": 0,
         "total_chapters": sum(len(chapters) for chapters in book_chapters.values()),

@@ -7,6 +7,9 @@ pysubs2>=1.7
 mutagen>=1.47
 faster-whisper>=1.0
 requests>=2.31.0
+mypy>=1.11
+pre-commit>=4.0
+types-requests>=2.32
 
 # Optional heavy dependencies - install separately if needed:
 # openai-whisper

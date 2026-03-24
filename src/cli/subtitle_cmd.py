@@ -33,8 +33,8 @@ def download(
     interactive: bool = typer.Option(False, help="Show matches and let user choose"),
     recursive: bool = typer.Option(True, help="Process directories recursively"),
     overwrite: bool = typer.Option(False, help="Overwrite existing subtitles"),
-    api_key: str = typer.Option(None, envvar="OPENSUBTITLES_API_KEY")
-):
+    api_key: str | None = typer.Option(None, envvar="OPENSUBTITLES_API_KEY")
+) -> None:
     """
     Download subtitles from OpenSubtitles.org
 
@@ -113,8 +113,8 @@ def search(
     path: Path = typer.Argument(..., help="MKV file to search subtitles for"),
     languages: str = typer.Option("en", help="Comma-separated language codes"),
     limit: int = typer.Option(10, help="Max results to show"),
-    api_key: str = typer.Option(None, envvar="OPENSUBTITLES_API_KEY")
-):
+    api_key: str | None = typer.Option(None, envvar="OPENSUBTITLES_API_KEY")
+) -> None:
     """
     Search for available subtitles (without downloading)
 

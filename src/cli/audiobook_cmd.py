@@ -119,16 +119,16 @@ def scan_command(
 
             for metadata in metadata_list:
                 writer.writerow({
-                    'file_path': str(metadata.file_path) if metadata.file_path else '',
+                    'file_path': str(metadata.filepath),
                     'filename': metadata.filename,
                     'title': metadata.title,
                     'artist': metadata.artist,
                     'album': metadata.album,
                     'year': metadata.year,
                     'track_number': metadata.track_number,
-                    'duration': metadata.duration,
-                    'bitrate': metadata.bitrate,
-                    'format': metadata.format,
+                    'duration': metadata.duration_seconds,
+                    'bitrate': metadata.bit_rate,
+                    'format': metadata.codec_name,
                     'narrator': metadata.narrator,
                     'series': metadata.series,
                 })

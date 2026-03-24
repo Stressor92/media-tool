@@ -195,7 +195,7 @@ def scan_audio_directory(
         return []
 
     pattern = "**/*" if recursive else "*"
-    audio_files = []
+    audio_files: list[Path] = []
 
     for ext in extensions:
         audio_files.extend(directory.glob(f"{pattern}{ext}"))

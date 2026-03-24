@@ -8,14 +8,41 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, TypedDict
 
-from .metadata import extract_audio_metadata_enhanced, AudioMetadata
+from .metadata import AudioMetadataEnhanced, extract_audio_metadata_enhanced
 from .enhancement import improve_audio_library
 from .organization import organize_music
 from .conversion import convert_audio
 
 logger = logging.getLogger(__name__)
+
+
+class WorkflowStatistics(TypedDict):
+    total_files: int
+    processed_files: int
+    improved_files: int
+    organized_files: int
+    converted_files: int
+    errors: int
+
+
+class WorkflowResults(TypedDict):
+    scanned_files: list[AudioMetadataEnhanced]
+    improved_files: list[str]
+    organized_files: list[str]
+    converted_files: list[str]
+    errors: list[str]
+    statistics: WorkflowStatistics
+
+
+class ScanResults(TypedDict):
+    files: list[AudioMetadataEnhanced]
+
+
+class ConversionResults(TypedDict):
+    converted: list[str]
+    errors: int
 
 
 def process_audio_library_workflow(
@@ -25,7 +52,7 @@ def process_audio_library_workflow(
     improve: bool = True,
     scan_only: bool = False,
     overwrite: bool = False,
-) -> Dict[str, Any]:
+) -> WorkflowResults:
     """
     Complete music library processing workflow.
 
@@ -48,7 +75,7 @@ def process_audio_library_workflow(
     """
     logger.info(f"Starting audio library workflow: {input_dir} → {output_dir}")
 
-    results = {
+    results: WorkflowResults = {
         "scanned_files": [],
         "improved_files": [],
         "organized_files": [],
@@ -90,7 +117,6 @@ def process_audio_library_workflow(
                 overwrite=overwrite,
             )
 
-            results["improved_files"] = improvement_results.get("improved", [])
             results["statistics"]["improved_files"] = improvement_results.get("improved", 0)
 
             # Use improved files as input for next steps
@@ -114,7 +140,6 @@ def process_audio_library_workflow(
             overwrite=overwrite,
         )
 
-        results["organized_files"] = organization_results.get("processed", [])
         results["statistics"]["organized_files"] = organization_results.get("processed", 0)
         results["statistics"]["errors"] += organization_results.get("errors", 0)
 
@@ -133,9 +158,9 @@ def process_audio_library_workflow(
             overwrite=overwrite,
         )
 
-        results["converted_files"] = conversion_results.get("converted", [])
-        results["statistics"]["converted_files"] = conversion_results.get("converted", 0)
-        results["statistics"]["errors"] += conversion_results.get("errors", 0)
+        results["converted_files"] = conversion_results["converted"]
+        results["statistics"]["converted_files"] = len(conversion_results["converted"])
+        results["statistics"]["errors"] += conversion_results["errors"]
 
     except Exception as e:
         logger.error(f"Conversion failed: {e}")
@@ -161,16 +186,17 @@ def process_audio_library_workflow(
     return results
 
 
-def _scan_audio_library(input_dir: Path) -> Dict[str, List[AudioMetadata]]:
+def _scan_audio_library(input_dir: Path) -> ScanResults:
     """Scan audio library and extract metadata."""
-    files = []
+    files: list[AudioMetadataEnhanced] = []
     audio_extensions = {'.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wav', '.wma'}
 
     for file_path in input_dir.rglob('*'):
         if file_path.is_file() and file_path.suffix.lower() in audio_extensions:
             try:
                 metadata = extract_audio_metadata_enhanced(file_path)
-                files.append(metadata)
+                if metadata is not None:
+                    files.append(metadata)
             except Exception as e:
                 logger.warning(f"Failed to extract metadata from {file_path}: {e}")
 
@@ -181,7 +207,7 @@ def _convert_organized_library(
     organized_dir: Path,
     target_format: str,
     overwrite: bool = False,
-) -> Dict[str, Any]:
+) -> ConversionResults:
     """Convert organized library to consistent format."""
     converted = []
     errors = 0
