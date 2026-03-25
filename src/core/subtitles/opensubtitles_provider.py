@@ -48,13 +48,17 @@ class OpenSubtitlesProvider(SubtitleProvider):
             timeout: Request timeout in seconds
             max_retries: Maximum retry attempts for failed requests
         """
-        self.api_key = api_key
+        normalized_key = api_key.strip()
+        if not normalized_key:
+            raise ValueError("OpenSubtitles API key must not be empty")
+
+        self.api_key = normalized_key
         self.user_agent = user_agent
         self.timeout = timeout
         self.max_retries = max_retries
 
         self.headers = {
-            "Api-Key": api_key,
+            "Api-Key": normalized_key,
             "User-Agent": user_agent,
             "Content-Type": "application/json"
         }

@@ -158,10 +158,9 @@ class TestDeriveOutputName:
         assert derive_output_name(file_path) == "Movie"
 
     def test_derive_removes_square_bracket_de_suffix(self, tmp_media_dir):
-        """Should NOT remove [de] suffix (not in regex pattern)."""
+        """Should remove '[de]' suffix like other recognized language markers."""
         file_path = tmp_media_dir / "Movie[de].mp4"
-        # Square brackets are not in the regex pattern, so they remain
-        assert derive_output_name(file_path) == "Movie[de]"
+        assert derive_output_name(file_path) == "Movie"
 
     def test_derive_case_insensitive(self, tmp_media_dir):
         """Should remove suffix case-insensitively."""

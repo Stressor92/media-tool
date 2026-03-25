@@ -24,7 +24,7 @@ Integration with tools like ffmpeg, Whisper, and Jellyfin
 
 Run the full tests with `pytest -q`; a few known integration tests may fail in environments without full ffmpeg/video fixture support (these are pre-existing behavior checks). 
 
-Architecture
+## Architecture
 
 The project follows a layered architecture designed for modularity, extensibility, and separation of concerns:
 
@@ -34,6 +34,8 @@ src/
 │   ├── audio/         # Audio processing modules (conversion, enhancement, metadata)
 │   ├── video/         # Video processing modules (conversion, upscaling, merging)
 │   ├── audiobook/     # Audiobook-specific logic (organization, chapter merging)
+│   ├── subtitles/     # Subtitle provider abstraction + OpenSubtitles workflow
+│   ├── download/      # yt-dlp domain (request models, runner, selector, manager)
 │   └── naming/        # File naming utilities for Jellyfin compatibility
 ├── cli/               # Command-line interface (Typer-based)
 │   ├── main.py        # Main CLI entry point and command dispatcher
@@ -42,13 +44,17 @@ src/
 │   ├── convert_cmd.py # MP4 → MKV conversion
 │   ├── inspect_cmd.py # Media library inspection
 │   ├── merge_cmd.py   # Video merging with multiple audio tracks
+│   ├── subtitle_cmd.py # Subtitle search/download commands
+│   ├── download_cmd.py # yt-dlp download commands (video/music/series)
 │   ├── upscale_cmd.py # Video upscaling
 │   └── video_cmd.py   # General video processing commands
 ├── utils/             # Shared helpers and low-level utilities
 │   ├── audio_analyzer.py       # Audio metadata extraction using ffprobe
 │   ├── audio_processor.py      # Audio manipulation and enhancement tools
+│   ├── config.py               # TOML + env configuration loader
 │   ├── ffmpeg_runner.py        # FFmpeg wrapper for media processing
 │   ├── ffprobe_runner.py       # FFprobe wrapper for media analysis
+│   ├── url_validator.py        # URL validation + platform classification
 │   └── whisper_models/         # Whisper model storage (optional, future)
 ├── gui/               # (future) Graphical user interface (PySide6/Qt) #TODO
 │
@@ -60,11 +66,23 @@ tests/                 # Comprehensive test suite
 obsolet_ps_scrips/     # Legacy PowerShell scripts (deprecated, replaced by Python)
 ```
 
+### Download Layering (yt-dlp)
+
+```
+CLI (src/cli/download_cmd.py)
+	-> DownloadManager (core/download/download_manager.py)
+		 -> YtDlpRunner (core/download/yt_dlp_runner.py)
+		 -> FormatSelector (core/download/format_selector.py)
+		 -> (future) Download Profiles from [download.profiles.<name>]
+```
+
 Principles
 Core logic is UI-independent
 CLI and GUI both use the same backend
 Focus on modular, reusable functions
 Designed for automation and batch processing
+Configuration follows predictable precedence for request construction:
+CLI values > profile values > global defaults
 
 Core Use Cases
 1. 🎥 Convert .mp4 → .mkv
@@ -245,6 +263,19 @@ languages = ["en", "de"]
 
 [defaults.audio]
 min_confidence = 0.8
+
+[download]
+default_output_video = "downloads/videos"
+default_output_music = "downloads/music"
+default_output_series = "downloads/series"
+max_resolution = 1080
+audio_format = "mp3"
+audio_quality = "320k"
+preferred_language = "de"
+subtitle_languages = ["de", "en"]
+embed_subtitles = true
+embed_thumbnail = true
+sponsorblock_remove = ["sponsor"]
 ```
 
 ### Environment Overrides
@@ -281,6 +312,8 @@ media-tool subtitle download movie.mkv
 ```
 
 The audio tagging commands can do the same for `acoustid_api_key`, and the low-level FFmpeg/FFprobe runners now honor configured binary paths globally.
+
+Download commands now read defaults from `[download]` in config (output directories, resolution, audio format/quality, subtitle defaults).
 
 ## Quick Start & Common Workflows
 
@@ -388,6 +421,36 @@ media-tool video convert "E:\Downloads" --output "Y:\Videos" --language de --ove
 media-tool video upscale batch "E:\Downloads" --height 720
 ```
 
+### 5. Web Download Workflows (yt-dlp)
+
+#### Download Single Video
+```bash
+media-tool download video "https://youtube.com/watch?v=..." --resolution 1080
+```
+
+#### Download with Browser Cookies (for login-protected media)
+```bash
+media-tool download video "https://youtube.com/watch?v=..." --cookies-from-browser chrome
+```
+
+#### Download with Cookie File
+```bash
+media-tool download video "https://youtube.com/watch?v=..." --cookies-file cookies.txt
+```
+
+#### Download Music as FLAC
+```bash
+media-tool download music "https://soundcloud.com/..." --format flac
+```
+
+The downloader retries automatically with browser cookies when a login/authentication error is detected and no cookie source was explicitly provided.
+Cookie values are not persisted by the tool and should only be passed at runtime.
+
+#### Download Series/Playlist Structure
+```bash
+media-tool download series "https://youtube.com/playlist?list=..." --output "Y:\Serien"
+```
+
 ## All Available Commands
 
 ```bash
@@ -396,6 +459,7 @@ media-tool video --help        # Video commands
 media-tool audio --help        # Audio/Music commands
 media-tool audiobook --help    # Audiobook commands
 media-tool inspect --help      # Inspection tools
+media-tool download --help     # yt-dlp based download commands
 ```
 
 ## Planned Features

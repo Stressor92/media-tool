@@ -24,6 +24,25 @@ from .ffmpeg_runner import FFmpegResult, run_ffmpeg
 logger = logging.getLogger(__name__)
 
 
+def _failed_conversion_result(
+    input_file: Path,
+    output_file: Path,
+    message: str,
+) -> AudioConversionResult:
+    return AudioConversionResult(
+        success=False,
+        input_file=input_file,
+        output_file=output_file,
+        ffmpeg_result=FFmpegResult(
+            success=False,
+            return_code=1,
+            command=["ffmpeg"],
+            stderr_bytes=message.encode("utf-8", errors="replace"),
+            stdout_bytes=b"",
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class AudioConversionResult:
     """Result of an audio conversion operation."""
@@ -89,6 +108,14 @@ def convert_audio_format(
         AudioConversionResult with conversion details.
     """
     from .audio_analyzer import extract_audio_metadata
+
+    if not input_file.exists():
+        return _failed_conversion_result(input_file, output_file, f"Input file not found: {input_file}")
+
+    if not input_file.is_file():
+        return _failed_conversion_result(input_file, output_file, f"Input path is not a file: {input_file}")
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
     input_metadata = extract_audio_metadata(input_file)
 

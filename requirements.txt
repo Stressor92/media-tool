@@ -9,6 +9,7 @@ faster-whisper>=1.0
 requests>=2.31.0
 pyacoustid>=1.1
 musicbrainzngs>=0.7
+yt-dlp>=2024.11.0
 mypy>=1.11
 pre-commit>=4.0
 types-requests>=2.32

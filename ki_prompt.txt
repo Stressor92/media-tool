@@ -11,7 +11,10 @@ Your task is to help design, implement, and extend a clean, scalable, and mainta
 - `VideoHasher` added (`utils/video_hasher.py`) with OpenSubtitles hash.
 - `media-tool subtitle download|search` CLI commands added (`src/cli/subtitle_cmd.py`).
 - `FFmpegMuxer` integration fixed in subtitle manager (instead of missing `FFmpegRunner`).
-- Target integration tests passing for subtitle flow (16/16 in focused subset).
+- yt-dlp download domain added (`core/download/*`) with request models, format selector, runner and manager.
+- `media-tool download video|music|series` CLI command group added (`src/cli/download_cmd.py`).
+- Cookie support + auth fallback for protected downloads is available in download workflow.
+- Full current quality gate is green (`pytest` + `mypy`).
 - `.gitignore` updated and root temp test artifacts removed.
 
 ## 🧠 PROJECT CONTEXT
@@ -23,6 +26,8 @@ This project evolves from simple scripts into a structured Python application wi
 * Future GUI (PySide6)
 * Automation workflows (NAS folder monitoring)
 * Subtitle generation (Whisper)
+* Web download workflows via yt-dlp
+* Central config via `media-tool.toml`
 
 The primary goal is to automate and standardize media preparation workflows for video, audio, music, and audiobooks.
 
@@ -38,21 +43,27 @@ src/
 │   ├── audio/         # Audio processing modules (conversion, enhancement, metadata)
 │   ├── video/         # Video processing modules (conversion, upscaling, merging)
 │   ├── audiobook/     # Audiobook-specific logic (organization, chapter merging)
+│   ├── subtitles/     # Subtitle provider abstraction + OpenSubtitles workflow
+│   ├── download/      # yt-dlp domain (models, runner, selector, manager)
 │   └── naming/        # File naming utilities for Jellyfin compatibility
 ├── cli/               # Command-line interface (Typer-based)
 │   ├── main.py        # Main CLI entry point and command dispatcher
 │   ├── audio_cmd.py   # Audio/music processing commands
 │   ├── audiobook_cmd.py # Audiobook processing commands
 │   ├── convert_cmd.py # MP4 → MKV conversion
+│   ├── download_cmd.py # yt-dlp download commands
 │   ├── inspect_cmd.py # Media library inspection
 │   ├── merge_cmd.py   # Video merging with multiple audio tracks
+│   ├── subtitle_cmd.py # Subtitle download/search commands
 │   ├── upscale_cmd.py # Video upscaling
 │   └── video_cmd.py   # General video processing commands
 ├── utils/             # Shared helpers and low-level utilities
 │   ├── audio_analyzer.py       # Audio metadata extraction using ffprobe
 │   ├── audio_processor.py      # Audio manipulation and enhancement tools
 │   ├── ffmpeg_runner.py        # FFmpeg wrapper for media processing
-│   └── ffprobe_runner.py       # FFprobe wrapper for media analysis
+│   ├── ffprobe_runner.py       # FFprobe wrapper for media analysis
+│   ├── config.py               # TOML + environment config loader
+│   └── url_validator.py        # URL validation + platform classification
 ├── gui/               # (future) Graphical user interface (PySide6/Qt)
 │
 tests/                 # Comprehensive test suite
@@ -61,6 +72,23 @@ tests/                 # Comprehensive test suite
 │
 obsolet_ps_scrips/     # Legacy PowerShell scripts (deprecated, replaced by Python)
 ```
+
+Download architecture contract:
+
+```
+CLI (download_cmd.py)
+   -> core.download.DownloadManager
+       -> core.download.YtDlpRunner
+       -> core.download.format_selector
+```
+
+Configuration precedence contract for download requests (must be preserved):
+
+`CLI overrides > profile values > global defaults`
+
+Planned profile namespace in TOML:
+
+`[download.profiles.<name>]`
 
 ---
 
@@ -88,6 +116,7 @@ obsolet_ps_scrips/     # Legacy PowerShell scripts (deprecated, replaced by Pyth
    * No ffmpeg logic in CLI
    * No print statements inside core (use return values or logging)
    * No UI logic in core modules
+   * No direct network/yt-dlp usage inside CLI (use core/download manager)
 
 2. Core modules must:
 
@@ -100,11 +129,13 @@ obsolet_ps_scrips/     # Legacy PowerShell scripts (deprecated, replaced by Pyth
    * only orchestrate
    * call core functions
    * handle user input/output
+   * apply explicit user overrides cleanly on top of config/profile values
 
 4. Always use:
 
    * pathlib instead of os
    * subprocess for ffmpeg calls
+   * typed dataclasses / pydantic models for request and config data
 
 ---
 

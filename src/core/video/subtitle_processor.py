@@ -122,7 +122,7 @@ class SubtitleTimingProcessor:
             return result
 
         try:
-            text = srt_path.read_text(encoding="utf-8")
+            text = srt_path.read_text(encoding="utf-8-sig")
         except UnicodeDecodeError:
             result.is_valid = False
             result.errors.append("SRT is not valid UTF-8")

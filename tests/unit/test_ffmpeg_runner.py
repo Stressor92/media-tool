@@ -30,20 +30,23 @@ class TestFFmpegMuxer:
     @patch('utils.ffmpeg_runner.run_ffmpeg')
     def test_add_subtitle_to_mkv_success(self, mock_run_ffmpeg):
         """Test successful subtitle muxing."""
-        mock_run_ffmpeg.return_value = MagicMock(success=True)
-
         muxer = FFmpegMuxer()
         mkv_path, srt_path = self.create_test_files()
 
         try:
+            def side_effect(_args):
+                mkv_path.with_suffix('.tmp.mkv').write_bytes(b'dummy mkv content')
+                return MagicMock(success=True)
+
+            mock_run_ffmpeg.side_effect = side_effect
             result = muxer.add_subtitle_to_mkv(mkv_path, srt_path)
 
             assert result.success
             assert result.output_file == mkv_path
             mock_run_ffmpeg.assert_called_once()
         finally:
-            mkv_path.unlink()
-            srt_path.unlink()
+            mkv_path.unlink(missing_ok=True)
+            srt_path.unlink(missing_ok=True)
 
     def test_add_subtitle_to_mkv_missing_mkv(self):
         """Test muxing with missing MKV file."""
@@ -87,14 +90,12 @@ class TestFFmpegMuxer:
             assert not result.success
             assert "FFmpeg error" in result.error_message
         finally:
-            mkv_path.unlink()
-            srt_path.unlink()
+            mkv_path.unlink(missing_ok=True)
+            srt_path.unlink(missing_ok=True)
 
     @patch('utils.ffmpeg_runner.run_ffmpeg')
     def test_add_subtitle_to_mkv_size_check(self, mock_run_ffmpeg):
         """Test muxing with size validation."""
-        mock_run_ffmpeg.return_value = MagicMock(success=True)
-
         muxer = FFmpegMuxer()
         mkv_path, srt_path = self.create_test_files()
 
@@ -102,11 +103,16 @@ class TestFFmpegMuxer:
         mkv_path.write_bytes(b'x' * 100)
 
         try:
+            def side_effect(_args):
+                mkv_path.with_suffix('.tmp.mkv').write_bytes(b'x' * 10)
+                return MagicMock(success=True)
+
+            mock_run_ffmpeg.side_effect = side_effect
             result = muxer.add_subtitle_to_mkv(mkv_path, srt_path)
 
             # Should fail size validation
             assert not result.success
             assert "size out of expected range" in result.error_message
         finally:
-            mkv_path.unlink()
-            srt_path.unlink()
+            mkv_path.unlink(missing_ok=True)
+            srt_path.unlink(missing_ok=True)

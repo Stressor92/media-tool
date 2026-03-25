@@ -109,6 +109,46 @@ class DefaultConfig(BaseModel):
     audio: AudioDefaults = Field(default_factory=AudioDefaults)
 
 
+class DownloadConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    default_output_video: str = "downloads/videos"
+    default_output_music: str = "downloads/music"
+    default_output_series: str = "downloads/series"
+    max_resolution: int = Field(default=1080, ge=144, le=4320)
+    audio_format: str = "mp3"
+    audio_quality: str = "320k"
+    preferred_language: str = "de"
+    subtitle_languages: list[str] = Field(default_factory=lambda: ["de", "en"])
+    embed_subtitles: bool = True
+    embed_thumbnail: bool = True
+    sponsorblock_remove: list[str] = Field(default_factory=lambda: ["sponsor"])
+
+    @field_validator(
+        "default_output_video",
+        "default_output_music",
+        "default_output_series",
+        "audio_format",
+        "audio_quality",
+        "preferred_language",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_non_empty_strings(cls, value: object) -> object:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                raise ValueError("download field must not be empty")
+            return normalized
+        return value
+
+    @field_validator("subtitle_languages", "sponsorblock_remove")
+    @classmethod
+    def _normalize_string_lists(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip().lower() for item in value if item.strip()]
+        return normalized
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -116,6 +156,7 @@ class AppConfig(BaseModel):
     tools: ToolConfig = Field(default_factory=ToolConfig)
     paths: PathConfig = Field(default_factory=PathConfig)
     defaults: DefaultConfig = Field(default_factory=DefaultConfig)
+    download: DownloadConfig = Field(default_factory=DownloadConfig)
 
 
 _CONFIG_CACHE: AppConfig | None = None
@@ -254,7 +295,7 @@ def _legacy_env_mapping(key: str) -> list[str] | None:
 def _parse_env_value(field_name: str, value: str) -> Any:
     normalized = value.strip()
 
-    if field_name == "languages":
+    if field_name in {"languages", "subtitle_languages", "sponsorblock_remove"}:
         if normalized.startswith("["):
             try:
                 parsed = json.loads(normalized)

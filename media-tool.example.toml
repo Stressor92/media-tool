@@ -22,3 +22,16 @@ auto = true
 
 [defaults.audio]
 min_confidence = 0.7
+
+[download]
+default_output_video = "downloads/videos"
+default_output_music = "downloads/music"
+default_output_series = "downloads/series"
+max_resolution = 1080
+audio_format = "mp3"
+audio_quality = "320k"
+preferred_language = "de"
+subtitle_languages = ["de", "en"]
+embed_subtitles = true
+embed_thumbnail = true
+sponsorblock_remove = ["sponsor"]
