@@ -50,6 +50,7 @@ def list_profiles_command() -> None:
     table.add_column("Height", justify="center")
     table.add_column("CRF", justify="center")
     table.add_column("Enc. Preset", justify="center")
+    table.add_column("Deinterlace", justify="center")
     table.add_column("Crop", justify="center")
     table.add_column("Description")
 
@@ -57,11 +58,13 @@ def list_profiles_command() -> None:
         p = BUILTIN_PROFILES[name]
         o = p.options
         crop_status = "[red]off[/red]" if o.force_disable_crop else "[green]auto[/green]"
+        deint_status = f"[green]{o.deinterlace_mode}[/green]" if o.deinterlace else "[dim]off[/dim]"
         table.add_row(
             name,
             f"{o.target_height}p",
             str(o.crf),
             o.preset,
+            deint_status,
             crop_status,
             p.description,
         )
@@ -128,6 +131,14 @@ def batch_command(
         None, "--height",
         help="Override target output height in pixels. Overrides profile.",
     ),
+    deinterlace: Optional[bool] = typer.Option(
+        None, "--deinterlace/--no-deinterlace",
+        help="Enable deinterlacing (yadif). Recommended for PAL TV recordings. Overrides profile.",
+    ),
+    deinterlace_mode: Optional[str] = typer.Option(
+        None, "--deinterlace-mode",
+        help='Deinterlace filter to use: \"yadif\" (fast) or \"bwdif\" (higher quality). Default: yadif.',
+    ),
 ) -> None:
     """
     Batch-upscale all DVD-quality MKV files in DIRECTORY to H.265.
@@ -156,11 +167,14 @@ def batch_command(
         encoder_preset=preset,
         target_height=target_height,
         overwrite=overwrite,
+        deinterlace=deinterlace,
+        deinterlace_mode=deinterlace_mode,
     )
+    deinterlace_info = f" · {opts.deinterlace_mode}" if opts.deinterlace else ""
     console.print(
         f"[dim]Settings :[/dim] "
-        f"{opts.target_height}p · CRF {opts.crf} · preset {opts.preset} · "
-        f"codec {opts.codec}"
+        f"{opts.target_height}p \u00b7 CRF {opts.crf} \u00b7 preset {opts.preset} \u00b7 "
+        f"codec {opts.codec}{deinterlace_info}"
     )
     reporter = ConsoleProgressReporter(console)
 
@@ -196,6 +210,14 @@ def single_command(
     preset: Optional[str] = typer.Option(None, "--preset"),
     overwrite: bool = typer.Option(False, "--overwrite"),
     target_height: Optional[int] = typer.Option(None, "--height"),
+    deinterlace: Optional[bool] = typer.Option(
+        None, "--deinterlace/--no-deinterlace",
+        help="Enable deinterlacing (yadif). Recommended for PAL TV recordings. Overrides profile.",
+    ),
+    deinterlace_mode: Optional[str] = typer.Option(
+        None, "--deinterlace-mode",
+        help='Deinterlace filter: \"yadif\" (fast) or \"bwdif\" (higher quality). Default: yadif.',
+    ),
 ) -> None:
     """Upscale a single MKV file to H.265 using the chosen profile."""
     try:
@@ -213,8 +235,8 @@ def single_command(
         crf=crf,
         encoder_preset=preset,
         target_height=target_height,
-        overwrite=overwrite,
-    )
+        overwrite=overwrite,        deinterlace=deinterlace,
+        deinterlace_mode=deinterlace_mode,    )
     console.print(
         f"[dim]Settings:[/dim] "
         f"{opts.target_height}p · CRF {opts.crf} · preset {opts.preset} · "

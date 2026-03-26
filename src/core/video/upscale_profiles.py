@@ -11,6 +11,9 @@ Built-in profiles
 dvd        Standard DVD upscale that mirrors DVD_h265_720p_improvment.ps1.
            720p · CRF 21 · preset medium · full filter chain.
 
+jellyfin   Jellyfin direct-play / direct-stream optimised encode.
+           PAL 576p · CRF 18 · preset slow · deinterlace enabled · gentler filter chain.
+
 dvd-hq     High-quality DVD rip for important films.
            720p · CRF 18 · preset slow · stronger sharpen.
 
@@ -65,7 +68,33 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             eq_contrast=1.02,
             eq_brightness=0.0,
             eq_saturation=1.02,
-            unsharp_luma=0.25,
+            unsharp_luma=0.15,
+            crop_skip_seconds=5,
+            crop_sample_seconds=10,
+            force_disable_crop=False,
+        ),
+    ),
+
+    # --- Jellyfin direct-play ----------------------------------------------
+    "jellyfin": UpscaleProfile(
+        name="jellyfin",
+        description=(
+            "Jellyfin direct-play / direct-stream optimised encode. "
+            "PAL 576p · CRF 18 · preset slow · deinterlace enabled · gentler filter chain."
+        ),
+        options=UpscaleOptions(
+            target_height=576,    # PAL native — no fake upscale beyond source resolution
+            target_width=1024,    # correct for 4:3 PAL after DAR
+            crf=18,
+            preset="slow",
+            codec="libx265",
+            gradfun_strength=3.0,
+            eq_contrast=1.01,
+            eq_brightness=0.0,
+            eq_saturation=1.02,
+            unsharp_luma=0.15,
+            deinterlace=True,
+            deinterlace_mode="yadif",
             crop_skip_seconds=5,
             crop_sample_seconds=10,
             force_disable_crop=False,
@@ -89,7 +118,7 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             eq_contrast=1.02,
             eq_brightness=0.0,
             eq_saturation=1.02,
-            unsharp_luma=0.30,
+            unsharp_luma=0.20,
             crop_skip_seconds=5,
             crop_sample_seconds=15,
             force_disable_crop=False,
@@ -137,7 +166,7 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             eq_contrast=1.02,
             eq_brightness=0.0,
             eq_saturation=1.02,
-            unsharp_luma=0.25,
+            unsharp_luma=0.15,
             crop_skip_seconds=5,
             crop_sample_seconds=10,
             force_disable_crop=False,
@@ -161,7 +190,7 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             eq_contrast=1.01,
             eq_brightness=0.0,
             eq_saturation=1.03,
-            unsharp_luma=0.15,
+            unsharp_luma=0.10,
             crop_skip_seconds=5,
             crop_sample_seconds=10,
             force_disable_crop=True,
@@ -185,7 +214,7 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             eq_contrast=1.02,
             eq_brightness=0.0,
             eq_saturation=1.02,
-            unsharp_luma=0.25,
+            unsharp_luma=0.15,
             crop_skip_seconds=5,
             crop_sample_seconds=20,
             force_disable_crop=False,
@@ -224,6 +253,8 @@ def resolve_upscale_options(
     encoder_preset: str | None = None,
     target_height: int | None = None,
     overwrite: bool = False,
+    deinterlace: bool | None = None,
+    deinterlace_mode: str | None = None,
 ) -> UpscaleOptions:
     """Build final :class:`UpscaleOptions` by applying CLI overrides on top of a
     named profile.
@@ -232,12 +263,14 @@ def resolve_upscale_options(
       *CLI explicit value* > *profile value* > *built-in default*
 
     Args:
-        profile_name:    Name of the built-in profile (default ``"dvd"``).
-        crf:             Override the profile's H.265 CRF value.
-        encoder_preset:  Override the profile's ffmpeg encoding preset
-                         (e.g. ``"fast"``, ``"slow"``).
-        target_height:   Override the profile's output height in pixels.
-        overwrite:       Allow overwriting existing output files.
+        profile_name:     Name of the built-in profile (default ``"dvd"``).
+        crf:              Override the profile's H.265 CRF value.
+        encoder_preset:   Override the profile's ffmpeg encoding preset
+                          (e.g. ``"fast"``, ``"slow"``).
+        target_height:    Override the profile's output height in pixels.
+        overwrite:        Allow overwriting existing output files.
+        deinterlace:      Override deinterlace toggle.
+        deinterlace_mode: Override deinterlace filter (``"yadif"`` or ``"bwdif"``).
 
     Returns:
         Fully resolved :class:`UpscaleOptions`.
@@ -251,4 +284,6 @@ def resolve_upscale_options(
         preset=encoder_preset if encoder_preset is not None else base.preset,
         target_height=target_height if target_height is not None else base.target_height,
         overwrite=overwrite,
+        deinterlace=deinterlace if deinterlace is not None else base.deinterlace,
+        deinterlace_mode=deinterlace_mode if deinterlace_mode is not None else base.deinterlace_mode,
     )

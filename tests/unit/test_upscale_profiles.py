@@ -21,7 +21,7 @@ from core.video.upscaler import UpscaleOptions
 # Fixtures
 # ---------------------------------------------------------------------------
 
-EXPECTED_PROFILES = {"dvd", "dvd-hq", "dvd-fast", "1080p", "anime", "archive"}
+EXPECTED_PROFILES = {"dvd", "dvd-hq", "dvd-fast", "1080p", "anime", "archive", "jellyfin"}
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ class TestDvdProfile:
     def test_full_filter_chain(self) -> None:
         p = BUILTIN_PROFILES["dvd"]
         assert p.options.gradfun_strength == 4.0
-        assert p.options.unsharp_luma == 0.25
+        assert p.options.unsharp_luma == 0.15
         assert p.options.force_disable_crop is False
 
     def test_codec_is_libx265(self) -> None:

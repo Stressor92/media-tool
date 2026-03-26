@@ -11,7 +11,7 @@ Features:
 - SAR-aware DAR calculation
 - Plausibility-filtered cropdetect
 - Lanczos scale to 720p with correct DAR
-- Soft deband (gradfun), colour correction (eq), unsharp mask
+- Deinterlace (optional yadif/bwdif), soft deband (gradfun pre-scale), colour correction (eq), unsharp mask
 - H.265 CRF encode, copy audio + subtitles
 - Per-file duration + size delta tracking
 
@@ -74,7 +74,12 @@ class UpscaleOptions:
     eq_contrast: float = 1.02
     eq_brightness: float = 0.0
     eq_saturation: float = 1.02
-    unsharp_luma: float = 0.25       # luma amount (5x5 matrix)
+    unsharp_luma: float = 0.15       # luma amount (5x5 matrix) — gentler default, DVD edges can't support more
+
+    # Deinterlacing — enable for PAL TV recordings and interlaced DVD sources
+    # yadif: fast field-aware deinterlace; bwdif: slower but higher quality
+    deinterlace: bool = False
+    deinterlace_mode: str = "yadif"  # "yadif" or "bwdif"
 
     # Cropdetect settings
     crop_skip_seconds: int = 5
@@ -228,7 +233,11 @@ def _build_filter_chain(
     """
     Build the ffmpeg -vf filter chain for DVD upscaling.
 
-    Order: [crop →] scale → gradfun → eq → unsharp → format
+    Order: [deinterlace →] [crop →] gradfun → scale → eq → unsharp → format
+
+    gradfun debands on the original bit depth before upscaling, which is more
+    effective than debanding at the higher output resolution. Deinterlacing must
+    come first so all subsequent filters see progressive frames.
 
     Args:
         dar:         Display aspect ratio (used to compute output width).
@@ -237,14 +246,19 @@ def _build_filter_chain(
     """
     filters: list[str] = []
 
+    # Deinterlace first — PAL TV recordings and many DVD ISOs are interlaced.
+    # mode=1 = send frame, field-aware (yadif); bwdif is higher quality but slower.
+    if opts.deinterlace:
+        filters.append(f"{opts.deinterlace_mode}=mode=1")
+
     if crop_filter:
         filters.append(crop_filter)
 
+    # Soft deband *before* scaling — operates on original bit-depth artifacts.
+    filters.append(f"gradfun={opts.gradfun_strength:.1f}")
+
     # Scale to the configured HD target profile.
     filters.append(f"scale={opts.target_width}:{opts.target_height}:flags=lanczos")
-
-    # Soft deband
-    filters.append(f"gradfun={opts.gradfun_strength:.1f}")
 
     # Colour correction
     filters.append(
@@ -253,7 +267,7 @@ def _build_filter_chain(
         f"saturation={opts.eq_saturation}"
     )
 
-    # Very light sharpening (luma only)
+    # Very light sharpening (luma only) — keep low to avoid ringing on soft DVD edges.
     filters.append(f"unsharp=5:5:{opts.unsharp_luma}:5:5:0.0")
 
     # Ensure clean YUV 4:2:0 output
