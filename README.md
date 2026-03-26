@@ -257,6 +257,7 @@ acoustid_api_key = "your-key"
 [tools]
 ffmpeg = "ffmpeg"
 ffprobe = "ffprobe"
+yt_dlp = "yt-dlp"
 
 [defaults.subtitles]
 languages = ["en", "de"]
@@ -292,6 +293,7 @@ You can also override individual settings without editing the file:
 set MEDIA_TOOL_API__OPENSUBTITLES_API_KEY=your-key
 set MEDIA_TOOL_DEFAULTS__SUBTITLES__LANGUAGES=en,de
 set MEDIA_TOOL_TOOLS__FFMPEG=C:\tools\ffmpeg.exe
+set MEDIA_TOOL_TOOLS__YT_DLP=C:\tools\yt-dlp.exe
 ```
 
 Legacy environment variables still work for compatibility:
@@ -314,6 +316,41 @@ media-tool subtitle download movie.mkv
 The audio tagging commands can do the same for `acoustid_api_key`, and the low-level FFmpeg/FFprobe runners now honor configured binary paths globally.
 
 Download commands now read defaults from `[download]` in config (output directories, resolution, audio format/quality, subtitle defaults).
+`[tools].yt_dlp` is also available in config for consistency with your shell setup and legacy scripts, even though the download subsystem primarily uses the Python `yt_dlp` package.
+
+## Logging
+
+`media-tool` uses centralized logging with Rich console output and optional rotating log files.
+
+Common recipes:
+
+```bash
+# Default (warnings + errors only)
+media-tool upscale batch "E:\Downloads" -r
+
+# More runtime progress information (INFO)
+media-tool --verbose upscale batch "E:\Downloads" -r
+
+# Deep technical diagnostics (DEBUG)
+media-tool --debug audio workflow "M:\Music" "M:\Music_Out" --format mp3
+
+# Quiet mode for scripts/cron (warnings + errors)
+media-tool --quiet download series "https://youtube.com/playlist?list=..."
+
+# Persist rotating text logs
+media-tool --verbose --log-file logs/media-tool.log video inspect "Y:\Videos"
+
+# Persist structured JSON logs (one JSON object per line)
+media-tool --debug --log-file logs/media-tool.jsonl --log-json subtitle download movie.mkv
+```
+
+Global logging flags:
+
+- `--verbose` / `-v`: INFO-level runtime progress
+- `--debug`: DEBUG-level internals
+- `--quiet` / `-q`: warnings and errors only
+- `--log-file PATH`: write rotating logs to file
+- `--log-json`: JSON format for file logs (requires `--log-file`)
 
 ## Quick Start & Common Workflows
 
@@ -343,6 +380,23 @@ media-tool video upscale input.mp4 output.mp4 --height 720
 ```bash
 media-tool video inspect "Y:\Videos" --output video_library.csv
 ```
+---------------------------------------------------------------------------
+ Upscale profiles
+
+ Built-in profiles (use with --profile):
+   dvd       Standard DVD → 720p H.265  (CRF 21, preset medium)
+   dvd-hq    High quality              (CRF 18, preset slow)
+   dvd-fast  Fast NAS batch            (CRF 23, preset fast)
+   1080p     Full HD upscale           (CRF 20, preset medium, 1080p)
+   anime     Animated content          (CRF 19, preset slow, cropdetect off)
+   archive   Maximum quality archival  (CRF 14, preset veryslow)
+
+ Run 'media-tool upscale profiles' to see all profiles with full details.
+ ---------------------------------------------------------------------------
+
+ The [upscale] section is reserved for future global upscale defaults.
+ [upscale]
+ default_profile = "dvd"
 
 ### 2. Music Library Processing
 

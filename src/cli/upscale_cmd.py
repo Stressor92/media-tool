@@ -7,23 +7,66 @@ CLI interface for the DVD upscale workflow (H.265 720p re-encode).
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import typer
+from cli.progress_display import ConsoleProgressReporter
 from rich.console import Console
 from rich.table import Table
 from rich import box
 
 from core.video import (
+    BUILTIN_PROFILES,
     BatchUpscaleSummary,
-    UpscaleOptions,
     UpscaleStatus,
     batch_upscale_directory,
+    get_profile,
+    resolve_upscale_options,
     upscale_dvd,
 )
 
-app = typer.Typer(help="Upscale DVD-quality video to 720p H.265.")
+app = typer.Typer(help="Upscale DVD-quality video to H.265.")
 console = Console()
 err_console = Console(stderr=True, style="bold red")
+
+# Build profile list for help text once at import time
+_PROFILE_NAMES = ", ".join(sorted(BUILTIN_PROFILES))
+_PROFILE_HELP = (
+    f"Named upscale profile to use. Available: {_PROFILE_NAMES}. "
+    "Run with --list-profiles to see full descriptions."
+)
+
+
+@app.command("profiles")
+def list_profiles_command() -> None:
+    """List all available upscale profiles and their settings."""
+    table = Table(
+        title="Available Upscale Profiles",
+        box=box.ROUNDED,
+        show_lines=True,
+        expand=True,
+    )
+    table.add_column("Profile", style="bold cyan", no_wrap=True)
+    table.add_column("Height", justify="center")
+    table.add_column("CRF", justify="center")
+    table.add_column("Enc. Preset", justify="center")
+    table.add_column("Crop", justify="center")
+    table.add_column("Description")
+
+    for name in sorted(BUILTIN_PROFILES):
+        p = BUILTIN_PROFILES[name]
+        o = p.options
+        crop_status = "[red]off[/red]" if o.force_disable_crop else "[green]auto[/green]"
+        table.add_row(
+            name,
+            f"{o.target_height}p",
+            str(o.crf),
+            o.preset,
+            crop_status,
+            p.description,
+        )
+
+    console.print(table)
 
 
 def _print_summary(summary: BatchUpscaleSummary) -> None:
@@ -67,30 +110,67 @@ def batch_command(
         ..., exists=True, file_okay=False, dir_okay=True, readable=True,
         help="Directory to scan for .mkv files.",
     ),
-    crf: int = typer.Option(21, "--crf", help="H.265 CRF quality value (lower = better, 18–28 recommended)."),
-    preset: str = typer.Option("medium", "--preset", help="H.265 encoding preset (ultrafast…veryslow)."),
+    profile: str = typer.Option(
+        "dvd", "--profile", "-p",
+        help=_PROFILE_HELP,
+    ),
+    crf: Optional[int] = typer.Option(
+        None, "--crf",
+        help="Override CRF quality value (lower = better, 14–28). Overrides profile.",
+    ),
+    preset: Optional[str] = typer.Option(
+        None, "--preset",
+        help="Override ffmpeg encoding preset (ultrafast…veryslow). Overrides profile.",
+    ),
     overwrite: bool = typer.Option(False, "--overwrite", help="Re-encode even if output already exists."),
     recursive: bool = typer.Option(False, "--recursive", "-r", help="Also scan subdirectories."),
-    target_height: int = typer.Option(720, "--height", help="Target output height in pixels."),
+    target_height: Optional[int] = typer.Option(
+        None, "--height",
+        help="Override target output height in pixels. Overrides profile.",
+    ),
 ) -> None:
     """
-    Batch-upscale all DVD-quality MKV files in DIRECTORY to H.265 720p.
+    Batch-upscale all DVD-quality MKV files in DIRECTORY to H.265.
+
+    Uses the named profile as the base configuration; any explicit option
+    (--crf, --preset, --height) overrides the corresponding profile value.
 
     Files already at or above the target height are automatically skipped.
     Anime files are detected automatically (cropdetect disabled for them).
+    Use the 'anime' profile to force-disable cropdetect for all files.
     """
+    # Validate profile name early for a clean error message
+    try:
+        get_profile(profile)
+    except ValueError as exc:
+        err_console.print(str(exc))
+        raise typer.Exit(code=1)
+
     console.rule("[bold cyan]media-tool · upscale batch[/bold cyan]")
     console.print(f"[dim]Directory:[/dim] {directory}")
+    console.print(f"[dim]Profile  :[/dim] {profile}")
 
-    opts = UpscaleOptions(
+    opts = resolve_upscale_options(
+        profile_name=profile,
         crf=crf,
-        preset=preset,
-        overwrite=overwrite,
+        encoder_preset=preset,
         target_height=target_height,
+        overwrite=overwrite,
     )
+    console.print(
+        f"[dim]Settings :[/dim] "
+        f"{opts.target_height}p · CRF {opts.crf} · preset {opts.preset} · "
+        f"codec {opts.codec}"
+    )
+    reporter = ConsoleProgressReporter(console)
 
     try:
-        summary = batch_upscale_directory(directory, opts=opts, recursive=recursive)
+        summary = batch_upscale_directory(
+            directory,
+            opts=opts,
+            recursive=recursive,
+            progress_callback=reporter,
+        )
     except NotADirectoryError as exc:
         err_console.print(str(exc))
         raise typer.Exit(code=1)
@@ -111,18 +191,36 @@ def single_command(
         ..., exists=True, file_okay=True, dir_okay=False, readable=True,
         help="Path to the source .mkv file.",
     ),
-    crf: int = typer.Option(21, "--crf"),
-    preset: str = typer.Option("medium", "--preset"),
+    profile: str = typer.Option("dvd", "--profile", "-p", help=_PROFILE_HELP),
+    crf: Optional[int] = typer.Option(None, "--crf"),
+    preset: Optional[str] = typer.Option(None, "--preset"),
     overwrite: bool = typer.Option(False, "--overwrite"),
-    target_height: int = typer.Option(720, "--height"),
+    target_height: Optional[int] = typer.Option(None, "--height"),
 ) -> None:
-    """Upscale a single MKV file to H.265 720p."""
-    console.rule("[bold cyan]media-tool · upscale single[/bold cyan]")
-    console.print(f"[dim]Source:[/dim] {source}")
+    """Upscale a single MKV file to H.265 using the chosen profile."""
+    try:
+        get_profile(profile)
+    except ValueError as exc:
+        err_console.print(str(exc))
+        raise typer.Exit(code=1)
 
-    opts = UpscaleOptions(
-        crf=crf, preset=preset, overwrite=overwrite, target_height=target_height
+    console.rule("[bold cyan]media-tool · upscale single[/bold cyan]")
+    console.print(f"[dim]Source :[/dim] {source}")
+    console.print(f"[dim]Profile:[/dim] {profile}")
+
+    opts = resolve_upscale_options(
+        profile_name=profile,
+        crf=crf,
+        encoder_preset=preset,
+        target_height=target_height,
+        overwrite=overwrite,
     )
+    console.print(
+        f"[dim]Settings:[/dim] "
+        f"{opts.target_height}p · CRF {opts.crf} · preset {opts.preset} · "
+        f"codec {opts.codec}"
+    )
+
     result = upscale_dvd(source, opts=opts)
 
     if result.succeeded:

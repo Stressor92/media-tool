@@ -339,7 +339,7 @@ class TestVideoWorkflowIntegration:
             if Path(video.file_path).suffix.lower() == '.mp4':
                 output_mkv = converted_dir / f"{Path(video.file_path).stem}.mkv"
                 result = convert_mp4_to_mkv(
-                    source=video.file_path,
+                    source=Path(video.file_path),
                     target=output_mkv,
                     audio_language="deu",
                     audio_title="Deutsch",

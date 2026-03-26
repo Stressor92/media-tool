@@ -6,10 +6,12 @@ Music library organization.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 from pathlib import Path
 from typing import Optional
 
+from utils.progress import ProgressEvent, emit_progress
 from .metadata import AudioMetadataEnhanced, extract_audio_metadata_enhanced
 from .conversion import convert_audio
 
@@ -60,7 +62,8 @@ def organize_music(
     input_dir: Path,
     output_dir: Path,
     convert_format: Optional[str] = "flac",
-    overwrite: bool = False
+    overwrite: bool = False,
+    progress_callback: Callable[[ProgressEvent], None] | None = None,
 ) -> dict[str, int]:
     """
     Organize music files into Jellyfin-compatible structure.
@@ -86,14 +89,23 @@ def organize_music(
     logger.info("Found %d music files in %s", len(audio_files), input_dir)
 
     counts = {"processed": 0, "converted": 0, "skipped": 0, "errors": 0}
+    total = len(audio_files)
 
-    for input_file in audio_files:
+    for index, input_file in enumerate(audio_files, start=1):
+        emit_progress(
+            progress_callback,
+            ProgressEvent("organize-music", index, total, input_file.name, "start", str(input_file)),
+        )
         try:
             # Extract metadata
             metadata = extract_audio_metadata_enhanced(input_file)
             if not metadata:
                 logger.warning("Could not extract metadata from %s", input_file)
                 counts["errors"] += 1
+                emit_progress(
+                    progress_callback,
+                    ProgressEvent("organize-music", index, total, input_file.name, "failed", "Could not extract metadata"),
+                )
                 continue
 
             # Generate target path
@@ -103,6 +115,10 @@ def organize_music(
             if target_path.exists() and not overwrite:
                 logger.info("Skipping (exists): %s", target_path)
                 counts["skipped"] += 1
+                emit_progress(
+                    progress_callback,
+                    ProgressEvent("organize-music", index, total, input_file.name, "skipped", f"Target exists: {target_path.name}"),
+                )
                 continue
 
             # Convert if needed
@@ -117,9 +133,17 @@ def organize_music(
                 if result.success:
                     logger.info("Converted and organized: %s → %s", input_file, target_path)
                     counts["converted"] += 1
+                    emit_progress(
+                        progress_callback,
+                        ProgressEvent("organize-music", index, total, input_file.name, "success", f"Converted to {target_path.name}"),
+                    )
                 else:
                     logger.error("Conversion failed: %s", input_file)
                     counts["errors"] += 1
+                    emit_progress(
+                        progress_callback,
+                        ProgressEvent("organize-music", index, total, input_file.name, "failed", "Conversion failed"),
+                    )
             else:
                 # Just copy
                 target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -127,9 +151,17 @@ def organize_music(
                 shutil.copy2(input_file, target_path)
                 logger.info("Organized: %s → %s", input_file, target_path)
                 counts["processed"] += 1
+                emit_progress(
+                    progress_callback,
+                    ProgressEvent("organize-music", index, total, input_file.name, "success", f"Copied to {target_path.name}"),
+                )
 
         except Exception as e:
             logger.error("Error processing %s: %s", input_file, e)
             counts["errors"] += 1
+            emit_progress(
+                progress_callback,
+                ProgressEvent("organize-music", index, total, input_file.name, "failed", str(e)),
+            )
 
     return counts

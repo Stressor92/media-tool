@@ -1,0 +1,75 @@
+# media-tool.toml — lokale Konfiguration (wird nicht in Git eingecheckt)
+# Erstellt: 2026-03-25
+
+# ---------------------------------------------------------------------------
+# API-Keys
+# Kostenlos registrieren:
+#   OpenSubtitles : https://www.opensubtitles.com/de/consumers
+#   AcoustID      : https://acoustid.org/login
+# ---------------------------------------------------------------------------
+[api]
+opensubtitles_api_key = "cAeMfM14epFYPgCgDcQg3TG6wTnm8vcs"   # <-- hier deinen Key eintragen
+acoustid_api_key      = "cur84dh2Vo"   # <-- hier deinen Key eintragen
+opensubtitles_user_agent = "media-tool v1.0"
+
+# ---------------------------------------------------------------------------
+# Externe Tools (müssen im PATH sein oder absolut angeben)
+# ---------------------------------------------------------------------------
+[tools]
+ffmpeg  = "ffmpeg"
+ffprobe = "ffprobe"
+yt_dlp  = "yt-dlp"
+
+# ---------------------------------------------------------------------------
+# Pfade
+# ---------------------------------------------------------------------------
+[paths]
+library_root   = "D:\\Musik\\Interpreten"
+incoming_root  = "C:\\Users\\hille\\Downloads"
+temp_dir       = "C:\\Users\\hille\\AppData\\Local\\Temp\\media-tool"
+
+# ---------------------------------------------------------------------------
+# Standard-Einstellungen Untertitel
+# ---------------------------------------------------------------------------
+[defaults.subtitles]
+languages = ["de", "en"]
+embed     = true
+auto      = true
+
+# ---------------------------------------------------------------------------
+# Standard-Einstellungen Audio / AcoustID
+# ---------------------------------------------------------------------------
+[defaults.audio]
+min_confidence = 0.75
+
+# ---------------------------------------------------------------------------
+# Download (yt-dlp)
+# Hinweis: der Downloader nutzt intern das Python-Paket `yt_dlp`.
+# Der Tool-Eintrag oben ist trotzdem sinnvoll für Shell-Nutzung und Alt-Skripte.
+# ---------------------------------------------------------------------------
+[download]
+default_output_video  = "C:\\Users\\hille\\Downloads\\Videos"
+default_output_music  = "C:\\Users\\hille\\Downloads\\Musik"
+default_output_series = "C:\\Users\\hille\\Downloads\\Serien"
+max_resolution        = 1080
+audio_format          = "mp3"
+audio_quality         = "320k"
+preferred_language    = "de"
+subtitle_languages    = ["de", "en"]
+embed_subtitles       = true
+embed_thumbnail       = true
+sponsorblock_remove   = ["sponsor"]
+
+# ---------------------------------------------------------------------------
+# Upscale-Profile (Hinweis, keine aktiven Einstellungen)
+#
+# Verfügbare Profile (--profile):
+#   dvd       720p · CRF 21 · preset medium   (Standard, aus PS-Skript)
+#   dvd-hq    720p · CRF 18 · preset slow     (wichtige Filme)
+#   dvd-fast  720p · CRF 23 · preset fast     (schneller NAS-Batch)
+#   1080p     1080p· CRF 20 · preset medium   (Full HD)
+#   anime     720p · CRF 19 · preset slow     (Anime, kein Cropdetect)
+#   archive   720p · CRF 14 · preset veryslow (Archiv-Qualität)
+#
+# Alle Profile anzeigen: media-tool upscale profiles
+# ---------------------------------------------------------------------------

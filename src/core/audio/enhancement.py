@@ -6,12 +6,14 @@ Audio enhancement functions for music library improvement.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
+from utils.progress import ProgressEvent, emit_progress
 
 logger = logging.getLogger(__name__)
 
@@ -328,7 +330,8 @@ def improve_audio_library(
     remove_silence_flag: bool = True,
     normalize_volume: bool = True,
     enhance_quality: bool = True,
-    overwrite: bool = False
+    overwrite: bool = False,
+    progress_callback: Callable[[ProgressEvent], None] | None = None,
 ) -> dict[str, int]:
     """
     Improve an entire audio library with comprehensive enhancements.
@@ -356,8 +359,13 @@ def improve_audio_library(
     logger.info(f"Found {len(audio_files)} audio files to improve")
 
     counts = {"processed": 0, "improved": 0, "skipped": 0, "errors": 0}
+    total = len(audio_files)
 
-    for input_file in audio_files:
+    for index, input_file in enumerate(audio_files, start=1):
+        emit_progress(
+            progress_callback,
+            ProgressEvent("improve-audio", index, total, input_file.name, "start", str(input_file)),
+        )
         try:
             # Create relative path for output
             relative_path = input_file.relative_to(input_dir)
@@ -370,6 +378,10 @@ def improve_audio_library(
             if output_file.exists() and not overwrite:
                 logger.info(f"Skipping (exists): {output_file}")
                 counts["skipped"] += 1
+                emit_progress(
+                    progress_callback,
+                    ProgressEvent("improve-audio", index, total, input_file.name, "skipped", f"Target exists: {output_file.name}"),
+                )
                 continue
 
             # Apply improvements
@@ -385,15 +397,31 @@ def improve_audio_library(
             if result.success and result.operations_performed:
                 logger.info(f"Improved: {output_file.name} ({', '.join(result.operations_performed)})")
                 counts["improved"] += 1
+                emit_progress(
+                    progress_callback,
+                    ProgressEvent("improve-audio", index, total, input_file.name, "success", ", ".join(result.operations_performed)),
+                )
             elif result.success:
                 # File copied without changes
                 counts["processed"] += 1
+                emit_progress(
+                    progress_callback,
+                    ProgressEvent("improve-audio", index, total, input_file.name, "success", "No enhancement filters applied"),
+                )
             else:
                 logger.error(f"Failed to improve: {input_file}")
                 counts["errors"] += 1
+                emit_progress(
+                    progress_callback,
+                    ProgressEvent("improve-audio", index, total, input_file.name, "failed", "Audio improvement failed"),
+                )
 
         except Exception as e:
             logger.error(f"Error processing {input_file}: {e}")
             counts["errors"] += 1
+            emit_progress(
+                progress_callback,
+                ProgressEvent("improve-audio", index, total, input_file.name, "failed", str(e)),
+            )
 
     return counts

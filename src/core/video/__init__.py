@@ -35,6 +35,12 @@ from .upscaler import (
     batch_upscale_directory,
     upscale_dvd,
 )
+from .upscale_profiles import (
+    BUILTIN_PROFILES,
+    UpscaleProfile,
+    get_profile,
+    resolve_upscale_options,
+)
 from .whisper_engine import (
     HallucinationDetector,
     HallucinationWarning,
@@ -79,6 +85,11 @@ __all__ = [
     "UpscaleStatus",
     "batch_upscale_directory",
     "upscale_dvd",
+    # Upscale profiles
+    "BUILTIN_PROFILES",
+    "UpscaleProfile",
+    "get_profile",
+    "resolve_upscale_options",
     # Whisper Engine
     "HallucinationDetector",
     "HallucinationWarning",

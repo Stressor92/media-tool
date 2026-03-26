@@ -9,6 +9,7 @@ opensubtitles_user_agent = "media-tool v1.0"
 [tools]
 ffmpeg = "ffmpeg"
 ffprobe = "ffprobe"
+yt_dlp = "yt-dlp"
 
 [paths]
 library_root = ""
@@ -35,3 +36,6 @@ subtitle_languages = ["de", "en"]
 embed_subtitles = true
 embed_thumbnail = true
 sponsorblock_remove = ["sponsor"]
+
+# yt-dlp is used by the Python download subsystem.
+# Keep [tools].yt_dlp aligned with your shell setup for manual usage or legacy scripts.

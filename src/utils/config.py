@@ -50,8 +50,9 @@ class ToolConfig(BaseModel):
 
     ffmpeg: str = "ffmpeg"
     ffprobe: str = "ffprobe"
+    yt_dlp: str = "yt-dlp"
 
-    @field_validator("ffmpeg", "ffprobe")
+    @field_validator("ffmpeg", "ffprobe", "yt_dlp")
     @classmethod
     def _validate_tool_command(cls, value: str) -> str:
         normalized = value.strip()
@@ -267,7 +268,8 @@ def _env_overrides() -> dict[str, Any]:
     overrides: dict[str, Any] = {}
 
     for key, value in os.environ.items():
-        if key == f"{ENV_PREFIX}CONFIG":
+        # Skip config and test gate variables
+        if key in (f"{ENV_PREFIX}CONFIG", "MEDIA_TOOL_INTEGRATION_TESTS"):
             continue
 
         mapped_path = _legacy_env_mapping(key)

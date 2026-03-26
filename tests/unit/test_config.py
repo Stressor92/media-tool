@@ -32,6 +32,7 @@ def test_get_config_uses_defaults_when_file_missing(tmp_path: Path) -> None:
 
     assert config.tools.ffmpeg == "ffmpeg"
     assert config.tools.ffprobe == "ffprobe"
+    assert config.tools.yt_dlp == "yt-dlp"
     assert config.defaults.subtitles.languages == ["en"]
     assert config.api.opensubtitles_api_key is None
 
@@ -45,6 +46,7 @@ opensubtitles_api_key = "from-file"
 
 [tools]
 ffmpeg = "C:/tools/ffmpeg.exe"
+yt_dlp = "C:/tools/yt-dlp.exe"
 
 [defaults.subtitles]
 languages = ["en", "de"]
@@ -60,6 +62,7 @@ languages = ["en", "de"]
 
     assert config.api.opensubtitles_api_key == "from-env"
     assert config.tools.ffmpeg == "C:/tools/ffmpeg.exe"
+    assert config.tools.yt_dlp == "C:/tools/yt-dlp.exe"
     assert config.defaults.subtitles.languages == ["de", "fr"]
 
 

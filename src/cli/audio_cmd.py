@@ -11,6 +11,7 @@ from typing import Optional
 
 import typer
 from rich import box
+from cli.progress_display import ConsoleProgressReporter
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
@@ -168,12 +169,15 @@ def organize_command(
     if dry_run:
         console.print("[yellow]DRY RUN MODE - No files will be modified[/yellow]\n")
 
+    reporter = ConsoleProgressReporter(console)
+
     try:
         counts = organize_music(
             input_dir=source_dir,
             output_dir=target_dir,
             convert_format=format if not dry_run else None,
             overwrite=overwrite,
+            progress_callback=reporter,
         )
     except ValueError as e:
         err_console.print(f"Error: {e}")
@@ -346,6 +350,7 @@ def improve_library_command(
     console.rule("[bold cyan]media-tool · audio improve-library[/bold cyan]")
     console.print(f"[dim]Input dir :[/dim] {input_dir}")
     console.print(f"[dim]Output dir:[/dim] {output_dir}")
+    reporter = ConsoleProgressReporter(console)
 
     try:
         counts = improve_audio_library(
@@ -355,6 +360,7 @@ def improve_library_command(
             normalize_volume=not no_normalization,
             enhance_quality=not no_enhancement,
             overwrite=overwrite,
+            progress_callback=reporter,
         )
     except ValueError as e:
         err_console.print(f"Error: {e}")
@@ -531,6 +537,8 @@ def workflow_command(
     if scan_only:
         console.print("[yellow]SCAN-ONLY MODE - No files will be modified[/yellow]\n")
 
+    reporter = ConsoleProgressReporter(console)
+
     try:
         from core.audio.workflow import process_audio_library_workflow
         results = process_audio_library_workflow(
@@ -540,6 +548,7 @@ def workflow_command(
             improve=improve_audio,
             scan_only=scan_only,
             overwrite=overwrite,
+            progress_callback=reporter,
         )
     except Exception as e:
         err_console.print(f"Error: {e}")

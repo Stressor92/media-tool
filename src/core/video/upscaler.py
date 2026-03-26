@@ -22,6 +22,7 @@ Rules:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 import re
 import time
@@ -31,6 +32,7 @@ from pathlib import Path
 
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 from utils.ffprobe_runner import probe_cropdetect, probe_file
+from utils.progress import ProgressEvent, emit_progress
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,9 @@ class UpscaleOptions:
     # Cropdetect settings
     crop_skip_seconds: int = 5
     crop_sample_seconds: int = 10
+
+    # Force-disable cropdetect regardless of anime detection (used by anime preset)
+    force_disable_crop: bool = False
 
     # Skip behaviour
     overwrite: bool = False
@@ -375,7 +380,7 @@ def upscale_dvd(
 
     # --- Crop detection ------------------------------------------------
     crop_filter: str | None = None
-    if not is_anime:
+    if not is_anime and not opts.force_disable_crop:
         raw_crop = probe_cropdetect(
             source,
             skip_seconds=opts.crop_skip_seconds,
@@ -469,6 +474,7 @@ def batch_upscale_directory(
     directory: Path,
     opts: UpscaleOptions | None = None,
     recursive: bool = False,
+    progress_callback: Callable[[ProgressEvent], None] | None = None,
 ) -> BatchUpscaleSummary:
     """
     Upscale all MKV files in a directory that are below the target resolution.
@@ -488,9 +494,32 @@ def batch_upscale_directory(
     mkv_files = sorted(directory.glob(pattern))
 
     summary = BatchUpscaleSummary()
+    total = len(mkv_files)
 
-    for source in mkv_files:
+    for index, source in enumerate(mkv_files, start=1):
+        emit_progress(
+            progress_callback,
+            ProgressEvent(
+                stage="upscale",
+                current=index,
+                total=total,
+                item_name=source.name,
+                status="start",
+                message=str(source),
+            ),
+        )
         result = upscale_dvd(source, opts=opts)
         summary.results.append(result)
+        emit_progress(
+            progress_callback,
+            ProgressEvent(
+                stage="upscale",
+                current=index,
+                total=total,
+                item_name=source.name,
+                status="success" if result.succeeded else "skipped" if result.skipped else "failed",
+                message=result.message,
+            ),
+        )
 
     return summary

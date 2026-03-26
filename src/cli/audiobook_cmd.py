@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from cli.progress_display import ConsoleProgressReporter
 from rich.console import Console
 from rich.table import Table
 from rich import box
@@ -176,12 +177,15 @@ def organize_command(
     if dry_run:
         console.print("[yellow]DRY RUN MODE - No files will be modified[/yellow]\n")
 
+    reporter = ConsoleProgressReporter(console)
+
     try:
         counts = organize_audiobooks(
             input_dir=source_dir,
             output_dir=target_dir,
             convert_format=format if not dry_run else None,
             overwrite=overwrite,
+            progress_callback=reporter,
         )
     except ValueError as e:
         err_console.print(f"Error: {e}")
@@ -238,6 +242,7 @@ def merge_command(
     console.print(f"[dim]Source:[/dim] {source_dir}")
     console.print(f"[dim]Target:[/dim] {target_dir}")
     console.print(f"[dim]Format:[/dim] {format}")
+    reporter = ConsoleProgressReporter(console)
 
     if dry_run:
         console.print("[yellow]DRY RUN MODE - No files will be modified[/yellow]\n")
@@ -284,6 +289,7 @@ def merge_command(
             output_dir=target_dir,
             format=format,
             overwrite=overwrite,
+            progress_callback=reporter,
         )
     except Exception as e:
         err_console.print(f"Error: {e}")

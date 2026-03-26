@@ -7,10 +7,11 @@ Mounts all sub-command groups. This is the only place where sub-apps are wired t
 
 from __future__ import annotations
 
-import logging
+from pathlib import Path
 
 import typer
-from rich.logging import RichHandler
+
+from utils.logging_config import setup_logging
 
 from cli.convert_cmd import app as convert_app
 from cli.upscale_cmd import app as upscale_app
@@ -21,20 +22,6 @@ from cli.video_cmd import app as video_app
 from cli.audiobook_cmd import app as audiobook_app
 from cli.subtitle_cmd import app as subtitle_app
 from cli.download_cmd import app as download_app
-
-# ---------------------------------------------------------------------------
-# Logging bootstrap
-# ---------------------------------------------------------------------------
-# Configure once at the root. Individual modules use module-level loggers.
-# Level is overridden below by --verbose flag.
-
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(message)s",
-    handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
-)
-
-root_logger = logging.getLogger()
 
 # ---------------------------------------------------------------------------
 # Root app
@@ -68,13 +55,42 @@ def global_options(
     verbose: bool = typer.Option(
         False,
         "--verbose", "-v",
-        help="Enable verbose/debug logging output.",
+        help="Enable informative progress logging (INFO level).",
+        is_eager=True,
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Enable detailed technical logging (DEBUG level).",
+        is_eager=True,
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet", "-q",
+        help="Show only warnings and errors.",
+        is_eager=True,
+    ),
+    log_file: Path | None = typer.Option(
+        None,
+        "--log-file",
+        help="Write rotating logs to file, e.g. logs/media-tool.log",
+        is_eager=True,
+    ),
+    log_json: bool = typer.Option(
+        False,
+        "--log-json",
+        help="Write structured JSON logs when --log-file is set.",
         is_eager=True,
     ),
 ) -> None:
     """media-tool — modular media processing for Jellyfin."""
-    if verbose:
-        root_logger.setLevel(logging.DEBUG)
+    setup_logging(
+        verbose=verbose,
+        debug=debug,
+        quiet=quiet,
+        log_file=log_file,
+        log_json=log_json,
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -6,11 +6,13 @@ Audiobook chapter merging functionality.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, TypedDict
 
+from utils.progress import ProgressEvent, emit_progress
 from .metadata import extract_audiobook_metadata_enhanced
 
 logger = logging.getLogger(__name__)
@@ -213,6 +215,7 @@ def merge_audiobook_library(
     format: str = "m4a",
     overwrite: bool = False,
     dry_run: bool = False,
+    progress_callback: Callable[[ProgressEvent], None] | None = None,
 ) -> MergeLibraryResult:
     """
     Scan a directory for chapter-based audiobooks and merge them.
@@ -249,11 +252,20 @@ def merge_audiobook_library(
         "merged_books": [],
         "errors": [],
     }
+    total = len(book_chapters)
 
     # Process each book
-    for book_title, chapters in book_chapters.items():
+    for index, (book_title, chapters) in enumerate(book_chapters.items(), start=1):
+        emit_progress(
+            progress_callback,
+            ProgressEvent("merge-audiobook", index, total, book_title, "start", f"{len(chapters)} chapter(s)"),
+        )
         if len(chapters) < 2:
             logger.info(f"Skipping '{book_title}' - only {len(chapters)} chapter(s)")
+            emit_progress(
+                progress_callback,
+                ProgressEvent("merge-audiobook", index, total, book_title, "skipped", f"Only {len(chapters)} chapter(s)"),
+            )
             continue
 
         # Sort chapters by chapter number
@@ -276,6 +288,10 @@ def merge_audiobook_library(
                 "dry_run": True,
             })
             logger.info(f"Dry run: would merge '{book_title}'")
+            emit_progress(
+                progress_callback,
+                ProgressEvent("merge-audiobook", index, total, book_title, "success", "Dry run preview created"),
+            )
             continue
 
         # Merge chapters
@@ -295,10 +311,18 @@ def merge_audiobook_library(
                 "size_mb": round(merge_result.get("total_size", 0) / 1_048_576, 2),
             })
             logger.info(f"✓ Successfully merged '{book_title}'")
+            emit_progress(
+                progress_callback,
+                ProgressEvent("merge-audiobook", index, total, book_title, "success", f"Merged {len(chapters)} chapters"),
+            )
         else:
             error_msg = f"Failed to merge '{book_title}': {merge_result.get('error', 'Unknown error')}"
             results["errors"].append(error_msg)
             logger.error(f"✗ {error_msg}")
+            emit_progress(
+                progress_callback,
+                ProgressEvent("merge-audiobook", index, total, book_title, "failed", error_msg),
+            )
 
     return results
 
