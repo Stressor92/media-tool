@@ -39,3 +39,21 @@ sponsorblock_remove = ["sponsor"]
 
 # yt-dlp is used by the Python download subsystem.
 # Keep [tools].yt_dlp aligned with your shell setup for manual usage or legacy scripts.
+
+[workflow.movies]
+stop_on_failure          = true
+dvd_upscale_profile      = "dvd-hq"
+bluray_crf               = 18
+bluray_preset            = "slow"
+subtitle_languages       = ["de", "en"]
+subtitle_fallback_whisper = false   # true sobald Whisper integriert
+organize_naming          = "jellyfin"  # jellyfin | flat
+
+[workflow.movies.skip_steps]
+# Einzelne Steps deaktivieren (z. B. im NAS-Nachtlauf):
+# merge_language_dupes = true
+# mp4_to_mkv           = true
+# upscale_dvd          = true
+# encode_bluray        = true
+# subtitles            = true
+# organize             = true

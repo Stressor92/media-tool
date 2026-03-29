@@ -22,6 +22,7 @@ from cli.video_cmd import app as video_app
 from cli.audiobook_cmd import app as audiobook_app
 from cli.subtitle_cmd import app as subtitle_app
 from cli.download_cmd import app as download_app
+from cli.workflow_cmd import app as workflow_app
 
 # ---------------------------------------------------------------------------
 # Root app
@@ -43,6 +44,7 @@ app.add_typer(video_app, name="video", help="Process video files.")
 app.add_typer(audiobook_app, name="audiobook", help="Process audiobook files.")
 app.add_typer(subtitle_app, name="subtitle", help="Download and manage subtitles from OpenSubtitles.org.")
 app.add_typer(download_app, name="download", help="Download music, videos, and series using yt-dlp.")
+app.add_typer(workflow_app, name="workflow", help="Run automated media processing pipelines.")
 
 
 # ---------------------------------------------------------------------------
