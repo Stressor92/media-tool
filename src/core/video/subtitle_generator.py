@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -196,8 +195,10 @@ class SubtitleGenerator:
             # Step 2: Get video duration
             video_duration = validation_result["duration"]
             
-            # Step 3: Setup temp directory
-            temp_dir = Path(tempfile.mkdtemp(prefix="subtitle_gen_"))
+            # Step 3: Setup temp directory — created next to the MKV so it
+            # is easy to find and delete manually if something goes wrong.
+            temp_dir = mkv_path.parent / ".subtitle_tmp" / mkv_path.stem
+            temp_dir.mkdir(parents=True, exist_ok=True)
             wav_path = temp_dir / f"{mkv_path.stem}_speech.wav"
             srt_path = temp_dir / f"{mkv_path.stem}.srt"
             
@@ -218,6 +219,23 @@ class SubtitleGenerator:
             
             result.steps_completed.append("audio_extraction")
             
+            # Step 4b: Enhance audio for speech recognition
+            if self.enhance_mode not in ("none", "off"):
+                if progress_callback:
+                    progress_callback("Enhancing audio quality for speech recognition...", 0.2)
+
+                enhanced_wav_path = temp_dir / f"{mkv_path.stem}_enhanced.wav"
+                enhance_result = audio_processor.enhance_audio_for_speech(wav_path, enhanced_wav_path)
+                if enhance_result.success:
+                    wav_path = enhanced_wav_path
+                    result.steps_completed.append("audio_enhancement")
+                    self.logger.info("Audio enhancement applied (highpass + loudnorm)")
+                else:
+                    # Non-fatal: continue with the original WAV
+                    self.logger.warning(
+                        f"Audio enhancement failed (skipping): {enhance_result.error_message}"
+                    )
+
             # Step 5: Run Whisper transcription
             if progress_callback:
                 progress_callback("Running Whisper transcription...", 0.3)
@@ -235,12 +253,21 @@ class SubtitleGenerator:
                 result.error_message = f"Transcription failed: {transcription_result.error_message}"
                 result.warnings.extend([str(w) for w in transcription_result.hallucination_warnings])
                 return result
-            
+
+            # Collect all hallucination warnings; if any are critical, auto-strip
+            # the offending segments from the SRT rather than failing outright.
+            result.warnings.extend([str(w) for w in transcription_result.hallucination_warnings])
             if not transcription_result.is_safe:
-                result.error_message = "Transcription contains hallucination warnings"
-                result.warnings.extend([str(w) for w in transcription_result.hallucination_warnings])
-                return result
-            
+                if progress_callback:
+                    progress_callback("Auto-removing hallucination loops from subtitles...", 0.35)
+                n_stripped = self.whisper_engine.detector.strip_hallucinating_segments(
+                    srt_path, transcription_result.hallucination_warnings
+                )
+                if n_stripped:
+                    result.warnings.append(
+                        f"Auto-removed {n_stripped} hallucination segment(s) — subtitles may have gaps"
+                    )
+
             result.steps_completed.append("whisper_transcription")
             
             # Step 6: Sync timing
@@ -261,11 +288,20 @@ class SubtitleGenerator:
                 result.warnings.append(f"Timing scaled by {sync_result.scale_factor:.4f}")
             
             result.steps_completed.append("timing_sync")
-            
+
+            # Step 7a: Fix any overlapping timestamps left by Whisper or the
+            # hallucination-strip pass before we validate.
+            n_fixed = self.subtitle_processor.fix_overlapping_timestamps(srt_path)
+            if n_fixed:
+                result.warnings.append(
+                    f"Auto-fixed {n_fixed} overlapping timestamp(s) from Whisper output"
+                )
+                result.steps_completed.append("timestamp_overlap_fix")
+
             # Step 7: Validate SRT
             if progress_callback:
                 progress_callback("Validating subtitle format...", 0.75)
-            
+
             validation = self.subtitle_processor.validate_srt(srt_path)
             if not validation.is_valid:
                 result.error_message = f"SRT validation failed: {', '.join(validation.errors)}"
@@ -280,15 +316,12 @@ class SubtitleGenerator:
             self.subtitle_processor.optimize_readability(srt_path)
             result.steps_completed.append("readability_optimization")
             
-            # Step 9: Create backup
-            if progress_callback:
-                progress_callback("Creating backup...", 0.8)
-            
-            backup_path = mkv_path.with_suffix('.mkv.backup')
-            shutil.copy2(mkv_path, backup_path)
-            result.backup_path = backup_path
-            result.steps_completed.append("backup_created")
-            
+            # Step 9/10: Mux subtitles (add_subtitle_to_mkv manages its own
+            # atomic backup/restore internally, so we don't need a separate
+            # copy here — creating a duplicate .mkv.backup at the same path
+            # caused a FileExistsError on Windows due to Path.rename semantics).
+            result.steps_completed.append("backup_skipped_handled_by_muxer")
+
             # Step 10: Mux subtitles
             if progress_callback:
                 progress_callback("Adding subtitles to MKV...", 0.9)
@@ -302,10 +335,8 @@ class SubtitleGenerator:
             
             if not mux_result.success:
                 result.error_message = f"Muxing failed: {mux_result.error_message}"
-                # Restore backup
-                if backup_path.exists():
-                    shutil.copy2(backup_path, mkv_path)
-                    result.warnings.append("Restored from backup due to muxing failure")
+                # add_subtitle_to_mkv already restored the original from its
+                # own internal backup on failure, so no further action needed.
                 return result
             
             result.steps_completed.append("subtitle_muxing")
@@ -333,13 +364,8 @@ class SubtitleGenerator:
             self.logger.exception(f"Subtitle generation failed: {e}")
             result.error_message = f"Unexpected error: {e}"
             
-            # Restore backup on critical error
-            if result.backup_path and result.backup_path.exists():
-                try:
-                    shutil.copy2(result.backup_path, mkv_path)
-                    result.warnings.append("Restored from backup due to error")
-                except Exception as restore_error:
-                    result.warnings.append(f"Failed to restore backup: {restore_error}")
+            # add_subtitle_to_mkv already restores from its own backup on
+            # failure, so no separate restore is needed here.
             
             return result
         

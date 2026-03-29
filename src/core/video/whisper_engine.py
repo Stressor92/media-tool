@@ -98,7 +98,11 @@ class HallucinationDetector:
     
     # Repeated text detection threshold
     REPETITION_THRESHOLD = 5
-    
+
+    # Maximum gap (seconds) between end of one segment and start of the next
+    # for them to still be considered part of the same consecutive run.
+    CONSECUTIVE_GAP = 10.0
+
     # Size ratio thresholds (SRT size vs expected)
     OVERSIZED_RATIO = 10.0  # SRT 10x larger than expected
     
@@ -187,45 +191,136 @@ class HallucinationDetector:
         return warnings
     
     def _check_repeated_lines(self, srt_content: str) -> list[HallucinationWarning]:
-        """Check for repeated identical subtitle lines."""
+        """Check for *consecutive* repeated subtitle lines (hallucination loop).
+
+        Scattered identical lines in normal dialogue are not flagged — only
+        runs of REPETITION_THRESHOLD or more consecutive segments that carry
+        the same text with gaps smaller than CONSECUTIVE_GAP between them.
+        """
         warnings: list[HallucinationWarning] = []
-        
-        # Extract subtitle texts by splitting into blocks
-        blocks = re.split(r'\n\s*\n', srt_content.strip())
-        subtitle_lines = []
-        
-        for block in blocks:
-            lines = block.split('\n')
-            # Valid SRT block has: index, timestamp, content
-            if len(lines) >= 3 and lines[0].isdigit():
-                # Content is everything after the timestamp line
-                content = '\n'.join(lines[2:]).strip()
-                if content:
-                    subtitle_lines.append(content)
-        
-        if not subtitle_lines:
+
+        # Parse all entries with timestamps: (start_sec, end_sec, normalised_text)
+        raw_entries = re.findall(
+            r"(\d{2}):(\d{2}):(\d{2}),(\d{3}) --> (\d{2}):(\d{2}):(\d{2}),(\d{3})\n(.+?)(?:\n\n|\Z)",
+            srt_content,
+            re.DOTALL,
+        )
+
+        parsed: list[tuple[float, float, str]] = []
+        for e in raw_entries:
+            start = self._parse_timestamp(e[0:4])
+            end = self._parse_timestamp(e[4:8])
+            text = e[8].strip().lower()
+            if text:
+                parsed.append((start, end, text))
+
+        if not parsed:
             return warnings
-        
-        # Check for repeated identical text
-        text_counts: dict[str, int] = {}
-        for line in subtitle_lines:
-            # Normalize: strip whitespace, lowercase
-            normalized = line.strip().lower()
-            if normalized:
-                text_counts[normalized] = text_counts.get(normalized, 0) + 1
-        
-        # Find problematic repeats
-        for text, count in sorted(text_counts.items(), key=lambda x: x[1], reverse=True):
-            if count >= self.REPETITION_THRESHOLD:
-                confidence = min(count / (self.REPETITION_THRESHOLD * 2), 1.0)
-                warnings.append(HallucinationWarning(
-                    type="repeated_text",
-                    message=f"Identical subtitle '{text[:50]}' repeated {count} times",
-                    confidence=confidence,
-                    details={"text": text, "count": count}
-                ))
-        
+
+        # Walk through segments in order and find consecutive same-text runs.
+        # A run continues as long as the next segment has the same text AND the
+        # gap between the previous end and the next start is < CONSECUTIVE_GAP.
+        i = 0
+        while i < len(parsed):
+            run_text = parsed[i][2]
+            j = i + 1
+            while j < len(parsed):
+                gap = parsed[j][0] - parsed[j - 1][1]
+                if parsed[j][2] == run_text and gap < self.CONSECUTIVE_GAP:
+                    j += 1
+                else:
+                    break
+            run_length = j - i
+
+            if run_length >= self.REPETITION_THRESHOLD:
+                confidence = min(run_length / (self.REPETITION_THRESHOLD * 2), 1.0)
+                run_start = parsed[i][0]
+                run_end = parsed[j - 1][1]
+                warnings.append(
+                    HallucinationWarning(
+                        type="repeated_text",
+                        message=(
+                            f"Subtitle '{run_text[:50]}' loops {run_length}\u00d7 consecutively "
+                            f"({run_start:.0f}s\u2013{run_end:.0f}s)"
+                        ),
+                        confidence=confidence,
+                        details={
+                            "text": run_text,
+                            "count": run_length,
+                            "start_sec": run_start,
+                            "end_sec": run_end,
+                        },
+                    )
+                )
+
+            i = j if run_length > 1 else i + 1
+
         return warnings
+
+    def strip_hallucinating_segments(
+        self, srt_path: Path, warnings: list[HallucinationWarning]
+    ) -> int:
+        """Remove hallucination-loop segments from an SRT file in-place.
+
+        Only segments whose start/end timestamps fall entirely within a
+        repeated_text warning range are removed.  The remaining blocks are
+        renumbered so the SRT stays valid.
+
+        Returns:
+            Number of subtitle blocks removed.
+        """
+        ranges_to_strip: list[tuple[float, float]] = [
+            (float(str(w.details["start_sec"])), float(str(w.details["end_sec"])))
+            for w in warnings
+            if w.type == "repeated_text"
+            and "start_sec" in w.details
+            and "end_sec" in w.details
+        ]
+        if not ranges_to_strip:
+            return 0
+
+        srt_content = srt_path.read_text(encoding="utf-8")
+        blocks = re.split(r"\n\s*\n", srt_content.strip())
+
+        ts_re = re.compile(
+            r"(\d{2}):(\d{2}):(\d{2}),(\d{3}) --> (\d{2}):(\d{2}):(\d{2}),(\d{3})"
+        )
+        kept: list[str] = []
+        removed = 0
+
+        for block in blocks:
+            lines = block.strip().split("\n")
+            if len(lines) < 2:
+                kept.append(block)
+                continue
+            m = ts_re.search(lines[1])
+            if not m:
+                kept.append(block)
+                continue
+
+            seg_start = self._parse_timestamp(m.group(1, 2, 3, 4))
+            seg_end = self._parse_timestamp(m.group(5, 6, 7, 8))
+            in_range = any(
+                rs <= seg_start and seg_end <= re_end
+                for rs, re_end in ranges_to_strip
+            )
+            if in_range:
+                removed += 1
+            else:
+                kept.append(block)
+
+        # Renumber remaining blocks so the SRT index sequence is unbroken.
+        renumbered: list[str] = []
+        idx = 1
+        for block in kept:
+            lines = block.strip().split("\n")
+            if lines and lines[0].strip().isdigit():
+                lines[0] = str(idx)
+                idx += 1
+            renumbered.append("\n".join(lines))
+
+        srt_path.write_text("\n\n".join(renumbered) + "\n", encoding="utf-8")
+        return removed
     
     def _check_oversized_output(self, srt_path: Path, wav_duration: float) -> list[HallucinationWarning]:
         """Check if SRT file is unusually large compared to WAV duration."""
@@ -383,7 +478,7 @@ class WhisperEngine:
             if progress_callback:
                 progress_callback("Starting Whisper transcription...", 0.1)
             
-            self._run_whisper(wav_path, output_srt_path, progress_callback)
+            self._run_whisper(wav_path, output_srt_path, progress_callback, wav_duration)
             
             # Check hallucinations
             warnings: list[HallucinationWarning] = []
@@ -426,7 +521,8 @@ class WhisperEngine:
         self,
         wav_path: Path,
         output_srt_path: Path,
-        progress_callback: Optional[Callable[[str, float], None]]
+        progress_callback: Optional[Callable[[str, float], None]],
+        wav_duration: float = 0.0,
     ) -> None:
         """
         Execute Whisper transcription.
@@ -438,7 +534,7 @@ class WhisperEngine:
         """
         # Try faster-whisper first (GPU acceleration possible)
         try:
-            self._run_faster_whisper(wav_path, output_srt_path, progress_callback)
+            self._run_faster_whisper(wav_path, output_srt_path, progress_callback, wav_duration)
             return
         except ImportError:
             self.logger.debug("faster-whisper not available, trying whisper library")
@@ -461,12 +557,14 @@ class WhisperEngine:
         self,
         wav_path: Path,
         output_srt_path: Path,
-        progress_callback: Optional[Callable[[str, float], None]]
+        progress_callback: Optional[Callable[[str, float], None]],
+        wav_duration: float = 0.0,
     ) -> None:
         """Run transcription using faster-whisper library."""
         from faster_whisper import WhisperModel
         
         self.logger.info(f"Using faster-whisper ({self.config.model.value} model)")
+        print(f"[Whisper] Loading model '{self.config.model.value}' on {self.config.device}...")
         
         model = WhisperModel(
             self.config.model.value,
@@ -474,31 +572,46 @@ class WhisperEngine:
             compute_type=self.config.compute_type
         )
         
-        segments, _ = model.transcribe(
+        print(f"[Whisper] Starting transcription (language={self.config.language})...")
+        segments, info = model.transcribe(
             str(wav_path),
             language=self.config.language,
             beam_size=5,
             best_of=5
         )
         
-        # Convert to SRT
+        total_duration = info.duration if info.duration > 0 else (wav_duration or 1.0)
+        print(f"[Whisper] Audio duration: {total_duration:.1f}s — processing segments live:\n")
+        
+        # Convert to SRT — segments is a lazy generator; iterate to drive transcription
         srt_lines = []
+        seg_idx = 0
         for idx, segment in enumerate(segments, 1):
             start = self._seconds_to_srt_time(segment.start)
             end = self._seconds_to_srt_time(segment.end)
             text = segment.text.strip()
             
             if text:
+                seg_idx += 1
+                progress = min(segment.end / total_duration, 0.99)
+                if progress_callback:
+                    progress_callback(f"{start} \u2192 {end}  {text}", progress)
                 srt_lines.extend([
-                    str(idx),
+                    str(seg_idx),
                     f"{start} --> {end}",
                     text,
                     ""
                 ])
-        
+        if not srt_lines:
+            raise RuntimeError(
+                "faster-whisper returned 0 segments — the audio may be silent, "
+                "the language code may be wrong, or the model failed to load correctly. "
+                f"(model={self.config.model.value}, language={self.config.language})"
+            )
+
         output_srt_path.write_text("\n".join(srt_lines), encoding="utf-8")
-        self.logger.info(f"Transcription saved to {output_srt_path}")
-    
+        self.logger.info(f"Transcription saved to {output_srt_path} ({len(srt_lines) // 4} subtitles)")
+
     def _run_whisper_library(
         self,
         wav_path: Path,
@@ -512,10 +625,12 @@ class WhisperEngine:
         
         model = whisper.load_model(self.config.model.value, device=self.config.device)
         
+        print(f"[Whisper] Starting transcription via openai-whisper (language={self.config.language})...")
         result = model.transcribe(
             str(wav_path),
             language=self.config.language,
-            temperature=self.config.temperature
+            temperature=self.config.temperature,
+            verbose=True,  # print each recognized segment to stdout
         )
         
         # Convert to SRT

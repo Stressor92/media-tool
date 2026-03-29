@@ -125,7 +125,11 @@ class FFmpegMuxer:
         mkv_temp = mkv_path.with_suffix(".tmp.mkv")
 
         try:
-            mkv_path.rename(backup_file)
+            # Use shutil.move so the rename succeeds on Windows even if an
+            # existing .backup file was left by a previous run or by the
+            # caller's own backup step.
+            import shutil as _shutil
+            _shutil.move(str(mkv_path), str(backup_file))
 
             cmd = [
                 "-y",

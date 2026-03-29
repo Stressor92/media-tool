@@ -236,6 +236,44 @@ def extract_for_speech(
     )
 
 
+def enhance_audio_for_speech(
+    input_wav: Path,
+    output_wav: Path,
+) -> AudioExtractionResult:
+    """
+    Apply audio enhancement filters optimized for speech recognition.
+
+    Applies a high-pass filter to remove low-frequency rumble and EBU R128
+    loudness normalization so Whisper receives consistently levelled audio.
+
+    Args:
+        input_wav: Source WAV file (typically 16 kHz mono from extract_for_speech).
+        output_wav: Destination WAV path for enhanced audio.
+
+    Returns:
+        AudioExtractionResult with success status.
+    """
+    cmd = [
+        "-y",
+        "-i", str(input_wav),
+        "-af", "highpass=f=200,loudnorm",
+        "-ar", "16000",
+        "-ac", "1",
+        "-f", "wav",
+        str(output_wav),
+    ]
+
+    ffmpeg_result = run_ffmpeg(cmd)
+
+    return AudioExtractionResult(
+        success=ffmpeg_result.success,
+        input_file=input_wav,
+        output_file=output_wav,
+        ffmpeg_result=ffmpeg_result,
+        error_message=None if ffmpeg_result.success else ffmpeg_result.stderr,
+    )
+
+
 def embed_audio_metadata(
     input_file: Path,
     output_file: Path,

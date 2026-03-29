@@ -285,7 +285,7 @@ def _resolve_output_path(source: Path) -> Path:
     Args:
         source: Input MKV file.
     """
-    stem = source.stem
+    stem = source.stem.strip()
     return source.parent / stem / f"{stem} - {OUTPUT_SUFFIX}.mkv"
 
 

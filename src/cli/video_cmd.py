@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from utils.ffprobe_runner import ProbeResult
+
 import typer
 from rich import box
 from rich.console import Console
@@ -250,9 +252,9 @@ def merge_command(
 
 @app.command("subtitle")
 def subtitle_command(
-    input_file: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
-        help="Input video file to generate subtitles for.",
+    input_path: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=True, readable=True,
+        help="Input video file or directory of MKV files to generate subtitles for.",
     ),
     language: str = typer.Option(
         "en", "--language", "-l",
@@ -264,11 +266,15 @@ def subtitle_command(
     ),
     output_file: Optional[Path] = typer.Option(
         None, "--output", "-o",
-        help="Output MKV file path (default: input with _subtitled suffix).",
+        help="Output MKV file path (single-file mode only; default: input with _subtitled suffix).",
     ),
     overwrite: bool = typer.Option(
         False, "--overwrite", "-y",
         help="Overwrite output file if it exists.",
+    ),
+    recursive: bool = typer.Option(
+        False, "--recursive", "-r",
+        help="Process subdirectories recursively (directory mode only).",
     ),
     skip_hallucination_check: bool = typer.Option(
         False, "--skip-hallucination-check",
@@ -276,11 +282,45 @@ def subtitle_command(
     ),
 ) -> None:
     """
-    Generate subtitles for a video file using Whisper AI.
+    Generate subtitles for a video file or all MKV files in a directory.
 
     Extracts audio, transcribes with Whisper, and muxes subtitles into MKV.
     Supports hallucination detection and multiple Whisper backends.
+
+    Examples:
+        media-tool video subtitle movie.mkv
+        media-tool video subtitle "Season 01/"
+        media-tool video subtitle "Series/" --recursive
     """
+    if input_path.is_dir():
+        _subtitle_batch(
+            directory=input_path,
+            language=language,
+            model=model,
+            overwrite=overwrite,
+            recursive=recursive,
+            skip_hallucination_check=skip_hallucination_check,
+        )
+    else:
+        _subtitle_single(
+            input_file=input_path,
+            language=language,
+            model=model,
+            output_file=output_file,
+            overwrite=overwrite,
+            skip_hallucination_check=skip_hallucination_check,
+        )
+
+
+def _subtitle_single(
+    input_file: Path,
+    language: str,
+    model: str,
+    output_file: Optional[Path],
+    overwrite: bool,
+    skip_hallucination_check: bool,
+) -> bool:
+    """Generate subtitles for a single file.  Returns True on success."""
     console.rule("[bold cyan]media-tool · video subtitle[/bold cyan]")
     console.print(f"[dim]Input file:[/dim] {input_file}")
     console.print(f"[dim]Language:[/dim] {language}")
@@ -295,42 +335,257 @@ def subtitle_command(
     try:
         from core.video import SubtitleGenerator, WhisperModel, WhisperConfig
 
-        # Create config
-        config = WhisperConfig(
-            model=WhisperModel(model),
-            language=language,
-        )
-
-        # Create generator
+        config = WhisperConfig(model=WhisperModel(model), language=language)
         generator = SubtitleGenerator(config=config)
 
-        # Generate subtitles
+        def _progress(message: str, fraction: float) -> None:
+            pct = int(fraction * 100)
+            console.print(f"  [dim][{pct:3d}%][/dim] {message}")
+
         result = generator.generate_subtitles(
             video_path=input_file,
             output_mkv_path=output_file,
             overwrite=overwrite,
             detect_hallucinations=not skip_hallucination_check,
+            progress_callback=_progress,
         )
 
         if result.success:
             console.print(f"\n[green]✓[/green] Subtitles generated and muxed to {output_file}")
             console.print(f"[dim]Processing time:[/dim] {result.processing_time:.1f}s")
-            console.print(f"[dim]Audio duration:[/dim] {result.audio_duration:.1f}s")
-
+            if result.audio_duration:
+                console.print(f"[dim]Audio duration:[/dim] {result.audio_duration:.1f}s")
             if result.hallucination_warnings:
-                console.print(f"\n[yellow]⚠️  Hallucination warnings:[/yellow]")
+                console.print("\n[yellow]⚠️  Hallucination warnings:[/yellow]")
                 for warning in result.hallucination_warnings:
                     console.print(f"  - {warning}")
+            return True
         else:
             err_console.print(f"\n[red]✘  Subtitle generation failed:[/red] {result.error_message}")
+            if result.steps_completed:
+                completed = [s for s in result.steps_completed if not s.startswith("backup")]
+                console.print(f"[dim]Completed steps:[/dim] {' → '.join(completed)}")
             if result.hallucination_warnings:
-                console.print(f"\n[yellow]Warnings:[/yellow]")
+                console.print("\n[yellow]Warnings:[/yellow]")
                 for warning in result.hallucination_warnings:
                     console.print(f"  - {warning}")
-            raise typer.Exit(code=1)
+            console.print("[dim]Tip: run with --debug and --log-file=subtitle.log for full details[/dim]")
+            return False
 
     except Exception as e:
         err_console.print(f"Error: {e}")
+        return False
+
+
+def _subtitle_batch(
+    directory: Path,
+    language: str,
+    model: str,
+    overwrite: bool,
+    recursive: bool,
+    skip_hallucination_check: bool,
+) -> None:
+    """Process all MKV files in a directory."""
+    pattern = "**/*.mkv" if recursive else "*.mkv"
+    files = sorted(directory.glob(pattern))
+
+    # Skip already-subtitled output files
+    files = [f for f in files if not f.stem.endswith("_subtitled")]
+
+    if not files:
+        console.print(f"[yellow]No MKV files found in {directory}[/yellow]")
+        raise typer.Exit(code=0)
+
+    console.rule("[bold cyan]media-tool · video subtitle (batch)[/bold cyan]")
+    console.print(f"[dim]Directory:[/dim]  {directory}")
+    console.print(f"[dim]Files found:[/dim] {len(files)}")
+    console.print(f"[dim]Language:[/dim]   {language}   [dim]Model:[/dim] {model}\n")
+
+    succeeded: list[Path] = []
+    failed: list[tuple[Path, str]] = []
+
+    for i, mkv in enumerate(files, 1):
+        console.print(f"\n[bold]({i}/{len(files)})[/bold] {mkv.name}")
+        output_file = mkv.with_stem(f"{mkv.stem}_subtitled").with_suffix(".mkv")
+
+        if output_file.exists() and not overwrite:
+            console.print(f"  [dim]Skipping — output already exists:[/dim] {output_file.name}")
+            succeeded.append(mkv)
+            continue
+
+        ok = _subtitle_single(
+            input_file=mkv,
+            language=language,
+            model=model,
+            output_file=output_file,
+            overwrite=overwrite,
+            skip_hallucination_check=skip_hallucination_check,
+        )
+        if ok:
+            succeeded.append(mkv)
+        else:
+            failed.append((mkv, "see output above"))
+
+    # Batch summary
+    console.rule()
+    console.print(f"\n[bold]Batch complete:[/bold] {len(succeeded)}/{len(files)} succeeded")
+    if failed:
+        console.print(f"[red]Failed ({len(failed)}):[/red]")
+        for path, reason in failed:
+            console.print(f"  ✘ {path.name}")
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# subtitle-auto — check & generate only when needed
+# ---------------------------------------------------------------------------
+
+def _has_english_audio(probe: ProbeResult) -> bool:
+    """Return True if the file has at least one English audio stream."""
+    for s in probe.audio_streams():
+        tags = s.get("tags") or {}
+        lang = tags.get("language", "").lower()
+        if lang in ("en", "eng"):
+            return True
+    return False
+
+
+def _has_english_subtitles(probe: ProbeResult) -> bool:
+    """Return True if the file already has at least one English subtitle track."""
+    for s in probe.subtitle_streams():
+        tags = s.get("tags") or {}
+        lang = tags.get("language", "").lower()
+        if lang in ("en", "eng"):
+            return True
+    return False
+
+
+@app.command("subtitle-auto")
+def subtitle_auto_command(
+    input_path: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=True, readable=True,
+        help="MKV file or directory to process.",
+    ),
+    model: str = typer.Option(
+        "large-v3", "--model", "-m",
+        help="Whisper model to use (tiny, base, small, medium, large-v3).",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite", "-y",
+        help="Re-generate even if English subtitles already exist.",
+    ),
+    recursive: bool = typer.Option(
+        False, "--recursive", "-r",
+        help="Process subdirectories recursively (directory mode only).",
+    ),
+    skip_hallucination_check: bool = typer.Option(
+        False, "--skip-hallucination-check",
+        help="Skip hallucination detection (not recommended).",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run",
+        help="Only show what would be done, without actually transcribing.",
+    ),
+) -> None:
+    """
+    Auto-generate English subtitles only where needed.
+
+    For each MKV file this command checks:
+      1. Does the file have an English audio track?
+      2. Does the file already have English subtitles?
+
+    Subtitles are generated only when (1) is true and (2) is false.
+    Files with no English audio are skipped entirely.
+
+    Examples:
+        media-tool video subtitle-auto "Season 01/"
+        media-tool video subtitle-auto movie.mkv
+        media-tool video subtitle-auto "Series/" --recursive --dry-run
+    """
+    from utils.ffprobe_runner import probe_file
+
+    if input_path.is_file():
+        files = [input_path]
+    else:
+        pattern = "**/*.mkv" if recursive else "*.mkv"
+        files = sorted(input_path.glob(pattern))
+        files = [f for f in files if not f.stem.endswith("_subtitled")]
+
+    if not files:
+        console.print(f"[yellow]No MKV files found in {input_path}[/yellow]")
+        raise typer.Exit(code=0)
+
+    console.rule("[bold cyan]media-tool · video subtitle-auto[/bold cyan]")
+    if input_path.is_dir():
+        console.print(f"[dim]Directory:[/dim]  {input_path}")
+    console.print(f"[dim]Files found:[/dim] {len(files)}   [dim]Model:[/dim] {model}")
+    if dry_run:
+        console.print("[yellow]DRY RUN — no files will be changed[/yellow]")
+    console.print()
+
+    # ---- categorise every file ----
+    to_generate: list[Path] = []
+    skipped_has_subs: list[Path] = []
+    skipped_no_eng_audio: list[Path] = []
+
+    for mkv in files:
+        probe = probe_file(mkv)
+        if probe.failed:
+            console.print(f"  [red]✘[/red] {mkv.name}  [dim](probe failed — skipping)[/dim]")
+            skipped_no_eng_audio.append(mkv)
+            continue
+
+        has_audio = _has_english_audio(probe)
+        has_subs = _has_english_subtitles(probe)
+
+        if not has_audio:
+            console.print(f"  [dim]–[/dim] {mkv.name}  [dim](no English audio, skipping)[/dim]")
+            skipped_no_eng_audio.append(mkv)
+        elif has_subs and not overwrite:
+            console.print(f"  [green]✓[/green] {mkv.name}  [dim](English subtitles already present)[/dim]")
+            skipped_has_subs.append(mkv)
+        else:
+            marker = " [dim](would generate)[/dim]" if dry_run else ""
+            console.print(f"  [yellow]→[/yellow] {mkv.name}{marker}")
+            to_generate.append(mkv)
+
+    # ---- summary before we start ----
+    console.print(
+        f"\n[bold]Will generate:[/bold] {len(to_generate)}   "
+        f"[dim]Already done:[/dim] {len(skipped_has_subs)}   "
+        f"[dim]No English audio:[/dim] {len(skipped_no_eng_audio)}"
+    )
+
+    if dry_run or not to_generate:
+        raise typer.Exit(code=0)
+
+    # ---- generate ----
+    console.print()
+    succeeded: list[Path] = []
+    failed: list[Path] = []
+
+    for i, mkv in enumerate(to_generate, 1):
+        console.print(f"\n[bold]({i}/{len(to_generate)})[/bold] {mkv.name}")
+        output_file = mkv.with_stem(f"{mkv.stem}_subtitled").with_suffix(".mkv")
+        ok = _subtitle_single(
+            input_file=mkv,
+            language="en",
+            model=model,
+            output_file=output_file,
+            overwrite=overwrite,
+            skip_hallucination_check=skip_hallucination_check,
+        )
+        if ok:
+            succeeded.append(mkv)
+        else:
+            failed.append(mkv)
+
+    console.rule()
+    console.print(f"\n[bold]Done:[/bold] {len(succeeded)} generated, {len(failed)} failed")
+    if failed:
+        console.print("[red]Failed:[/red]")
+        for p in failed:
+            console.print(f"  ✘ {p.name}")
         raise typer.Exit(code=1)
 
 

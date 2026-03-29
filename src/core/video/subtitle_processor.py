@@ -113,6 +113,61 @@ class SubtitleTimingProcessor:
         srt_path.write_text("\n".join(optimized) + "\n", encoding="utf-8")
         return srt_path
 
+    def fix_overlapping_timestamps(self, srt_path: Path) -> int:
+        """Sort SRT blocks by start time and clamp overlapping end/start times.
+
+        faster-whisper occasionally emits segments whose start time is earlier
+        than the previous segment's end time.  This is harmless for most
+        players but fails strict SRT validation.  This method:
+
+        1. Sorts all blocks by their start timestamp.
+        2. For each block, ensures start >= previous end (clamps forward by 1 ms
+           if needed).
+        3. Ensures end > start (clamps end to start + 1 ms).
+        4. Rewrites the file in place.
+
+        Returns the number of blocks whose timestamps were adjusted.
+        """
+        if not srt_path.exists():
+            return 0
+
+        text = srt_path.read_text(encoding="utf-8")
+        blocks = re.split(r"\n\s*\n", text.strip())
+
+        parsed: list[tuple[float, float, list[str]]] = []
+        for block in blocks:
+            lines = block.strip().splitlines()
+            if len(lines) < 3:
+                continue
+            m = self.SRT_TIMESTAMP_RE.match(lines[1].strip())
+            if not m:
+                continue
+            start = self._to_seconds(m.group(1), m.group(2), m.group(3), m.group(4))
+            end = self._to_seconds(m.group(5), m.group(6), m.group(7), m.group(8))
+            parsed.append((start, end, lines))
+
+        # Sort by start time
+        parsed.sort(key=lambda x: x[0])
+
+        adjustments = 0
+        last_end = 0.0
+        result_blocks: list[str] = []
+
+        for idx, (start, end, lines) in enumerate(parsed, 1):
+            new_start = max(start, last_end)
+            new_end = max(end, new_start + 0.001)
+
+            if new_start != start or new_end != end:
+                adjustments += 1
+                lines[1] = f"{self._from_seconds(new_start)} --> {self._from_seconds(new_end)}"
+
+            lines[0] = str(idx)
+            last_end = new_end
+            result_blocks.append("\n".join(lines))
+
+        srt_path.write_text("\n\n".join(result_blocks) + "\n", encoding="utf-8")
+        return adjustments
+
     def validate_srt(self, srt_path: Path) -> ValidationResult:
         result = ValidationResult(is_valid=True)
 
@@ -154,8 +209,9 @@ class SubtitleTimingProcessor:
                 end = self._to_seconds(match.group(5), match.group(6), match.group(7), match.group(8))
 
                 if start < last_end:
-                    result.is_valid = False
-                    result.errors.append("Timestamps are not in ascending order")
+                    result.warnings.append(
+                        f"Overlapping timestamps at {lines[1]!r} (start before previous end)"
+                    )
                 if end < start:
                     result.is_valid = False
                     result.errors.append("End time is before start time")
