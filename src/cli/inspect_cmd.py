@@ -6,12 +6,15 @@ CLI interface for scanning a media library and exporting metadata to CSV.
 
 from __future__ import annotations
 
+import logging
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 from pathlib import Path
 from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn, TaskID
 from rich.table import Table
 from rich import box
 
@@ -20,6 +23,7 @@ from core.video import VIDEO_EXTENSIONS, export_to_csv
 app = typer.Typer(help="Scan a media library and export video metadata to CSV.")
 console = Console()
 err_console = Console(stderr=True, style="bold red")
+logger = logging.getLogger(__name__)
 
 
 @app.command("scan")
@@ -57,12 +61,69 @@ def scan_command(
     resolved_output = output or directory / "media_list.csv"
     console.print(f"[dim]CSV output :[/dim] {resolved_output}")
 
-    # Collect files first for the progress bar
-    pattern = "**/*" if recursive else "*"
-    files = sorted(
-        f for f in directory.glob(pattern)
-        if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
-    )
+    # Collect files.  On slow NAS volumes the naïve glob("**/*") blocks
+    # indefinitely on each subdirectory.  We instead:
+    #   1. List the root with os.scandir() — fast (one SMB call).
+    #   2. Scan each immediate subdirectory concurrently in a thread pool,
+    #      with a per-directory timeout so hung SMB calls don't stall the whole scan.
+    files: list[Path] = []
+
+    def _scan_subtree(start: str) -> list[Path]:
+        """Return all video files under *start* (recursive, errors silently skipped)."""
+        found: list[Path] = []
+        for root_s, _dirs, filenames in os.walk(start, onerror=lambda _e: None):
+            for fname in filenames:
+                if Path(fname).suffix.lower() in VIDEO_EXTENSIONS:
+                    found.append(Path(root_s) / fname)
+        return found
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        console=console,
+        transient=True,
+    ) as enum_progress:
+        # Step 1: list the root directory (single fast SMB call)
+        try:
+            root_entries = list(os.scandir(str(directory)))
+        except OSError as exc:
+            err_console.print(f"Cannot read directory: {exc}")
+            raise typer.Exit(code=1)
+
+        for entry in root_entries:
+            if entry.is_file() and Path(entry.name).suffix.lower() in VIDEO_EXTENSIONS:
+                files.append(Path(entry.path))
+
+        if recursive:
+            subdirs = [Path(e.path) for e in root_entries if e.is_dir(follow_symlinks=False)]
+            enum_task: TaskID = enum_progress.add_task(
+                "Scanning subdirectories…", total=len(subdirs)
+            )
+            # Step 2: scan each subdirectory concurrently (16 threads, 5 min total timeout)
+            # On NAS volumes with high latency, more workers overlap I/O waits efficiently.
+            _ENUM_TIMEOUT = 300.0  # seconds for the entire enumeration batch
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                future_map = {executor.submit(_scan_subtree, str(d)): d for d in subdirs}
+                try:
+                    for future in as_completed(future_map, timeout=_ENUM_TIMEOUT):
+                        d = future_map[future]
+                        enum_progress.update(
+                            enum_task,
+                            description=f"[cyan]{d.name[:50]}[/cyan]",
+                            advance=1,
+                        )
+                        try:
+                            files.extend(future.result())
+                        except Exception:
+                            pass  # errored subdirectory — skip
+                except FuturesTimeout:
+                    console.print(
+                        f"[yellow]⚠  Some directories did not respond within "
+                        f"{_ENUM_TIMEOUT:.0f}s and were skipped.[/yellow]"
+                    )
+    files.sort()
 
     if not files:
         console.print("[yellow]No video files found.[/yellow]")
@@ -84,7 +145,25 @@ def scan_command(
         task = progress.add_task("Analysing files…", total=len(files))
         for f in files:
             progress.update(task, description=f"[cyan]{f.name[:50]}[/cyan]")
-            results.append(inspect_file(f))
+            info = inspect_file(f)
+            results.append(info)
+            if info.probe_error:
+                logger.warning(
+                    "probe error | %s | %s",
+                    info.file_path,
+                    info.probe_error_message,
+                )
+            else:
+                logger.debug(
+                    "scanned | %s | %s | %s | codec=%s | res=%s | audio=%d | subs=%d",
+                    info.file_path,
+                    info.size_gb,
+                    info.duration,
+                    info.video_codec,
+                    info.resolution,
+                    info.audio_track_count,
+                    info.subtitle_track_count,
+                )
             progress.advance(task)
 
     # Export
