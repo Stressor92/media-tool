@@ -205,6 +205,9 @@ cython_debug/
 src/utils/whisper_models/*.bin
 src/utils/whisper_models/*.pt
 
+# Translation models are large (~300-600 MB) and downloaded via 'media-tool subtitle download-models'
+src/utils/translate_models/
+
 # PyPI configuration file
 .pypirc
 

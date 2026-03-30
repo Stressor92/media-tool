@@ -26,3 +26,6 @@ types-requests>=2.32
 
 # Optional: offline subtitle translation (CPU fallback, no CUDA required)
 # argostranslate>=1.9
+
+# Optional: automatic source language detection
+# langdetect>=1.0.9

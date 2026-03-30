@@ -62,10 +62,31 @@ organize_naming          = "jellyfin"  # jellyfin | flat
 # Offline subtitle translation (no cloud, no API key required)
 # Install GPU backend:  pip install ctranslate2 transformers sentencepiece
 # Install CPU fallback: pip install argostranslate
+# Install lang-detect:  pip install langdetect
 backend    = "opus-mt"   # "opus-mt" (GPU, recommended) | "argos" (CPU fallback)
-model_size = "big"       # "standard" (~300 MB) | "big" (~900 MB, higher quality)
+model_size = "big"       # "standard" (~300 MB, BLEU ~35) | "big" (~900 MB, BLEU ~44, empfohlen)
+                         #   en→de big: gsarti/opus-mt-tc-big-en-de
+                         #   de→en big: same as standard (no tc-big variant exists)
 device     = "auto"      # "auto" | "cuda" | "cpu"
 batch_size = 32
 
-# Custom local model cache (default: ~/.cache/media-tool/models)
+# Context-aware chunking
+chunk_size        = 4    # segments per translation chunk (more = better grammar)
+max_chars_per_chunk = 250
+
+# Tag preservation (HTML <i> <b> and ASS {\an8} tags)
+preserve_tags = true
+
+# Post-translation line wrapping
+line_wrap       = true
+max_line_length = 40
+max_lines       = 2
+
+# Auto language detection (requires: pip install langdetect)
+auto_detect_language = false
+
+# Optional: use in-memory translation cache (avoids re-translating repeated lines)
+use_cache = true
+
+# Custom local model cache (default: src/utils/translate_models — populated by 'media-tool subtitle download-models')
 # model_cache_dir = "D:\\models\\translation"

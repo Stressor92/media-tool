@@ -35,6 +35,9 @@ translation-gpu = [
 translation-cpu = [
     "argostranslate>=1.9",
 ]
+translation-langdetect = [
+    "langdetect>=1.0.9",
+]
 
 [project.scripts]
 media-tool = "cli.main:main"

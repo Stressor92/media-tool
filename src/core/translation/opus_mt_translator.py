@@ -8,14 +8,16 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Model names on HuggingFace Hub
+# Note: For de→en no tc-big variant exists; standard model is used for both sizes.
+# For en→de there is a tc-big model by gsarti (transformer-big, BLEU ~43.7 vs ~35 standard).
 _MODEL_MAP: dict[tuple[str, str], dict[str, str]] = {
     ("de", "en"): {
         "standard": "Helsinki-NLP/opus-mt-de-en",
-        "big":      "Helsinki-NLP/opus-mt-tc-big-de-en",
+        "big":      "Helsinki-NLP/opus-mt-de-en",  # no tc-big variant exists
     },
     ("en", "de"): {
         "standard": "Helsinki-NLP/opus-mt-en-de",
-        "big":      "Helsinki-NLP/opus-mt-tc-big-en-de",
+        "big":      "gsarti/opus-mt-tc-big-en-de",  # transformer-big, BLEU ~43.7 vs ~35
     },
 }
 
@@ -38,7 +40,9 @@ class OpusMtTranslator:
         model_size: str = "big",
         inter_threads: int = 4,
     ) -> None:
-        self._cache_dir     = model_cache_dir or Path.home() / ".cache" / "media-tool" / "models"
+        # Default: <repo>/src/utils/translate_models  (same folder used by 'subtitle download-models')
+        _repo_model_dir = Path(__file__).parent.parent.parent / "utils" / "translate_models"
+        self._cache_dir     = model_cache_dir or _repo_model_dir
         self._device        = device
         self._model_size    = model_size
         self._inter_threads = inter_threads
@@ -70,15 +74,19 @@ class OpusMtTranslator:
         if not model_dir.exists():
             logger.info("Converting %s to CTranslate2 format …", model_name)
             model_dir.mkdir(parents=True, exist_ok=True)
-            converter = ctranslate2.converters.OpusMTConverter(model_name)
+            # Helsinki-NLP models on HuggingFace use MarianMT (transformers) format
+            converter = ctranslate2.converters.TransformersConverter(model_name, low_cpu_mem_usage=True)
             converter.convert(str(model_dir))
+            # Save tokenizer vocab alongside the model
+            from transformers import MarianTokenizer as _MT
+            _MT.from_pretrained(model_name).save_pretrained(str(model_dir))
 
         resolved_device = self._device
         if resolved_device == "auto":
             resolved_device = "cuda" if self._is_cuda_available() else "cpu"
 
         logger.info("Loading model: %s [device=%s]", model_name, resolved_device)
-        tokenizer = MarianTokenizer.from_pretrained(model_name)
+        tokenizer = MarianTokenizer.from_pretrained(str(model_dir))
         translator = ctranslate2.Translator(
             str(model_dir),
             device=resolved_device,

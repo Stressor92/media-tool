@@ -768,3 +768,116 @@ def subtitle_translate_command(
     console.print(f"\n[bold]Summary:[/bold] {success} translated · {skipped} skipped · {failed} failed")
     if failed:
         raise typer.Exit(code=1)
+
+
+@app.command("subtitle-translate-mkv")
+def subtitle_translate_mkv_command(
+    path: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=True, readable=True,
+        help="MKV file or directory containing MKV files.",
+    ),
+    source_lang: str = typer.Option(
+        "en", "--from", "-s",
+        help="Source subtitle language code to extract (en, de).",
+    ),
+    target_lang: str = typer.Option(
+        "de", "--to", "-t",
+        help="Target translation language code (en, de).",
+    ),
+    backend: str = typer.Option(
+        "opus-mt", "--backend",
+        help="Translation backend: opus-mt (GPU) | argos (CPU fallback).",
+    ),
+    model_size: str = typer.Option(
+        "big", "--model-size",
+        help="Model size: standard (~300 MB) | big (~900 MB).",
+    ),
+    recursive: bool = typer.Option(
+        False, "--recursive", "-r",
+        help="Process subdirectories recursively.",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite", "-y",
+        help="Overwrite existing output files.",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run",
+        help="Show what would be done without writing files.",
+    ),
+    chunk_size: int = typer.Option(
+        4, "--chunk-size",
+        help="Segments per context chunk (improves grammar/pronouns).",
+    ),
+    no_line_wrap: bool = typer.Option(
+        False, "--no-line-wrap",
+        help="Disable post-translation line wrapping.",
+    ),
+    max_line_length: int = typer.Option(
+        40, "--max-line-length",
+        help="Max characters per subtitle line.",
+    ),
+) -> None:
+    """
+    Extract, translate, and re-mux subtitle track(s) in MKV file(s).
+
+    Finds the subtitle track matching --from language, translates it offline
+    with Helsinki-NLP OPUS-MT or argostranslate, then adds the translated
+    track back into the MKV (no re-encode, copy streams).
+
+    Examples:
+        media-tool video subtitle-translate-mkv movie.mkv --from en --to de
+        media-tool video subtitle-translate-mkv "Season 01/" -r --from en --to de
+        media-tool video subtitle-translate-mkv movie.mkv --dry-run
+    """
+    from core.video.subtitle_pipeline import translate_mkv_subtitles
+
+    mkv_files: list[Path] = []
+    if path.is_file():
+        mkv_files = [path]
+    elif path.is_dir():
+        pattern = "**/*.mkv" if recursive else "*.mkv"
+        mkv_files = list(path.glob(pattern))
+
+    if not mkv_files:
+        console.print("[yellow]No MKV files found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    if dry_run:
+        console.print("[yellow]DRY RUN — no files will be changed[/yellow]")
+
+    console.rule("[bold cyan]media-tool · video subtitle-translate-mkv[/bold cyan]")
+    console.print(
+        f"[dim]Files:[/dim] {len(mkv_files)}   "
+        f"[dim]Direction:[/dim] {source_lang}→{target_lang}   "
+        f"[dim]Backend:[/dim] {backend}"
+    )
+
+    success = skipped = failed = 0
+    for mkv in mkv_files:
+        console.print(f"\n  Processing [bold]{mkv.name}[/bold] …")
+        result = translate_mkv_subtitles(
+            video_path=mkv,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            backend=backend,
+            model_size=model_size,
+            overwrite=overwrite,
+            dry_run=dry_run,
+            chunk_size=chunk_size,
+            line_wrap=not no_line_wrap,
+            max_line_length=max_line_length,
+        )
+        if result.success:
+            console.print(f"  [green]✓[/green] {mkv.name} → {result.output_path}")
+            success += 1
+        elif dry_run:
+            console.print(f"  [yellow]–[/yellow] {mkv.name} (dry run)")
+            skipped += 1
+        else:
+            err_console.print(f"  [red]✗[/red] {mkv.name}: {result.error_message}")
+            failed += 1
+
+    console.rule()
+    console.print(f"\n[bold]Summary:[/bold] {success} done · {skipped} skipped · {failed} failed")
+    if failed:
+        raise typer.Exit(code=1)

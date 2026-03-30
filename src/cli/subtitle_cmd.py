@@ -215,13 +215,18 @@ def search(
 @app.command("translate")
 def translate_subtitle(
     path: Annotated[Path, typer.Argument(help="SRT/ASS/VTT file or directory")],
-    source_lang: Annotated[str, typer.Option("--from", help="Source language: de | en")] = "en",
+    source_lang: Annotated[str, typer.Option("--from", help="Source language: de | en | auto")] = "en",
     target_lang: Annotated[str, typer.Option("--to", help="Target language: de | en")] = "de",
     backend: Annotated[str, typer.Option(help="Translation backend: opus-mt | argos")] = "opus-mt",
     model_size: Annotated[str, typer.Option(help="Model size: standard | big")] = "big",
     recursive: Annotated[bool, typer.Option("-r/--recursive", help="Process subdirectories recursively")] = False,
     overwrite: Annotated[bool, typer.Option(help="Overwrite existing output files")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be done without writing files")] = False,
+    chunk_size: Annotated[int, typer.Option(help="Segments per context chunk (improves grammar)")] = 4,
+    no_line_wrap: Annotated[bool, typer.Option("--no-line-wrap", help="Disable automatic line wrapping")] = False,
+    max_line_length: Annotated[int, typer.Option(help="Max characters per subtitle line")] = 40,
+    no_tags: Annotated[bool, typer.Option("--no-tags", help="Disable HTML/ASS tag preservation")] = False,
+    auto_detect: Annotated[bool, typer.Option("--auto-detect", help="Auto-detect source language (requires: pip install langdetect)")] = False,
 ) -> None:
     """
     Translate subtitle files locally using an offline AI model.
@@ -249,8 +254,16 @@ def translate_subtitle(
     from core.translation.models import LanguagePair, TranslationStatus
     from core.translation.subtitle_translator import SubtitleTranslator
 
-    pair = LanguagePair(source=source_lang, target=target_lang)
-    translator = SubtitleTranslator()
+    auto_src = source_lang == "auto"
+    effective_src = "en" if auto_src else source_lang
+    pair = LanguagePair(source=effective_src, target=target_lang)
+    translator = SubtitleTranslator(
+        chunk_size=chunk_size,
+        preserve_tags=not no_tags,
+        line_wrap=not no_line_wrap,
+        max_line_length=max_line_length,
+        auto_detect_language=auto_detect or auto_src,
+    )
     subtitle_exts = {".srt", ".ass", ".ssa", ".vtt"}
 
     files: list[Path] = []
@@ -299,6 +312,107 @@ def translate_subtitle(
     )
     if failed:
         raise typer.Exit(1)
+
+
+# Default model directory: <repo>/src/utils/translate_models
+_DEFAULT_MODEL_DIR = Path(__file__).parent.parent / "utils" / "translate_models"
+
+# Available models per direction.
+# For en→de there is a tc-big model (transformer-big, BLEU ~43.7 vs ~35 standard).
+# For de→en no separate big variant exists.
+_ALL_MODELS: dict[str, str] = {
+    "Helsinki-NLP/opus-mt-en-de":      "en→de Standard (~300 MB, BLEU ~35)",
+    "gsarti/opus-mt-tc-big-en-de":     "en→de Big    (~900 MB, BLEU ~44, empfohlen)",
+    "Helsinki-NLP/opus-mt-de-en":      "de→en Standard (~300 MB)",
+}
+
+
+@app.command("download-models")
+def download_models(
+    model_dir: Annotated[
+        Optional[Path],
+        typer.Option("--model-dir", "-d", help="Zielordner für die Modelle."),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Bereits vorhandene Modelle neu herunterladen."),
+    ] = False,
+) -> None:
+    """
+    Lade OPUS-MT Übersetzungsmodelle lokal herunter.
+
+    Die Modelle werden automatisch vom HuggingFace Hub geladen und ins
+    CTranslate2-Format konvertiert.  Danach ist keine Internetverbindung
+    mehr nötig.
+
+    Standardpfad: src/utils/translate_models/
+
+    Modelle:
+      Helsinki-NLP/opus-mt-en-de       en→de Standard (~300 MB, BLEU ~35)
+      gsarti/opus-mt-tc-big-en-de      en→de Big    (~900 MB, BLEU ~44)  ← empfohlen
+      Helsinki-NLP/opus-mt-de-en       de→en Standard (~300 MB)
+
+    Beispiele:
+        # Alle drei Modelle herunterladen (empfohlen beim ersten Setup)
+        media-tool subtitle download-models
+
+        # Eigener Pfad
+        media-tool subtitle download-models --model-dir D:\\models\\translation
+    """
+    try:
+        import ctranslate2
+        from transformers import MarianTokenizer
+    except ImportError:
+        console.print(
+            "[red]Fehlende Abhängigkeiten.[/red]\n"
+            "Bitte installieren: [bold]pip install ctranslate2 transformers sentencepiece[/bold]"
+        )
+        raise typer.Exit(1)
+
+    # Helsinki-NLP models on HuggingFace are in MarianMT (transformers) format
+    # → use TransformersConverter, NOT OpusMTConverter (which expects native Marian format)
+    TransformersConverter = ctranslate2.converters.TransformersConverter
+
+    target_dir = model_dir or _DEFAULT_MODEL_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"[bold]Zielordner:[/bold] {target_dir}")
+    console.print(f"[bold]Modelle:[/bold] {len(_ALL_MODELS)}\n")
+
+    errors: list[str] = []
+    for model_name, description in _ALL_MODELS.items():
+        model_dir_path = target_dir / model_name.replace("/", "--")
+
+        # A model is considered "present" only when conversion produced model.bin
+        model_ready = (model_dir_path / "model.bin").exists()
+        if model_ready and not force:
+            console.print(f"  [dim]–[/dim] {description} [dim](bereits vorhanden)[/dim]")
+            continue
+
+        console.print(f"  [cyan]↓[/cyan] {description} …")
+        try:
+            # Remove any leftover partial directory so converter can start fresh
+            if model_dir_path.exists():
+                import shutil
+                shutil.rmtree(model_dir_path)
+            converter = TransformersConverter(model_name, low_cpu_mem_usage=True)
+            converter.convert(str(model_dir_path))
+            # Tokenizer (vocab files) neben dem Modell speichern
+            MarianTokenizer.from_pretrained(model_name).save_pretrained(str(model_dir_path))
+            console.print(f"  [green]✓[/green] {description} → {model_dir_path.name}")
+        except Exception as exc:
+            console.print(f"  [red]✗[/red] {model_name}: {exc}")
+            errors.append(model_name)
+            if model_dir_path.exists():
+                import shutil
+                shutil.rmtree(model_dir_path, ignore_errors=True)
+
+    console.print()
+    if errors:
+        console.print(f"[red]Fehler bei {len(errors)} Modell(en): {', '.join(errors)}[/red]")
+        raise typer.Exit(1)
+    else:
+        console.print(f"[green bold]Alle Modelle bereit in:[/green bold] {target_dir}")
 
 
 if __name__ == "__main__":
