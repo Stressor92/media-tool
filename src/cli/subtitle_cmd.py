@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import typer
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
 from rich.console import Console
 
@@ -21,7 +21,7 @@ from utils.video_hasher import VideoHasher
 from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
 
-app = typer.Typer()
+app = typer.Typer(help="Download and manage subtitles. Use 'download' to fetch from OpenSubtitles.org, 'search' to check availability.")
 console = Console()
 
 
@@ -210,6 +210,95 @@ def search(
     best = provider.get_best_match(matches)
     if best:
         console.print(f"[green]Best match:[/green] {best.release_name} ({best.rating:.1f}★, {best.download_count:,} downloads)")
+
+
+@app.command("translate")
+def translate_subtitle(
+    path: Annotated[Path, typer.Argument(help="SRT/ASS/VTT file or directory")],
+    source_lang: Annotated[str, typer.Option("--from", help="Source language: de | en")] = "en",
+    target_lang: Annotated[str, typer.Option("--to", help="Target language: de | en")] = "de",
+    backend: Annotated[str, typer.Option(help="Translation backend: opus-mt | argos")] = "opus-mt",
+    model_size: Annotated[str, typer.Option(help="Model size: standard | big")] = "big",
+    recursive: Annotated[bool, typer.Option("-r/--recursive", help="Process subdirectories recursively")] = False,
+    overwrite: Annotated[bool, typer.Option(help="Overwrite existing output files")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be done without writing files")] = False,
+) -> None:
+    """
+    Translate subtitle files locally using an offline AI model.
+
+    No internet connection or API key required.
+    Primary backend: Helsinki-NLP OPUS-MT via CTranslate2 (GPU-accelerated).
+    Fallback backend: argostranslate (CPU-only, no CUDA needed).
+
+    Install GPU backend:   pip install ctranslate2 transformers sentencepiece
+    Install CPU fallback:  pip install argostranslate
+
+    Examples:
+        # Single file: English → German
+        media-tool subtitle translate movie.en.srt --from en --to de
+
+        # Directory: recursively translate all English SRT/ASS/VTT files
+        media-tool subtitle translate "C:\\Movies" -r --from en --to de
+
+        # Preview without writing
+        media-tool subtitle translate movie.en.srt --from en --to de --dry-run
+
+        # CPU-only fallback (no CUDA required)
+        media-tool subtitle translate movie.en.srt --from en --to de --backend argos
+    """
+    from core.translation.models import LanguagePair, TranslationStatus
+    from core.translation.subtitle_translator import SubtitleTranslator
+
+    pair = LanguagePair(source=source_lang, target=target_lang)
+    translator = SubtitleTranslator()
+    subtitle_exts = {".srt", ".ass", ".ssa", ".vtt"}
+
+    files: list[Path] = []
+    if path.is_file():
+        files = [path]
+    elif path.is_dir():
+        pattern = "**/*" if recursive else "*"
+        files = [f for f in path.glob(pattern) if f.suffix.lower() in subtitle_exts]
+    else:
+        console.print(f"[red]Not a valid path: {path}[/red]", style="bold red")
+        raise typer.Exit(1)
+
+    if not files:
+        console.print("[yellow]No subtitle files found.[/yellow]")
+        return
+
+    if dry_run:
+        console.print("[yellow]DRY RUN — no files will be written[/yellow]")
+
+    console.print(f"Processing {len(files)} file(s): [cyan]{pair}[/cyan] via [cyan]{backend}[/cyan]")
+
+    success = skipped = failed = 0
+    for f in files:
+        result = translator.translate_file(
+            source_path=f,
+            language_pair=pair,
+            backend=backend,
+            model_size=model_size,
+            overwrite=overwrite,
+            dry_run=dry_run,
+        )
+        match result.status:
+            case TranslationStatus.SUCCESS:
+                console.print(f"  [green]✓[/green] {f.name} → {result.output_path.name if result.output_path else '?'}")
+                success += 1
+            case TranslationStatus.SKIPPED:
+                reason = "(dry run)" if dry_run else "(already exists)"
+                console.print(f"  [dim]–[/dim] {f.name} {reason}")
+                skipped += 1
+            case TranslationStatus.FAILED:
+                console.print(f"  [red]✗[/red] {f.name}: {result.error_message}")
+                failed += 1
+
+    console.print(
+        f"\n[bold]Summary:[/bold] {success} translated · {skipped} skipped · {failed} failed"
+    )
+    if failed:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

@@ -380,6 +380,37 @@ media-tool video upscale input.mp4 output.mp4 --height 720
 ```bash
 media-tool video inspect "Y:\Videos" --output video_library.csv
 ```
+
+#### Generate Subtitles with Whisper (single file)
+```bash
+media-tool video subtitle movie.mkv --language en
+```
+
+#### Generate Subtitles – Batch (Directory)
+```bash
+media-tool video subtitle "Season 01/" --recursive
+```
+
+Available Whisper models: `tiny`, `base`, `small`, `medium`, `large-v3` (default).
+
+#### Auto-Generate English Subtitles only where needed
+```bash
+media-tool video subtitle-auto "C:\Movies" --recursive
+```
+
+Checks every MKV:
+1. Has the file an **English audio** track? (skip if not)
+2. Does it **already have English subtitles**? (skip if yes)
+
+Only files that need subtitles are transcribed.
+
+```bash
+# Preview what would be processed (no changes)
+media-tool video subtitle-auto "C:\Movies" --recursive --dry-run
+
+# Re-generate even if subtitles already exist
+media-tool video subtitle-auto "C:\Movies" --recursive --overwrite
+```
 ---------------------------------------------------------------------------
  Upscale profiles
 
@@ -463,7 +494,63 @@ media-tool audiobook merge "C:\Chapters" "output.m4a" --dry-run
 media-tool audiobook merge "C:\Chapters" "output.mp3" --format mp3 --overwrite
 ```
 
-### 4. Batch Operations & Automation
+### 4. Subtitle Management
+
+#### Download Subtitles from OpenSubtitles.org
+```bash
+# Single file – auto-select best English subtitle
+media-tool subtitle download movie.mkv
+
+# Multiple preferred languages (priority order)
+media-tool subtitle download movie.mkv --languages en,de
+
+# Interactive selection (show all matches, let user choose)
+media-tool subtitle download movie.mkv --interactive
+
+# Entire directory (recursive by default)
+media-tool subtitle download "C:\Movies"
+```
+
+Requires an [OpenSubtitles API key](https://www.opensubtitles.com/api).
+Set it in `media-tool.toml` under `[api].opensubtitles_api_key` or via env var `OPENSUBTITLES_API_KEY`.
+
+#### Search Subtitles (without downloading)
+```bash
+# Check availability before batch processing
+media-tool subtitle search movie.mkv
+media-tool subtitle search movie.mkv --languages en,de --limit 20
+```
+
+#### Translate Subtitles Offline (no API key required)
+```bash
+# Single file: English → German
+media-tool subtitle translate movie.en.srt --from en --to de
+
+# German → English
+media-tool subtitle translate movie.de.srt --from de --to en
+
+# Directory: translate all subtitle files recursively
+media-tool subtitle translate "C:\Movies" -r --from en --to de
+
+# Preview without writing
+media-tool subtitle translate movie.en.srt --from en --to de --dry-run
+
+# CPU-only fallback (no CUDA/GPU required)
+media-tool subtitle translate movie.en.srt --from en --to de --backend argos
+```
+
+Output naming convention: `movie.en.srt` → `movie.de.srt` (language suffix replaced).
+
+Install the required backend first:
+```bash
+# GPU-accelerated (recommended — ~500 seg/s on GPU)
+pip install ctranslate2 transformers sentencepiece
+
+# CPU fallback (no CUDA needed)
+pip install argostranslate
+```
+
+### 5. Batch Operations & Automation
 
 #### Batch Process All Videos in Directory
 ```bash
@@ -475,7 +562,7 @@ media-tool video convert "E:\Downloads" --output "Y:\Videos" --language de --ove
 media-tool video upscale batch "E:\Downloads" --height 720
 ```
 
-### 5. Web Download Workflows (yt-dlp)
+### 6. Web Download Workflows (yt-dlp)
 
 #### Download Single Video
 ```bash
@@ -513,8 +600,38 @@ media-tool video --help        # Video commands
 media-tool audio --help        # Audio/Music commands
 media-tool audiobook --help    # Audiobook commands
 media-tool inspect --help      # Inspection tools
+media-tool subtitle --help     # Subtitle commands
 media-tool download --help     # yt-dlp based download commands
 ```
+
+### `media-tool video` commands
+
+| Command | Description |
+|---|---|
+| `video convert <input> <output>` | Lossless MP4 → MKV container conversion, preserves all streams |
+| `video inspect <dir>` | Scan directory and export metadata to CSV |
+| `video merge <dir> <output>` | Merge German + English MP4 into dual-audio MKV |
+| `video upscale <input> <output>` | Upscale DVD-quality (480p) to 720p/1080p H.265 |
+| `video subtitle <input>` | Generate subtitles via Whisper AI (single file or directory) |
+| `video subtitle-auto <input>` | Auto-generate English subtitles only where missing & English audio exists |
+| `video subtitle-translate <input>` | Translate subtitle files offline (no API key required) |
+
+### `media-tool subtitle` commands
+
+| Command | Description |
+|---|---|
+| `subtitle download <path>` | Download subtitles from OpenSubtitles.org and embed into MKV |
+| `subtitle search <file>` | Search OpenSubtitles.org and show results (no download) |
+| `subtitle translate <path>` | Translate SRT/ASS/VTT files offline with Helsinki-NLP OPUS-MT or argostranslate |
+
+#### Translation model comparison
+
+| Model | Size | VRAM | Speed (GPU) | Quality |
+|---|---|---|---|---|
+| `opus-mt-de-en` / `opus-mt-en-de` (standard) | ~300 MB | ~0.5 GB | ~500 seg/s | Very good |
+| `opus-mt-tc-big-de-en` / `opus-mt-tc-big-en-de` (big) | ~900 MB | ~1.5 GB | ~200 seg/s | Excellent |
+
+`big` models are trained on TED Talks + OpenSubtitles — ideal for film subtitles.
 
 ## Planned Features
 

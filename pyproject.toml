@@ -26,6 +26,16 @@ dependencies = [
     "yt-dlp>=2024.11.0",  # Downloader backend for web media sources
 ]
 
+[project.optional-dependencies]
+translation-gpu = [
+    "ctranslate2>=4.0",
+    "transformers>=4.40",
+    "sentencepiece>=0.2",
+]
+translation-cpu = [
+    "argostranslate>=1.9",
+]
+
 [project.scripts]
 media-tool = "cli.main:main"
 

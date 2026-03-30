@@ -663,3 +663,108 @@ def upscale_command(
             stderr_tail = "\n".join(result.ffmpeg_result.stderr.splitlines()[-20:])
             console.print(f"\n[dim]ffmpeg stderr (tail):[/dim]\n{stderr_tail}", highlight=False)
         raise typer.Exit(code=1)
+
+
+@app.command("subtitle-translate")
+def subtitle_translate_command(
+    path: Path = typer.Argument(
+        ..., exists=True, file_okay=True, dir_okay=True, readable=True,
+        help="SRT/ASS/VTT file or directory to translate.",
+    ),
+    source_lang: str = typer.Option(
+        "en", "--from", "-s",
+        help="Source language code (en, de).",
+    ),
+    target_lang: str = typer.Option(
+        "de", "--to", "-t",
+        help="Target language code (en, de).",
+    ),
+    backend: str = typer.Option(
+        "opus-mt", "--backend",
+        help="Translation backend: opus-mt (GPU, recommended) | argos (CPU fallback).",
+    ),
+    model_size: str = typer.Option(
+        "big", "--model-size",
+        help="Model size: standard (~300 MB) | big (~900 MB, higher quality).",
+    ),
+    recursive: bool = typer.Option(
+        False, "--recursive", "-r",
+        help="Process subdirectories recursively (directory mode only).",
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite", "-y",
+        help="Overwrite existing output files.",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run",
+        help="Show what would be done without writing files.",
+    ),
+) -> None:
+    """
+    Translate subtitle files locally with an offline AI model.
+
+    No internet or API key required.
+    Primary: Helsinki-NLP OPUS-MT via CTranslate2 (GPU).
+    Fallback: argostranslate (CPU, no CUDA needed).
+
+    Examples:
+        media-tool video subtitle-translate movie.en.srt --from en --to de
+        media-tool video subtitle-translate "Season 01/" -r --from en --to de
+        media-tool video subtitle-translate movie.en.srt --from en --to de --dry-run
+    """
+    # Delegate to the shared implementation in subtitle_cmd
+    from cli.subtitle_cmd import translate_subtitle
+    from click import Context
+    import typer as _typer
+
+    # Invoke by re-using the core logic directly
+    from core.translation.models import LanguagePair, TranslationStatus
+    from core.translation.subtitle_translator import SubtitleTranslator
+
+    pair = LanguagePair(source=source_lang, target=target_lang)
+    translator = SubtitleTranslator()
+    subtitle_exts = {".srt", ".ass", ".ssa", ".vtt"}
+
+    files: list[Path] = []
+    if path.is_file():
+        files = [path]
+    elif path.is_dir():
+        pattern = "**/*" if recursive else "*"
+        files = [f for f in path.glob(pattern) if f.suffix.lower() in subtitle_exts]
+
+    if not files:
+        console.print("[yellow]No subtitle files found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    if dry_run:
+        console.print("[yellow]DRY RUN — no files will be written[/yellow]")
+
+    console.rule("[bold cyan]media-tool · video subtitle-translate[/bold cyan]")
+    console.print(f"[dim]Files:[/dim] {len(files)}   [dim]Direction:[/dim] {pair}   [dim]Backend:[/dim] {backend}")
+
+    success = skipped = failed = 0
+    for f in files:
+        result = translator.translate_file(
+            source_path=f,
+            language_pair=pair,
+            backend=backend,
+            model_size=model_size,
+            overwrite=overwrite,
+            dry_run=dry_run,
+        )
+        match result.status:
+            case TranslationStatus.SUCCESS:
+                console.print(f"  [green]✓[/green] {f.name} → {result.output_path.name if result.output_path else '?'}")
+                success += 1
+            case TranslationStatus.SKIPPED:
+                reason = "(dry run)" if dry_run else "(already exists)"
+                console.print(f"  [dim]–[/dim] {f.name} {reason}")
+                skipped += 1
+            case TranslationStatus.FAILED:
+                err_console.print(f"  [red]✗[/red] {f.name}: {result.error_message}")
+                failed += 1
+
+    console.rule()
+    console.print(f"\n[bold]Summary:[/bold] {success} translated · {skipped} skipped · {failed} failed")
+    if failed:
+        raise typer.Exit(code=1)

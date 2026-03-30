@@ -18,3 +18,11 @@ types-requests>=2.32
 # openai-whisper
 # torch
 # PySide6
+
+# Optional: offline subtitle translation (GPU-accelerated)
+# ctranslate2>=4.0
+# transformers>=4.40
+# sentencepiece>=0.2
+
+# Optional: offline subtitle translation (CPU fallback, no CUDA required)
+# argostranslate>=1.9

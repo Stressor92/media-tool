@@ -57,3 +57,15 @@ organize_naming          = "jellyfin"  # jellyfin | flat
 # encode_bluray        = true
 # subtitles            = true
 # organize             = true
+
+[translation]
+# Offline subtitle translation (no cloud, no API key required)
+# Install GPU backend:  pip install ctranslate2 transformers sentencepiece
+# Install CPU fallback: pip install argostranslate
+backend    = "opus-mt"   # "opus-mt" (GPU, recommended) | "argos" (CPU fallback)
+model_size = "big"       # "standard" (~300 MB) | "big" (~900 MB, higher quality)
+device     = "auto"      # "auto" | "cuda" | "cpu"
+batch_size = 32
+
+# Custom local model cache (default: ~/.cache/media-tool/models)
+# model_cache_dir = "D:\\models\\translation"
