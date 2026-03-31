@@ -415,5 +415,110 @@ def download_models(
         console.print(f"[green bold]Alle Modelle bereit in:[/green bold] {target_dir}")
 
 
+@app.command("convert")
+def convert_subtitle(
+    path: Annotated[Path, typer.Argument(help="Subtitle file or directory")],
+    to: Annotated[str, typer.Option(help="Target format: srt | ass | vtt | ttml | scc | stl | lrc | sbv")],
+    output: Annotated[Optional[Path], typer.Option("-o", help="Output file or directory")] = None,
+    recursive: Annotated[bool, typer.Option("-r/--recursive", help="Process subdirectories recursively")] = False,
+    overwrite: Annotated[bool, typer.Option(help="Overwrite existing output files")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be done without writing files")] = False,
+) -> None:
+    """
+    Convert subtitles between all supported formats.
+
+    Examples:
+        media-tool subtitle convert movie.srt --to vtt
+        media-tool subtitle convert broadcast.stl --to srt
+        media-tool subtitle convert "C:\\Subs" -r --to srt
+        media-tool subtitle convert captions.scc --to ttml -o output.ttml
+    """
+    from core.translation.converter import ConversionStatus, SubtitleConverter
+    from core.translation.models import SubtitleFormat
+
+    try:
+        target_fmt = SubtitleFormat(to.lower())
+    except ValueError:
+        valid = [f.value for f in SubtitleFormat if f.is_text_based]
+        typer.echo(f"❌ Unknown format '{to}'. Valid: {valid}", err=True)
+        raise typer.Exit(1)
+
+    subtitle_exts = {".srt", ".ass", ".ssa", ".vtt", ".ttml", ".dfxp",
+                     ".scc", ".stl", ".lrc", ".sbv"}
+
+    files: list[Path] = []
+    if path.is_file():
+        files = [path]
+    elif path.is_dir():
+        pattern = "**/*" if recursive else "*"
+        files = [f for f in path.glob(pattern) if f.suffix.lower() in subtitle_exts]
+
+    if not files:
+        typer.echo("ℹ️  No subtitle files found.")
+        return
+
+    converter = SubtitleConverter()
+    success = skipped = failed = 0
+
+    for f in files:
+        if output and output.is_dir():
+            out: Optional[Path] = output / f.with_suffix(f".{to}").name
+        else:
+            out = output
+        result = converter.convert(f, target_fmt, output_path=out,
+                                   overwrite=overwrite, dry_run=dry_run)
+        match result.status:
+            case ConversionStatus.SUCCESS:
+                out_name = result.output_path.name if result.output_path else "?"
+                typer.echo(f"✅  {f.name} → {out_name} ({result.segments_converted} segments)")
+                success += 1
+            case ConversionStatus.SKIPPED:
+                typer.echo(f"⏭️   {f.name} ({result.error_message})")
+                skipped += 1
+            case ConversionStatus.FAILED:
+                typer.echo(f"❌  {f.name}: {result.error_message}", err=True)
+                failed += 1
+
+    typer.echo(f"\n{success} converted · {skipped} skipped · {failed} failed")
+    if failed:
+        raise typer.Exit(1)
+
+
+@app.command("formats")
+def list_formats() -> None:
+    """Show all supported subtitle formats with read/write status."""
+    from core.translation.format_registry import FormatRegistry
+    from core.translation.models import SubtitleFormat
+
+    read_fmts  = set(FormatRegistry.supported_read_formats())
+    write_fmts = set(FormatRegistry.supported_write_formats())
+
+    typer.echo("\n── Supported Subtitle Formats ──────────────────────────")
+    typer.echo(f"  {'Format':<12} {'Read':<8} {'Write':<10} Description")
+    typer.echo("  " + "─" * 55)
+
+    descriptions = {
+        SubtitleFormat.SRT:  "SubRip – universal standard",
+        SubtitleFormat.ASS:  "Advanced SubStation Alpha – Anime, styling",
+        SubtitleFormat.VTT:  "WebVTT – HTML5 / browser",
+        SubtitleFormat.TTML: "TTML/DFXP – broadcast (Netflix, ARD)",
+        SubtitleFormat.SCC:  "SCC – US-TV closed captions (CEA-608)",
+        SubtitleFormat.STL:  "EBU STL – European broadcast TV",
+        SubtitleFormat.LRC:  "LRC – music/karaoke lyric sync",
+        SubtitleFormat.SBV:  "SBV – YouTube auto-captions",
+        SubtitleFormat.SUB:  "VobSub – DVD bitmap (read + OCR only)",
+        SubtitleFormat.SUP:  "PGS/SUP – Blu-ray bitmap (read + OCR only)",
+    }
+
+    for fmt in SubtitleFormat:
+        if fmt in (SubtitleFormat.UNKNOWN, SubtitleFormat.SSA, SubtitleFormat.DFXP):
+            continue
+        r = "✅" if fmt in read_fmts else "❌"
+        w = "✅" if fmt in write_fmts else "❌"
+        desc = descriptions.get(fmt, "")
+        typer.echo(f"  {fmt.value:<12} {r:<8} {w:<10} {desc}")
+    typer.echo("")
+
+
 if __name__ == "__main__":
     app()

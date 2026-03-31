@@ -35,6 +35,11 @@ src/
 │   ├── video/         # Video processing modules (conversion, upscaling, merging)
 │   ├── audiobook/     # Audiobook-specific logic (organization, chapter merging)
 │   ├── subtitles/     # Subtitle provider abstraction + OpenSubtitles workflow
+│   ├── translation/   # Subtitle format converter + offline translation (OPUS-MT)
+│   │   ├── formats/   # Per-format readers/writers (SRT, VTT, ASS, TTML, SCC, STL, LRC, SBV)
+│   │   ├── format_registry.py  # Lazy dispatcher + magic-byte detection
+│   │   ├── style_mapper.py     # ASS↔HTML tag conversion
+│   │   └── converter.py        # SubtitleConverter public API
 │   ├── download/      # yt-dlp domain (request models, runner, selector, manager)
 │   └── naming/        # File naming utilities for Jellyfin compatibility
 ├── cli/               # Command-line interface (Typer-based)
@@ -121,13 +126,15 @@ Organize by artist/album structure
 Generate playlists and library statistics
 Audiobook chapter detection and metadata
 
-6. 📜 Subtitle Generation
+6. 📜 Subtitle Generation & Management
 
 Extract audio from video
 Generate subtitles using Whisper
 Auto-sync subtitles
 Add subtitles to MKV container
-Get Subtitels vi API with download
+Get subtitles via API with download
+Convert between subtitle formats (SRT, VTT, ASS, TTML, SCC, STL, LRC, SBV)
+Translate subtitles offline with OPUS-MT
 
 7. 📂 NAS Automation
 
@@ -521,6 +528,35 @@ media-tool subtitle search movie.mkv
 media-tool subtitle search movie.mkv --languages en,de --limit 20
 ```
 
+#### Convert Subtitle Formats
+```bash
+# Convert a single file to a different format
+media-tool subtitle convert movie.srt --to vtt
+media-tool subtitle convert movie.ass --to srt --output movie_clean.srt
+
+# Batch convert all subtitles in a directory
+media-tool subtitle convert "C:\Movies" -r --to srt
+
+# Preview without writing
+media-tool subtitle convert movie.ass --to srt --dry-run
+
+# List all supported formats with read/write status
+media-tool subtitle formats
+```
+
+Supported formats:
+
+| Format | Extension | Read | Write | Notes |
+|---|---|---|---|---|
+| SRT | `.srt` | ✅ | ✅ | SubRip — most widely supported |
+| WebVTT | `.vtt` | ✅ | ✅ | HTML5 / streaming |
+| ASS/SSA | `.ass`, `.ssa` | ✅ | ✅ | Advanced SubStation Alpha (styles preserved) |
+| TTML/DFXP | `.ttml`, `.dfxp` | ✅ | ✅ | Broadcast / streaming standard |
+| SCC | `.scc` | ✅ | ✅ | Scenarist Closed Caption (CEA-608) |
+| STL | `.stl` | ✅ | ✅ | EBU STL broadcast format |
+| LRC | `.lrc` | ✅ | ✅ | Lyric format for music |
+| SBV | `.sbv` | ✅ | ✅ | YouTube caption format |
+
 #### Translate Subtitles Offline (no API key required)
 ```bash
 # Single file: English → German
@@ -623,6 +659,8 @@ media-tool download --help     # yt-dlp based download commands
 | `subtitle download <path>` | Download subtitles from OpenSubtitles.org and embed into MKV |
 | `subtitle search <file>` | Search OpenSubtitles.org and show results (no download) |
 | `subtitle translate <path>` | Translate SRT/ASS/VTT files offline with Helsinki-NLP OPUS-MT or argostranslate |
+| `subtitle convert <path>` | Convert subtitle files between formats (SRT, VTT, ASS, TTML, SCC, STL, LRC, SBV) |
+| `subtitle formats` | List all supported subtitle formats with read/write status |
 
 #### Translation model comparison
 
