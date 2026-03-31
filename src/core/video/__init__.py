@@ -56,6 +56,18 @@ from .subtitle_generator import (
 from .subtitle_processor import (
     SubtitleTimingProcessor,
 )
+from .movie_folder_scanner import (
+    MovieFolder,
+    MovieFolderScanner,
+)
+from .trailer_search import (
+    TrailerSearchResult,
+    TrailerSearchService,
+)
+from .trailer_downloader import (
+    TrailerDownloadResult,
+    TrailerDownloadService,
+)
 
 __all__ = [
     # Converter
@@ -102,4 +114,11 @@ __all__ = [
     "SubtitleGenerator",
     # Subtitle Processor
     "SubtitleTimingProcessor",
+    # Trailer workflow
+    "MovieFolder",
+    "MovieFolderScanner",
+    "TrailerSearchResult",
+    "TrailerSearchService",
+    "TrailerDownloadResult",
+    "TrailerDownloadService",
 ]

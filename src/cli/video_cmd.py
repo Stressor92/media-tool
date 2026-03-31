@@ -10,17 +10,25 @@ from pathlib import Path
 from typing import Optional
 
 from utils.ffprobe_runner import ProbeResult
+from core.video.movie_folder_scanner import MovieFolderScanner
 
 import typer
 from rich import box
 from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 from core.video import (
     convert_mp4_to_mkv,
-    scan_directory,
     merge_directory,
+    scan_directory,
+    TrailerDownloadResult,
+    TrailerDownloadService,
+    TrailerSearchService,
     upscale_dvd,
 )
+from utils.config import get_config
+from utils.ytdlp_runner import YtDlpNotFoundError, YtDlpRunner
 
 app = typer.Typer(help="Process video files.")
 console = Console()
@@ -604,6 +612,142 @@ def subtitle_auto_command(
         console.print("[red]Failed:[/red]")
         for p in failed:
             console.print(f"  ✘ {p.name}")
+        raise typer.Exit(code=1)
+
+
+def _render_trailer_results(results: list[TrailerDownloadResult]) -> None:
+    """Render a compact trailer download summary table."""
+    table = Table(title="Trailer Download Results", box=box.ROUNDED)
+    table.add_column("Movie", style="cyan")
+    table.add_column("Status")
+    table.add_column("Language", justify="center")
+    table.add_column("Trailer File", overflow="fold")
+    table.add_column("Details", overflow="fold")
+
+    for result in results:
+        status = "[green]✓ downloaded[/green]" if result.success else "[red]✘ failed[/red]"
+        if result.dry_run and result.success:
+            status = "[yellow]◌ dry-run[/yellow]"
+        if result.skipped:
+            status = "[dim]⏭ skipped[/dim]"
+
+        trailer_file = result.trailer_path.name if result.trailer_path is not None else "-"
+        details = result.selected_title or result.error or "-"
+
+        table.add_row(
+            result.movie_name,
+            status,
+            result.language or "-",
+            trailer_file,
+            details,
+        )
+
+    console.print(table)
+
+
+@app.command("download-trailers")
+def download_trailers_command(
+    library_path: Path = typer.Argument(
+        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        help="Jellyfin movie library root path.",
+    ),
+    languages: str = typer.Option(
+        "en,de", "--languages", "-l",
+        help="Comma-separated language preference order (e.g., en,de).",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run",
+        help="Preview trailer matches without downloading files.",
+    ),
+    skip_existing: bool = typer.Option(
+        True, "--skip-existing/--include-existing",
+        help="Skip movie folders that already contain trailer files.",
+    ),
+    max_downloads: int = typer.Option(
+        0, "--max-downloads", "-m",
+        help="Maximum number of movie folders to process (0 means no limit).",
+    ),
+) -> None:
+    """Download YouTube trailers for Jellyfin movie folders."""
+    language_list = tuple(lang.strip().lower() for lang in languages.split(",") if lang.strip())
+    if not language_list:
+        err_console.print("Error: at least one language must be provided")
+        raise typer.Exit(code=1)
+
+    config = get_config()
+    ytdlp_binary = config.tools.yt_dlp if config.tools and config.tools.yt_dlp else "yt-dlp"
+
+    console.rule("[bold cyan]media-tool · video download-trailers[/bold cyan]")
+    console.print(f"[dim]Library:[/dim] {library_path}")
+    console.print(f"[dim]Languages:[/dim] {', '.join(language_list)}")
+    console.print(f"[dim]Skip existing:[/dim] {skip_existing}")
+    if max_downloads > 0:
+        console.print(f"[dim]Max folders:[/dim] {max_downloads}")
+    if dry_run:
+        console.print("[yellow]DRY RUN — no trailer files will be written[/yellow]")
+
+    try:
+        ytdlp_runner = YtDlpRunner(ytdlp_binary=ytdlp_binary)
+    except YtDlpNotFoundError as exc:
+        err_console.print(f"Error: {exc}")
+        err_console.print("Install yt-dlp or configure tools.yt_dlp in media-tool.toml")
+        raise typer.Exit(code=1)
+    except Exception as exc:
+        err_console.print(f"Error initializing yt-dlp: {exc}")
+        raise typer.Exit(code=1)
+
+    search_service = TrailerSearchService(ytdlp_runner=ytdlp_runner)
+    downloader = TrailerDownloadService(
+        ytdlp_runner=ytdlp_runner,
+        search_service=search_service,
+        scanner=MovieFolderScanner(),
+    )
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        transient=True,
+        console=console,
+    ) as progress:
+        task_id = progress.add_task("Scanning and downloading trailers", total=1)
+
+        def _progress_callback(current: int, total: int, current_movie: str) -> None:
+            progress.update(
+                task_id,
+                total=max(1, total),
+                completed=min(current, max(1, total)),
+                description=f"Processing: {current_movie}",
+            )
+
+        try:
+            results = downloader.process_library(
+                library_path=library_path,
+                preferred_languages=language_list,
+                dry_run=dry_run,
+                skip_existing=skip_existing,
+                max_downloads=max_downloads,
+                progress_callback=_progress_callback,
+            )
+        except Exception as exc:
+            err_console.print(f"Error: {exc}")
+            raise typer.Exit(code=1)
+
+    if not results:
+        console.print("[yellow]No matching movie folders found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    _render_trailer_results(results)
+
+    success_count = sum(1 for result in results if result.success)
+    failure_count = len(results) - success_count
+    console.print(
+        f"\n[bold]Summary:[/bold] {success_count}/{len(results)} successful"
+        f" · {failure_count} failed"
+    )
+
+    if failure_count > 0 and not dry_run:
         raise typer.Exit(code=1)
 
 
