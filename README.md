@@ -12,17 +12,24 @@ Integration with tools like ffmpeg, Whisper, and Jellyfin
 
 ## 🚦 CURRENT PROJECT STATUS
 
-- OpenSubtitles API provider is implemented and tested.
-- Subtitle download workflow in core and CLI is working (including best-match logic and MKV embedding via FFmpegMuxer).
-- Core subtitle classes: `SubtitleProvider`, `SubtitleMatch`, `MovieInfo`, `DownloadResult` are in place.
-- `VideoHasher` has been added with OpenSubtitles hash algorithm and TC.
-- Unit/integration tests for subtitle provider and workflow are added and passing.
-- `.gitignore` now excludes temp test files and artifacts.
-- Some unrelated legacy integration tests still fail due existing environment/ffmpeg path issues. #TODO
+- in development | ALPHA
 
 ## 🧰 How to run full suite and interpret legacy failures
 
-Run the full tests with `pytest -q`; a few known integration tests may fail in environments without full ffmpeg/video fixture support (these are pre-existing behavior checks). 
+Run the default suite with `pytest -q`.
+Offline integration tests run by default; live external-service tests are explicitly opt-in via marker/environment.
+
+```bash
+# default: unit + offline integration
+python -m pytest -q
+
+# only offline integration
+python -m pytest tests/integration -m "not live_integration" -q
+
+# opt-in live integration
+set MEDIA_TOOL_LIVE_INTEGRATION_TESTS=1
+python -m pytest tests/integration -m live_integration -q
+```
 
 ## Architecture
 
@@ -40,6 +47,15 @@ src/
 │   │   ├── format_registry.py  # Lazy dispatcher + magic-byte detection
 │   │   ├── style_mapper.py     # ASS↔HTML tag conversion
 │   │   └── converter.py        # SubtitleConverter public API
+│   ├── metadata/      # TMDB metadata + artwork pipeline
+│   │   ├── models.py           # MovieMetadata, ArtworkType, PipelineResult
+│   │   ├── tmdb_client.py      # HTTP client with retry/cache/fallback language
+│   │   ├── tmdb_provider.py    # Search + detailed metadata mapping
+│   │   ├── title_parser.py     # Parse title/year from file or folder name
+│   │   ├── match_selector.py   # Auto or interactive match selection
+│   │   ├── nfo_writer.py       # Jellyfin/Kodi compatible movie NFO writer
+│   │   ├── artwork_downloader.py # Parallel artwork download
+│   │   └── metadata_pipeline.py # End-to-end orchestration
 │   ├── jellyfin/      # Jellyfin REST API integration
 │   │   ├── client.py           # HTTP client with retry + structured exceptions
 │   │   ├── library_manager.py  # Refresh, scan status, item lookup
@@ -59,7 +75,8 @@ src/
 │   ├── download_cmd.py # yt-dlp download commands (video/music/series)
 │   ├── upscale_cmd.py # Video upscaling
 │   ├── video_cmd.py   # General video processing commands
-│   └── jellyfin_cmd.py # Jellyfin library management commands
+│   ├── jellyfin_cmd.py # Jellyfin library management commands
+│   └── metadata_cmd.py # TMDB metadata and artwork commands
 ├── utils/             # Shared helpers and low-level utilities
 │   ├── audio_analyzer.py       # Audio metadata extraction using ffprobe
 │   ├── audio_processor.py      # Audio manipulation and enhancement tools
@@ -95,6 +112,32 @@ Focus on modular, reusable functions
 Designed for automation and batch processing
 Configuration follows predictable precedence for request construction:
 CLI values > profile values > global defaults
+
+### Metadata Model: What Changed and Why
+
+This diff adds a dedicated metadata domain layer so movie scraping logic is isolated from video/audit/jellyfin modules.
+
+New model flow:
+
+1. Input parsing:
+  - title_parser extracts a clean title and optional year from folder/file names.
+2. Discovery:
+  - tmdb_provider.search returns ranked candidates as TmdbSearchResult entries.
+3. Selection:
+  - match_selector picks the best item automatically or via interactive prompt.
+4. Enrichment:
+  - tmdb_provider.get_movie_metadata maps full cast/crew/ratings/IDs/artwork fields into MovieMetadata.
+5. Output generation:
+  - nfo_writer writes Jellyfin/Kodi-compatible XML .nfo
+  - artwork_downloader saves poster/fanart/logo/etc. in parallel.
+6. Orchestration:
+  - metadata_pipeline coordinates the full lifecycle and returns PipelineResult with status (SUCCESS, SKIPPED, NOT_FOUND, FAILED).
+
+Why this model helps:
+
+- Clear boundaries: HTTP, parsing, matching, writing, downloading are independent and testable.
+- Better batch safety: explicit statuses prevent hidden failures in large NAS runs.
+- Future-ready: easy to plug in additional providers or new output targets.
 
 Core Use Cases
 1. 🎥 Convert .mp4 → .mkv
@@ -324,6 +367,7 @@ Legacy environment variables still work for compatibility:
 ```bash
 set OPENSUBTITLES_API_KEY=your-key
 set ACOUSTID_API_KEY=your-key
+set TMDB_API_KEY=your-key
 set FFMPEG_BIN=C:\tools\ffmpeg.exe
 set FFPROBE_BIN=C:\tools\ffprobe.exe
 ```
@@ -340,6 +384,11 @@ The audio tagging commands can do the same for `acoustid_api_key`, and the low-l
 
 Download commands now read defaults from `[download]` in config (output directories, resolution, audio format/quality, subtitle defaults).
 `[tools].yt_dlp` is also available in config for consistency with your shell setup and legacy scripts, even though the download subsystem primarily uses the Python `yt_dlp` package.
+
+Metadata commands read TMDB credentials from config or environment:
+
+- `[api].tmdb_api_key`
+- `TMDB_API_KEY`
 
 ## Logging
 
@@ -644,6 +693,45 @@ Cookie values are not persisted by the tool and should only be passed at runtime
 media-tool download series "https://youtube.com/playlist?list=..." --output "Y:\Serien"
 ```
 
+### 7. Metadata & Artwork (TMDB)
+
+#### Search only (no file output)
+```bash
+media-tool metadata search "Inception" --year 2010
+```
+
+#### Fetch metadata + artwork for one movie file
+```bash
+media-tool metadata fetch "Y:\Filme\Inception (2010)\Inception (2010).mkv"
+```
+
+#### Batch process an entire movie library
+```bash
+media-tool metadata fetch "Y:\Filme"
+```
+
+#### Interactive match selection
+```bash
+media-tool metadata fetch "Y:\Filme" --interactive
+```
+
+#### Include all artwork types and overwrite existing files
+```bash
+media-tool metadata fetch "Y:\Filme" --artwork all --overwrite
+```
+
+#### Preview only (dry run)
+```bash
+media-tool metadata fetch "Y:\Filme" --dry-run
+```
+
+Generated output per movie directory typically includes:
+
+- MovieName (Year).nfo
+- poster.jpg
+- fanart.jpg
+- optional artwork depending on --artwork selection (logo, thumb, banner, disc)
+
 ## All Available Commands
 
 ```bash
@@ -655,6 +743,9 @@ media-tool inspect --help      # Inspection tools
 media-tool subtitle --help     # Subtitle commands
 media-tool download --help     # yt-dlp based download commands
 media-tool jellyfin --help     # Jellyfin library management
+media-tool metadata --help     # TMDB metadata + artwork commands
+media-tool workflow --help     # End-to-end workflow commands
+media-tool audit --help        # Library audit and quality checks
 ```
 
 ### `media-tool video` commands
@@ -690,6 +781,13 @@ media-tool jellyfin --help     # Jellyfin library management
 | `jellyfin inspect` | Find metadata problems + optional auto-fix (`--fix`) |
 | `jellyfin fix-series` | Reassign a mismatched episode to the correct series |
 | `jellyfin search` | Search items by name (returns IDs for other commands) |
+
+### `media-tool metadata` commands
+
+| Command | Description |
+|---|---|
+| `metadata search <title>` | Search TMDB and list candidates without writing files |
+| `metadata fetch <path>` | Fetch TMDB metadata, write .nfo, and download artwork |
 
 ### 7. Jellyfin Library Management
 
@@ -778,38 +876,3 @@ No extra flags needed — the pipeline picks it up automatically.
 | `opus-mt-tc-big-de-en` / `opus-mt-tc-big-en-de` (big) | ~900 MB | ~1.5 GB | ~200 seg/s | Excellent |
 
 `big` models are trained on TED Talks + OpenSubtitles — ideal for film subtitles.
-
-## Planned Features
-
-- Batch processing of large media collections
-- Logging and error handling (rich output)
-- Config system (profiles for encoding, languages, etc.)
-- Plugin-like architecture for extensions
-- Jellyfin-compatible naming automation
-
-## Future Enhancements
-
-### 🔎 Smart Media Analysis
-
-🔎 Media Analysis
-
-Automatisch erkennen:
-Auflösung
-Audio-Sprachen
-Subtitle-Sprachen
-Entscheidung treffen:
-→ z. B. „nur konvertieren wenn nicht mkv“
-
-🧠 Smart Processing
-
-Wenn Datei schon optimal → überspringen
-Wenn Audio fehlt → ergänzen
-Wenn Subtitles fehlen → generieren
-
-🏷️ Jellyfin Naming
-
-Automatische Umbenennung:
-Movie Name (Year)/Movie Name (Year).mkv
-🌐 Subtitle Download
-Integration mit OpenSubtitles API
-Automatische Sprach-Auswahl

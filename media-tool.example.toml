@@ -4,6 +4,8 @@
 [api]
 opensubtitles_api_key = ""
 acoustid_api_key = ""
+tmdb_api_key = ""
+# Kostenlos unter: https://www.themoviedb.org/settings/api
 opensubtitles_user_agent = "media-tool v1.0"
 
 [tools]
@@ -125,3 +127,21 @@ create_backup   = false      # Backup (.bak) vor In-Place-Schreiben
 
 # Hint-Sprachen beschleunigen Whisper (Suchraum einschränken)
 hint_languages  = ["de", "en"]
+
+[metadata]
+language = "de-DE"
+fallback_language = "en-US"
+preferred_artwork_lang = "de"
+auto_select = true
+overwrite_nfo = false
+overwrite_artwork = false
+
+[metadata.artwork]
+download_poster = true
+download_fanart = true
+download_banner = false
+download_thumb = false
+download_logo = false
+
+[metadata.cast]
+max_actors = 20

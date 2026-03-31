@@ -10,6 +10,7 @@
 [api]
 opensubtitles_api_key = "cAeMfM14epFYPgCgDcQg3TG6wTnm8vcs"   # <-- hier deinen Key eintragen
 acoustid_api_key      = "cur84dh2Vo"   # <-- hier deinen Key eintragen
+tmdb_api_key          = ""             # <-- TMDB v3 API Key
 opensubtitles_user_agent = "media-tool v1.0"
 
 # ---------------------------------------------------------------------------
@@ -85,3 +86,24 @@ sponsorblock_remove   = ["sponsor"]
 #
 # Alle Profile anzeigen: media-tool upscale profiles
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Film-Metadaten + Artwork (TMDB)
+# ---------------------------------------------------------------------------
+[metadata]
+language = "de-DE"
+fallback_language = "en-US"
+preferred_artwork_lang = "de"
+auto_select = true
+overwrite_nfo = false
+overwrite_artwork = false
+
+[metadata.artwork]
+download_poster = true
+download_fanart = true
+download_banner = false
+download_thumb = false
+download_logo = false
+
+[metadata.cast]
+max_actors = 20

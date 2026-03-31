@@ -6,16 +6,13 @@ Your task is to help design, implement, and extend a clean, scalable, and mainta
 
 ## 🚦 CURRENT PROJECT STATUS
 
-- OpenSubtitles provider implementation completed (`core/subtitles/opensubtitles_provider.py`).
-- Subtitle workflow orchestrator added (`core/subtitles/subtitle_downloader.py`).
-- `VideoHasher` added (`utils/video_hasher.py`) with OpenSubtitles hash.
-- `media-tool subtitle download|search` CLI commands added (`src/cli/subtitle_cmd.py`).
-- `FFmpegMuxer` integration fixed in subtitle manager (instead of missing `FFmpegRunner`).
-- yt-dlp download domain added (`core/download/*`) with request models, format selector, runner and manager.
-- `media-tool download video|music|series` CLI command group added (`src/cli/download_cmd.py`).
-- Cookie support + auth fallback for protected downloads is available in download workflow.
-- Full current quality gate is green (`pytest` + `mypy`).
-- `.gitignore` updated and root temp test artifacts removed.
+- OpenSubtitles provider and subtitle workflow are implemented and tested.
+- yt-dlp download domain (`core/download/*`) and `media-tool download` CLI are implemented.
+- Jellyfin integration (`core/jellyfin/*`, `media-tool jellyfin`) is implemented.
+- Audit pipeline (`core/audit/*`, `media-tool audit`) is implemented.
+- A04 language detection pipeline is implemented (heuristic + Whisper fallback + tagging).
+- New metadata/artwork domain is implemented (`core/metadata/*`, `media-tool metadata`).
+- Testing policy: offline integration tests run by default; live external-service tests are opt-in.
 
 ## 🧠 PROJECT CONTEXT
 
@@ -44,7 +41,10 @@ src/
 │   ├── video/         # Video processing modules (conversion, upscaling, merging)
 │   ├── audiobook/     # Audiobook-specific logic (organization, chapter merging)
 │   ├── subtitles/     # Subtitle provider abstraction + OpenSubtitles workflow
+│   ├── metadata/      # TMDB metadata + artwork (models, provider, nfo writer, pipeline)
 │   ├── download/      # yt-dlp domain (models, runner, selector, manager)
+│   ├── jellyfin/      # Jellyfin API integration and metadata maintenance
+│   ├── audit/         # Library quality checks and findings
 │   └── naming/        # File naming utilities for Jellyfin compatibility
 ├── cli/               # Command-line interface (Typer-based)
 │   ├── main.py        # Main CLI entry point and command dispatcher
@@ -54,9 +54,13 @@ src/
 │   ├── download_cmd.py # yt-dlp download commands
 │   ├── inspect_cmd.py # Media library inspection
 │   ├── merge_cmd.py   # Video merging with multiple audio tracks
+│   ├── metadata_cmd.py # TMDB metadata/artwork commands
 │   ├── subtitle_cmd.py # Subtitle download/search commands
 │   ├── upscale_cmd.py # Video upscaling
-│   └── video_cmd.py   # General video processing commands
+│   ├── video_cmd.py   # General video processing commands
+│   ├── jellyfin_cmd.py # Jellyfin library commands
+│   ├── workflow_cmd.py # End-to-end workflows
+│   └── audit_cmd.py   # Library audit commands
 ├── utils/             # Shared helpers and low-level utilities
 │   ├── audio_analyzer.py       # Audio metadata extraction using ffprobe
 │   ├── audio_processor.py      # Audio manipulation and enhancement tools
@@ -69,6 +73,10 @@ src/
 tests/                 # Comprehensive test suite
 ├── unit/              # Unit tests for core modules
 └── integration/       # Integration tests for CLI workflows
+
+Integration test policy:
+- Offline integration tests should pass in a normal local setup without external API calls.
+- Live/external-service tests are marked separately and only run when explicitly enabled.
 │
 obsolet_ps_scrips/     # Legacy PowerShell scripts (deprecated, replaced by Python)
 ```

@@ -25,6 +25,7 @@ from cli.download_cmd import app as download_app
 from cli.workflow_cmd import app as workflow_app
 from cli.jellyfin_cmd import app as jellyfin_app
 from cli.audit_cmd import app as audit_app
+from cli.metadata_cmd import app as metadata_app
 
 # ---------------------------------------------------------------------------
 # Root app
@@ -49,6 +50,7 @@ app.add_typer(download_app, name="download", help="Download music, videos, and s
 app.add_typer(workflow_app, name="workflow", help="Run automated media processing pipelines.")
 app.add_typer(jellyfin_app, name="jellyfin", help="Manage and sync the Jellyfin media library.")
 app.add_typer(audit_app, name="audit", help="Audit a media library for quality and naming issues.")
+app.add_typer(metadata_app, name="metadata", help="Fetch movie metadata and artwork from TMDB.")
 
 
 # ---------------------------------------------------------------------------

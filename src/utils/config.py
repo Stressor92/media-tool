@@ -24,9 +24,10 @@ class ApiConfig(BaseModel):
 
     opensubtitles_api_key: str | None = None
     acoustid_api_key: str | None = None
+    tmdb_api_key: str | None = None
     opensubtitles_user_agent: str = "media-tool v1.0"
 
-    @field_validator("opensubtitles_api_key", "acoustid_api_key", mode="before")
+    @field_validator("opensubtitles_api_key", "acoustid_api_key", "tmdb_api_key", mode="before")
     @classmethod
     def _normalize_optional_secret(cls, value: object) -> object:
         if value is None:
@@ -130,6 +131,45 @@ class LanguageDetectionConfig(BaseModel):
         return [item.strip().lower() for item in value if item.strip()]
 
 
+class MetadataArtworkConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    download_poster: bool = True
+    download_fanart: bool = True
+    download_banner: bool = False
+    download_thumb: bool = False
+    download_logo: bool = False
+
+
+class MetadataCastConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    max_actors: int = Field(default=20, ge=1, le=100)
+
+
+class MetadataConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language: str = "de-DE"
+    fallback_language: str = "en-US"
+    preferred_artwork_lang: str = "de"
+    auto_select: bool = True
+    overwrite_nfo: bool = False
+    overwrite_artwork: bool = False
+    artwork: MetadataArtworkConfig = Field(default_factory=MetadataArtworkConfig)
+    cast: MetadataCastConfig = Field(default_factory=MetadataCastConfig)
+
+    @field_validator("language", "fallback_language", "preferred_artwork_lang", mode="before")
+    @classmethod
+    def _normalize_metadata_strings(cls, value: object) -> object:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                raise ValueError("metadata field must not be empty")
+            return normalized
+        return value
+
+
 class DefaultConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -204,6 +244,7 @@ class AppConfig(BaseModel):
     download: DownloadConfig = Field(default_factory=DownloadConfig)
     jellyfin: JellyfinConfig = Field(default_factory=lambda: JellyfinConfig())
     language_detection: LanguageDetectionConfig = Field(default_factory=LanguageDetectionConfig)
+    metadata: MetadataConfig = Field(default_factory=MetadataConfig)
 
 
 _CONFIG_CACHE: AppConfig | None = None
@@ -334,6 +375,7 @@ def _legacy_env_mapping(key: str) -> list[str] | None:
     mapping = {
         "OPENSUBTITLES_API_KEY": ["api", "opensubtitles_api_key"],
         "ACOUSTID_API_KEY": ["api", "acoustid_api_key"],
+        "TMDB_API_KEY": ["api", "tmdb_api_key"],
         "FFMPEG_BIN": ["tools", "ffmpeg"],
         "FFPROBE_BIN": ["tools", "ffprobe"],
     }
@@ -390,6 +432,7 @@ def _is_relevant_env_var(key: str) -> bool:
     return key.startswith(ENV_PREFIX) or key in {
         "OPENSUBTITLES_API_KEY",
         "ACOUSTID_API_KEY",
+        "TMDB_API_KEY",
         "FFMPEG_BIN",
         "FFPROBE_BIN",
     }

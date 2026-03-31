@@ -56,8 +56,10 @@ test_improve_audio.txt
 test_organize_audiobook.txt
 test_organize_audio.txt
 test_results.txt
+integration_results.txt
 full_test_results.txt
 output.mkv
+output.mkv.backup
 
 # Translations
 *.mo

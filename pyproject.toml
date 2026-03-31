@@ -27,6 +27,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "mypy>=1.11",
+    "pre-commit>=4.0",
+    "types-requests>=2.32",
+]
 translation-gpu = [
     "ctranslate2>=4.0",
     "transformers>=4.40",
