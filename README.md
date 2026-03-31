@@ -40,6 +40,12 @@ src/
 │   │   ├── format_registry.py  # Lazy dispatcher + magic-byte detection
 │   │   ├── style_mapper.py     # ASS↔HTML tag conversion
 │   │   └── converter.py        # SubtitleConverter public API
+│   ├── jellyfin/      # Jellyfin REST API integration
+│   │   ├── client.py           # HTTP client with retry + structured exceptions
+│   │   ├── library_manager.py  # Refresh, scan status, item lookup
+│   │   ├── metadata_inspector.py # Detect missing/wrong metadata
+│   │   ├── metadata_fixer.py   # Auto-repair fixable issues
+│   │   └── auto_trigger.py     # Pipeline hook → automatic library refresh
 │   ├── download/      # yt-dlp domain (request models, runner, selector, manager)
 │   └── naming/        # File naming utilities for Jellyfin compatibility
 ├── cli/               # Command-line interface (Typer-based)
@@ -52,7 +58,8 @@ src/
 │   ├── subtitle_cmd.py # Subtitle search/download commands
 │   ├── download_cmd.py # yt-dlp download commands (video/music/series)
 │   ├── upscale_cmd.py # Video upscaling
-│   └── video_cmd.py   # General video processing commands
+│   ├── video_cmd.py   # General video processing commands
+│   └── jellyfin_cmd.py # Jellyfin library management commands
 ├── utils/             # Shared helpers and low-level utilities
 │   ├── audio_analyzer.py       # Audio metadata extraction using ffprobe
 │   ├── audio_processor.py      # Audio manipulation and enhancement tools
@@ -136,7 +143,16 @@ Get subtitles via API with download
 Convert between subtitle formats (SRT, VTT, ASS, TTML, SCC, STL, LRC, SBV)
 Translate subtitles offline with OPUS-MT
 
-7. 📂 NAS Automation
+7. 🎬 Jellyfin Integration
+
+Connect directly to the Jellyfin REST API
+Trigger library scans automatically after pipeline completion
+Detect missing metadata (poster, backdrop, description, year)
+Find unmatched items and wrong series assignments
+Auto-repair fixable issues via forced metadata refresh
+Search items and inspect per-library
+
+8. 📂 NAS Automation
 
 Watch folders (e.g. \\TRUENAS\Media\Incoming)
 Automatically:
@@ -145,7 +161,7 @@ Clean up
 Rename for Jellyfin
 Move to correct library folder
 
-8. 🎨 GUI Application (Future) #TODO
+9. 🎨 GUI Application (Future) #TODO
 
 Drag & Drop media processing
 Visual progress tracking
@@ -638,6 +654,7 @@ media-tool audiobook --help    # Audiobook commands
 media-tool inspect --help      # Inspection tools
 media-tool subtitle --help     # Subtitle commands
 media-tool download --help     # yt-dlp based download commands
+media-tool jellyfin --help     # Jellyfin library management
 ```
 
 ### `media-tool video` commands
@@ -661,6 +678,97 @@ media-tool download --help     # yt-dlp based download commands
 | `subtitle translate <path>` | Translate SRT/ASS/VTT files offline with Helsinki-NLP OPUS-MT or argostranslate |
 | `subtitle convert <path>` | Convert subtitle files between formats (SRT, VTT, ASS, TTML, SCC, STL, LRC, SBV) |
 | `subtitle formats` | List all supported subtitle formats with read/write status |
+
+### `media-tool jellyfin` commands
+
+| Command | Description |
+|---|---|
+| `jellyfin ping` | Check server connectivity and API key validity |
+| `jellyfin refresh` | Refresh library / single library / single item |
+| `jellyfin scan-status` | Show current scan progress (live with `--watch`) |
+| `jellyfin libraries` | List all libraries with paths and item counts |
+| `jellyfin inspect` | Find metadata problems + optional auto-fix (`--fix`) |
+| `jellyfin fix-series` | Reassign a mismatched episode to the correct series |
+| `jellyfin search` | Search items by name (returns IDs for other commands) |
+
+### 7. Jellyfin Library Management
+
+#### Check connectivity
+```bash
+media-tool jellyfin ping
+```
+
+#### Trigger a library refresh
+```bash
+# Refresh everything
+media-tool jellyfin refresh
+
+# Refresh a single named library
+media-tool jellyfin refresh --library Movies
+
+# Refresh a single item by ID
+media-tool jellyfin refresh --item abc123
+
+# Trigger and wait until the scan finishes
+media-tool jellyfin refresh --wait
+```
+
+#### Monitor scan progress
+```bash
+media-tool jellyfin scan-status
+media-tool jellyfin scan-status --watch          # live updates every 5 s
+media-tool jellyfin scan-status --watch --interval 10
+```
+
+#### List all libraries
+```bash
+media-tool jellyfin libraries
+```
+
+#### Inspect metadata quality
+```bash
+# Find all problems across the entire library
+media-tool jellyfin inspect
+
+# Only movies, auto-fix resolvable issues
+media-tool jellyfin inspect --kind movies --fix
+
+# Scope to one library, export CSV report
+media-tool jellyfin inspect -l Movies --export issues.csv
+```
+
+Detected issue types: `missing_poster`, `missing_backdrop`, `missing_overview`, `missing_year`, `unmatched` (no TMDB/IMDB IDs), `wrong_series_match`, `missing_episode_number`, `duplicate_item`.
+
+Auto-fixable issues (poster, backdrop, overview, year) are resolved by triggering a forced metadata refresh. Duplicates and wrong series assignments are reported only.
+
+#### Find and fix a mismatched episode
+```bash
+# Step 1 — find the item IDs
+media-tool jellyfin search "Better Call Saul" --type series
+media-tool jellyfin search "pilot" --type episode
+
+# Step 2 — reassign
+media-tool jellyfin fix-series <episode-id> <correct-series-id>
+```
+
+#### Automatic refresh after workflow pipeline
+
+When `[jellyfin]` is configured in `media-tool.toml`, the workflow pipeline automatically triggers a Jellyfin refresh after successful completion:
+
+```toml
+[jellyfin]
+base_url      = "http://192.168.1.100:8096"
+api_key       = "your-api-key"
+wait_for_scan = false
+
+[jellyfin.auto_trigger]
+enabled         = true
+on_success_only = true
+```
+
+No extra flags needed — the pipeline picks it up automatically.
+
+### 8. Translation model comparison
 
 #### Translation model comparison
 

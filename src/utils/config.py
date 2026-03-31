@@ -150,6 +150,23 @@ class DownloadConfig(BaseModel):
         return normalized
 
 
+class JellyfinConfig(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    base_url: str = ""
+    api_key: str | None = None
+    wait_for_scan: bool = False
+    scan_timeout: int = Field(default=300, ge=10)
+
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def _normalize_api_key(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -158,6 +175,7 @@ class AppConfig(BaseModel):
     paths: PathConfig = Field(default_factory=PathConfig)
     defaults: DefaultConfig = Field(default_factory=DefaultConfig)
     download: DownloadConfig = Field(default_factory=DownloadConfig)
+    jellyfin: JellyfinConfig = Field(default_factory=lambda: JellyfinConfig())
 
 
 _CONFIG_CACHE: AppConfig | None = None

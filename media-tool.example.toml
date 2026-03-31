@@ -90,3 +90,21 @@ use_cache = true
 
 # Custom local model cache (default: src/utils/translate_models — populated by 'media-tool subtitle download-models')
 # model_cache_dir = "D:\\models\\translation"
+
+[jellyfin]
+base_url = "http://192.168.1.100:8096"   # or https://
+api_key  = ""                             # Dashboard → Advanced → API Keys
+wait_for_scan = false                     # Block until scan finishes after refresh
+scan_timeout  = 300                       # Seconds
+
+[jellyfin.auto_trigger]
+enabled          = true    # Automatically refresh after a successful workflow
+on_success_only  = true    # Only trigger on successful workflow completion
+
+[jellyfin.inspect]
+check_missing_poster   = true
+check_missing_overview = true
+check_missing_year     = true
+check_unmatched        = true
+check_duplicates       = true
+check_series_matching  = true
