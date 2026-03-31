@@ -24,6 +24,7 @@ from cli.subtitle_cmd import app as subtitle_app
 from cli.download_cmd import app as download_app
 from cli.workflow_cmd import app as workflow_app
 from cli.jellyfin_cmd import app as jellyfin_app
+from cli.audit_cmd import app as audit_app
 
 # ---------------------------------------------------------------------------
 # Root app
@@ -47,6 +48,7 @@ app.add_typer(subtitle_app, name="subtitle", help="Download and manage subtitles
 app.add_typer(download_app, name="download", help="Download music, videos, and series using yt-dlp.")
 app.add_typer(workflow_app, name="workflow", help="Run automated media processing pipelines.")
 app.add_typer(jellyfin_app, name="jellyfin", help="Manage and sync the Jellyfin media library.")
+app.add_typer(audit_app, name="audit", help="Audit a media library for quality and naming issues.")
 
 
 # ---------------------------------------------------------------------------
