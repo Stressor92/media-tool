@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import logging
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -189,6 +190,7 @@ def scan_directory(
     directory: Path,
     extensions: frozenset[str] = VIDEO_EXTENSIONS,
     recursive: bool = True,
+    progress_callback: Callable[[int, int, Path], None] | None = None,
 ) -> list[VideoInfo]:
     """
     Recursively scan a directory for video files and return their metadata.
@@ -197,6 +199,8 @@ def scan_directory(
         directory:  Root directory to scan.
         extensions: Set of lowercase extensions to include.
         recursive:  Scan subdirectories when True (default).
+        progress_callback: Optional callback invoked after each inspected file
+            with the current index, total file count, and file path.
 
     Returns:
         List of VideoInfo objects, one per discovered file.
@@ -216,6 +220,8 @@ def scan_directory(
     for idx, f in enumerate(files, start=1):
         logger.info("[%d/%d] Inspecting: %s", idx, len(files), f.name)
         results.append(inspect_file(f))
+        if progress_callback is not None:
+            progress_callback(idx, len(files), f)
 
     return results
 

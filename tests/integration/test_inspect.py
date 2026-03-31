@@ -105,6 +105,32 @@ class TestInspectScanIntegration:
         assert any(Path(video.file_path) == root_video for video in videos)
         assert not any(Path(video.file_path) == sub_video for video in videos)
 
+    def test_scan_directory_reports_progress(self, tmp_path):
+        """Test scan_directory emits progress updates for inspected files."""
+        for index in range(2):
+            create_test_video(
+                tmp_path / f"progress_{index}.mp4",
+                resolution="1280x720",
+                duration=10,
+            )
+
+        progress_events: list[tuple[int, int, str]] = []
+
+        def capture_progress(current: int, total: int, file_path: Path) -> None:
+            progress_events.append((current, total, file_path.name))
+
+        videos = scan_directory(
+            tmp_path,
+            recursive=True,
+            progress_callback=capture_progress,
+        )
+
+        assert len(videos) == 2
+        assert progress_events == [
+            (1, 2, "progress_0.mp4"),
+            (2, 2, "progress_1.mp4"),
+        ]
+
 
 class TestInspectFileAnalysisIntegration:
     """Integration tests for individual file analysis functionality."""

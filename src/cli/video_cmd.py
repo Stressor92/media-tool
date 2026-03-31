@@ -128,14 +128,32 @@ def inspect_command(
     """
     Scan media library and export metadata to CSV.
     """
+    progress_state = {"last_reported": 0}
+
+    def report_progress(current: int, total: int, current_file: Path) -> None:
+        should_report = (
+            current == 1
+            or current == total
+            or current - progress_state["last_reported"] >= 25
+        )
+        if not should_report:
+            return
+
+        progress_state["last_reported"] = current
+        console.print(
+            f"[dim]Progress:[/dim] {current}/{total} · {current_file.name}"
+        )
+
     console.rule("[bold cyan]media-tool · video inspect[/bold cyan]")
     console.print(f"[dim]Directory:[/dim] {directory}")
     console.print(f"[dim]Recursive:[/dim] {recursive}")
+    console.print("[dim]Scanning library and probing video files...[/dim]")
 
     try:
         videos = scan_directory(
             directory=directory,
             recursive=recursive,
+            progress_callback=report_progress,
         )
     except Exception as e:
         err_console.print(f"Error: {e}")
