@@ -108,3 +108,20 @@ check_missing_year     = true
 check_unmatched        = true
 check_duplicates       = true
 check_series_matching  = true
+
+# ---------------------------------------------------------------------------
+# Automatische Audio-Spracherkennung (A04 Audit-Fix)
+# Erkennt unlabeled Audio-Tracks (und/leer) und schreibt das ISO 639-2 Kürzel
+# via FFmpeg Remux — kein Re-Encoding.
+# Stufen: Heuristik (< 1ms) → Whisper (2–30s)
+# ---------------------------------------------------------------------------
+[language_detection]
+min_confidence  = 0.85       # Schwellwert für Akzeptanz (0.0–1.0)
+whisper_model   = "medium"   # "tiny" | "base" | "medium" | "large-v3"
+device          = "auto"     # "auto" | "cuda" | "cpu"
+sample_duration = 30         # Sekunden Audio für Whisper
+sample_offset   = 120        # Sekunden vom Anfang überspringen (Intro)
+create_backup   = false      # Backup (.bak) vor In-Place-Schreiben
+
+# Hint-Sprachen beschleunigen Whisper (Suchraum einschränken)
+hint_languages  = ["de", "en"]

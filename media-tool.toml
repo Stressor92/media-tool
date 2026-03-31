@@ -43,6 +43,18 @@ auto      = true
 min_confidence = 0.75
 
 # ---------------------------------------------------------------------------
+# Automatische Audio-Spracherkennung (A04 Audit-Fix)
+# ---------------------------------------------------------------------------
+[language_detection]
+min_confidence  = 0.85
+whisper_model   = "medium"
+device          = "auto"
+sample_duration = 30
+sample_offset   = 120
+create_backup   = false
+hint_languages  = ["de", "en"]
+
+# ---------------------------------------------------------------------------
 # Download (yt-dlp)
 # Hinweis: der Downloader nutzt intern das Python-Paket `yt_dlp`.
 # Der Tool-Eintrag oben ist trotzdem sinnvoll für Shell-Nutzung und Alt-Skripte.

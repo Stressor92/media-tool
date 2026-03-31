@@ -567,6 +567,82 @@ def workflow_command(
         raise typer.Exit(code=1)
 
 
+@app.command("detect-language")
+def detect_language_command(
+    path: Path = typer.Argument(help="MKV-Datei oder Ordner"),
+    recursive: bool = typer.Option(False, "-r", "--recursive", help="Unterordner rekursiv durchsuchen"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Nur anzeigen, nichts schreiben"),
+    force: bool = typer.Option(False, "--force", help="Auch bereits gesetzte Sprachkürzel überschreiben"),
+    min_confidence: float = typer.Option(0.85, "--min-confidence", help="Mindest-Konfidenz (0.0–1.0)"),
+    whisper_model: str = typer.Option("medium", "--whisper-model", help="Whisper-Modell: tiny/base/medium/large-v3"),
+    force_whisper: bool = typer.Option(False, "--force-whisper", help="Heuristik überspringen, direkt Whisper"),
+    backup: bool = typer.Option(False, "--backup", help="Backup der Originaldatei erstellen (.bak)"),
+) -> None:
+    """
+    Erkennt Sprache unlabeled Audio-Spuren und schreibt das Ergebnis
+    als Metadaten-Tag in die MKV-Datei (lossless, kein Re-Encoding).
+
+    \b
+    Beispiele:
+      media-tool audio detect-language movie.mkv
+      media-tool audio detect-language "Y:\\Movies" -r --dry-run
+      media-tool audio detect-language movie.mkv --force-whisper --whisper-model large-v3
+      media-tool audio detect-language movie.mkv --backup
+    """
+    from core.language_detection.audio_tagger import AudioTagger
+    from core.language_detection.pipeline import LanguageDetectionPipeline
+    from core.language_detection.models import TaggingStatus, DetectionRequest
+
+    if not path.exists():
+        err_console.print(f"Kein gültiger Pfad: {path}")
+        raise typer.Exit(1)
+
+    pipeline = LanguageDetectionPipeline(
+        min_confidence=min_confidence,
+        whisper_model_size=whisper_model,
+    )
+    tagger = AudioTagger(
+        pipeline=pipeline,
+        min_confidence=min_confidence,
+        create_backup=backup,
+    )
+
+    if path.is_file():
+        results = tagger.tag_file(path, dry_run=dry_run, force=force)
+    else:
+        results = tagger.tag_directory(path, recursive=recursive, dry_run=dry_run)
+
+    success = skipped = failed = 0
+    for r in results:
+        match r.status:
+            case TaggingStatus.SUCCESS:
+                conf_str = f"{r.confidence:.0%}" if r.confidence else ""
+                typer.echo(
+                    f"✅  {r.path.name} Spur {r.stream_index}: "
+                    f"{r.previous_language or 'und'} → {r.detected_language} "
+                    f"({r.method.value} {conf_str})"
+                )
+                success += 1
+            case TaggingStatus.SKIPPED:
+                typer.echo(
+                    f"⏭️   {r.path.name} Spur {r.stream_index}: "
+                    f"bereits '{r.detected_language}' — übersprungen"
+                )
+                skipped += 1
+            case TaggingStatus.FAILED:
+                typer.echo(
+                    f"❌  {r.path.name} Spur {r.stream_index}: {r.error}",
+                    err=True,
+                )
+                failed += 1
+
+    typer.echo(f"\n{success} gesetzt · {skipped} übersprungen · {failed} fehlgeschlagen")
+    if dry_run:
+        typer.echo("ℹ️   Dry-Run — keine Änderungen geschrieben.")
+    if failed:
+        raise typer.Exit(1)
+
+
 def _print_library_statistics(metadata_list: list[AudioFileMetadata]) -> None:
     """Print summary statistics for a completed library scan."""
     from collections import Counter

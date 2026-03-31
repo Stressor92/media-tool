@@ -2,7 +2,7 @@
 """
 Integration tests for the subtitle translation module.
 
-Requires: MEDIA_TOOL_INTEGRATION_TESTS=1
+Requires: MEDIA_TOOL_LIVE_INTEGRATION_TESTS=1
           pip install ctranslate2 transformers sentencepiece
           (Model is downloaded automatically on first run)
 """
@@ -46,13 +46,16 @@ Das Wetter ist wunderschön.
 
 """
 
-pytestmark = pytest.mark.skipif(
-    os.environ.get("MEDIA_TOOL_INTEGRATION_TESTS") != "1",
-    reason="Set MEDIA_TOOL_INTEGRATION_TESTS=1 to run translation integration tests",
-)
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.live_integration,
+    pytest.mark.skipif(
+        os.environ.get("MEDIA_TOOL_LIVE_INTEGRATION_TESTS") != "1",
+        reason="Set MEDIA_TOOL_LIVE_INTEGRATION_TESTS=1 to run translation integration tests",
+    ),
+]
 
 
-@pytest.mark.integration
 class TestOpusMtIntegration:
     def test_en_to_de_translation(self, tmp_path: Path) -> None:
         src = tmp_path / "test.en.srt"

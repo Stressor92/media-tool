@@ -3,7 +3,7 @@
 Integration tests against a live Jellyfin instance.
 
 Requirements:
-  MEDIA_TOOL_INTEGRATION_TESTS=1
+    MEDIA_TOOL_LIVE_INTEGRATION_TESTS=1
   Jellyfin running and [jellyfin] configured in media-tool.toml.
 """
 from __future__ import annotations
@@ -15,6 +15,8 @@ import pytest
 from core.jellyfin.client import JellyfinClient
 from core.jellyfin.library_manager import LibraryManager
 from core.jellyfin.models import ScanState
+
+pytestmark = [pytest.mark.integration, pytest.mark.live_integration]
 
 
 def _get_jellyfin_config() -> tuple[str, str]:
@@ -36,15 +38,14 @@ def _get_jellyfin_config() -> tuple[str, str]:
 @pytest.fixture(scope="module")
 def live_manager() -> LibraryManager:
     pytest.importorskip("requests")
-    _ = os.environ.get("MEDIA_TOOL_INTEGRATION_TESTS") or pytest.skip(
-        "Set MEDIA_TOOL_INTEGRATION_TESTS=1 to run integration tests."
+    _ = os.environ.get("MEDIA_TOOL_LIVE_INTEGRATION_TESTS") or pytest.skip(
+        "Set MEDIA_TOOL_LIVE_INTEGRATION_TESTS=1 to run live Jellyfin integration tests."
     )
     base_url, api_key = _get_jellyfin_config()
     client = JellyfinClient(base_url, api_key)
     return LibraryManager(client)
 
 
-@pytest.mark.integration
 class TestJellyfinLive:
     def test_ping_succeeds(self, live_manager: LibraryManager) -> None:
         assert live_manager.ping() is True

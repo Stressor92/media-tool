@@ -219,8 +219,8 @@ class TestVideoMergeIntegration:
         assert video is not None
 
     def test_merge_directory_with_pattern(self, tmp_path):
-        """Test merging videos in directory using filename patterns."""
-        # Create multiple related video files
+        """Test unsupported pattern-like input fails cleanly without language-pair hints."""
+        # Create multiple related video files without language suffixes
         for i in range(1, 4):
             create_test_video(
                 tmp_path / f"part_{i}.mp4",
@@ -228,15 +228,17 @@ class TestVideoMergeIntegration:
                 duration=10
             )
 
-        # Note: Current merge_directory only does auto language detection
-        # This test would need a different merge function for pattern-based merging
-        pytest.skip("Pattern-based merging not implemented in current merge_directory")
+        result = merge_directory(tmp_path)
+
+        assert result.status.name == "FAILED"
+        assert "Could not detect both language versions" in result.message
 
     def test_merge_empty_directory(self, tmp_path):
         """Test merging in directory with no matching files."""
-        # Note: Current merge_directory only does auto language detection
-        # This test would need a different merge function for pattern-based merging
-        pytest.skip("Pattern-based merging not implemented in current merge_directory")
+        result = merge_directory(tmp_path)
+
+        assert result.status.name == "FAILED"
+        assert "Could not detect both language versions" in result.message
 
 
 class TestVideoUpscaleIntegration:

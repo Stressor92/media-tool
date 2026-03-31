@@ -103,6 +103,33 @@ class AudioDefaults(BaseModel):
     min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
+class LanguageDetectionConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    min_confidence: float = Field(default=0.85, ge=0.0, le=1.0)
+    whisper_model: str = "medium"
+    device: str = "auto"
+    sample_duration: int = Field(default=30, ge=1)
+    sample_offset: int = Field(default=120, ge=0)
+    create_backup: bool = False
+    hint_languages: list[str] = Field(default_factory=lambda: ["de", "en"])
+
+    @field_validator("whisper_model", "device", mode="before")
+    @classmethod
+    def _normalize_non_empty(cls, value: object) -> object:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                raise ValueError("field must not be empty")
+            return normalized
+        return value
+
+    @field_validator("hint_languages")
+    @classmethod
+    def _normalize_hint_languages(cls, value: list[str]) -> list[str]:
+        return [item.strip().lower() for item in value if item.strip()]
+
+
 class DefaultConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -176,6 +203,7 @@ class AppConfig(BaseModel):
     defaults: DefaultConfig = Field(default_factory=DefaultConfig)
     download: DownloadConfig = Field(default_factory=DownloadConfig)
     jellyfin: JellyfinConfig = Field(default_factory=lambda: JellyfinConfig())
+    language_detection: LanguageDetectionConfig = Field(default_factory=LanguageDetectionConfig)
 
 
 _CONFIG_CACHE: AppConfig | None = None

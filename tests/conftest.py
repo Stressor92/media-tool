@@ -528,10 +528,4 @@ def pytest_collection_modifyitems(config, items):
             if not any(marker.name == "integration" for marker in item.iter_markers()):
                 item.add_marker(pytest.mark.integration)
 
-    if not os.getenv("MEDIA_TOOL_INTEGRATION_TESTS"):
-        skip_marker = pytest.mark.skip(reason="MEDIA_TOOL_INTEGRATION_TESTS not set")
-        for item in items:
-            if "integration" in item.keywords:
-                item.add_marker(skip_marker)
-
 

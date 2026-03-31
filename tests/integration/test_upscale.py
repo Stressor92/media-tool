@@ -533,19 +533,14 @@ class TestUpscaleBatchOperations:
         dvd_file = source_dir / "Test_DVD.mkv"
         create_test_video(dvd_file, resolution="720x480", duration=1)
 
-        # Run dry run (if supported)
-        # Note: This assumes dry_run parameter exists, adjust if not
-        try:
-            summary = batch_upscale_directory(source_dir, dry_run=True)
+        summary = batch_upscale_directory(source_dir, dry_run=True)
 
-            # Should report what would be done without actually doing it
-            assert summary.total == 1
-            assert len(summary.succeeded) == 0  # Nothing actually processed
-            assert not (source_dir / "Test_DVD [DVD].mkv").exists()
-
-        except TypeError:
-            # If dry_run not supported, skip this test
-            pytest.skip("Dry run not implemented")
+        # Should report what would be done without actually doing it
+        assert summary.total == 1
+        assert len(summary.succeeded) == 0
+        assert len(summary.skipped) == 1
+        assert "Dry run" in summary.skipped[0].message
+        assert not (source_dir / "Test_DVD" / "Test_DVD - [DVD].mkv").exists()
 
     def test_batch_upscale_progress_reporting(self, tmp_path):
         """Test that batch upscaling provides proper progress information."""

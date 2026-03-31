@@ -235,20 +235,70 @@ class TestAutoMerge:
         assert output_mkv.exists()
 
     def test_auto_merge_multiple_pairs(self, tmp_path, ffmpeg_available):
-        """Test auto merge with multiple file pairs."""
-        pytest.skip("merge_directory only handles one pair at a time")
+        """Test auto merge picks a valid detectable pair when multiple pairs exist."""
+        from tests.integration.conftest import create_test_video, assert_audio_languages
+
+        input_dir = tmp_path / "auto_merge_multiple"
+        input_dir.mkdir()
+
+        create_test_video(input_dir / "Alpha Movie-de.mp4", language="deu")
+        create_test_video(input_dir / "Alpha Movie-en.mp4", language="eng")
+        create_test_video(input_dir / "Beta Movie-de.mp4", language="deu")
+        create_test_video(input_dir / "Beta Movie-en.mp4", language="eng")
+
+        result = merge_directory(input_dir)
+
+        assert result.succeeded
+        assert result.target.exists()
+        assert result.target.name in {"Alpha Movie.mkv", "Beta Movie.mkv"}
+        assert_audio_languages(result.target, ["deu", "eng"])
 
     def test_auto_merge_no_pairs(self, tmp_path, ffmpeg_available):
-        """Test auto merge when no valid pairs exist."""
-        pytest.skip("merge_directory only handles one pair at a time")
+        """Test auto merge fails cleanly when no detectable language pair exists."""
+        from tests.integration.conftest import create_test_video
+
+        input_dir = tmp_path / "auto_merge_none"
+        input_dir.mkdir()
+
+        create_test_video(input_dir / "Movie-fr.mp4", language="fra")
+        create_test_video(input_dir / "Movie-es.mp4", language="spa")
+
+        result = merge_directory(input_dir)
+
+        assert result.failed
+        assert "Could not detect both language versions" in result.message
 
     def test_auto_merge_partial_pairs(self, tmp_path, ffmpeg_available):
-        """Test auto merge with some complete pairs and some incomplete."""
-        pytest.skip("merge_directory only handles one pair at a time")
+        """Test auto merge still succeeds when one complete pair exists among incomplete files."""
+        from tests.integration.conftest import create_test_video, assert_audio_languages
+
+        input_dir = tmp_path / "auto_merge_partial"
+        input_dir.mkdir()
+
+        create_test_video(input_dir / "Complete Movie-de.mp4", language="deu")
+        create_test_video(input_dir / "Complete Movie-en.mp4", language="eng")
+        create_test_video(input_dir / "Incomplete Movie-de.mp4", language="deu")
+
+        result = merge_directory(input_dir)
+
+        assert result.succeeded
+        assert result.target.exists()
+        assert_audio_languages(result.target, ["deu", "eng"])
 
     def test_auto_merge_different_languages(self, tmp_path, ffmpeg_available):
-        """Test auto merge with different language combinations."""
-        pytest.skip("merge_directory only handles one pair at a time")
+        """Test auto merge ignores unsupported language variants and fails without de/en pair."""
+        from tests.integration.conftest import create_test_video
+
+        input_dir = tmp_path / "auto_merge_langs"
+        input_dir.mkdir()
+
+        create_test_video(input_dir / "Movie-de.mp4", language="deu")
+        create_test_video(input_dir / "Movie-fr.mp4", language="fra")
+
+        result = merge_directory(input_dir)
+
+        assert result.failed
+        assert "Could not detect both language versions" in result.message
 
 
 class TestMergeWorkflowIntegration:

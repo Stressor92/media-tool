@@ -489,6 +489,7 @@ def batch_upscale_directory(
     opts: UpscaleOptions | None = None,
     recursive: bool = False,
     progress_callback: Callable[[ProgressEvent], None] | None = None,
+    dry_run: bool = False,
 ) -> BatchUpscaleSummary:
     """
     Upscale all MKV files in a directory that are below the target resolution.
@@ -497,6 +498,7 @@ def batch_upscale_directory(
         directory: Directory to scan for .mkv files.
         opts:      Upscale configuration. Uses defaults if None.
         recursive: Also scan subdirectories.
+        dry_run:   Report which files would be processed without writing output files.
 
     Returns:
         BatchUpscaleSummary with all individual UpscaleResult objects.
@@ -522,7 +524,16 @@ def batch_upscale_directory(
                 message=str(source),
             ),
         )
-        result = upscale_dvd(source, opts=opts)
+        if dry_run:
+            simulated_target = _resolve_output_path(source)
+            result = UpscaleResult(
+                status=UpscaleStatus.SKIPPED,
+                source=source,
+                target=simulated_target,
+                message=f"Dry run: would process {source.name}",
+            )
+        else:
+            result = upscale_dvd(source, opts=opts)
         summary.results.append(result)
         emit_progress(
             progress_callback,
