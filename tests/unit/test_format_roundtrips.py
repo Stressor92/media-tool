@@ -1,6 +1,7 @@
 # tests/unit/test_format_roundtrips.py
 """Roundtrip tests: write → read → content preserved."""
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -24,7 +25,7 @@ def _base_doc(fmt: SubtitleFormat) -> SubtitleDocument:
     (sbv,  SubtitleFormat.SBV,  ".sbv"),
     (ass,  SubtitleFormat.ASS,  ".ass"),
 ])
-def test_roundtrip(module, fmt, ext, tmp_path: Path) -> None:
+def test_roundtrip(module: Any, fmt: SubtitleFormat, ext: str, tmp_path: Path) -> None:
     doc = _base_doc(fmt)
     out = tmp_path / f"test{ext}"
 

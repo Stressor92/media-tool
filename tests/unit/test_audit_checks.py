@@ -31,7 +31,7 @@ from core.audit.models import CheckSeverity, FindingKind
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _probe_with_subs(*langs: str) -> dict:
+def _probe_with_subs(*langs: str) -> dict[str, object]:
     return {
         "streams": [
             {"codec_type": "subtitle", "tags": {"language": lang}} for lang in langs
@@ -39,7 +39,7 @@ def _probe_with_subs(*langs: str) -> dict:
     }
 
 
-def _probe_with_audio(*langs: str) -> dict:
+def _probe_with_audio(*langs: str) -> dict[str, object]:
     return {
         "streams": [
             {"codec_type": "audio", "tags": {"language": lang}} for lang in langs
@@ -47,7 +47,7 @@ def _probe_with_audio(*langs: str) -> dict:
     }
 
 
-def _probe_empty() -> dict:
+def _probe_empty() -> dict[str, object]:
     return {"streams": []}
 
 

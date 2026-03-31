@@ -1,4 +1,5 @@
 # tests/unit/test_metadata_inspector.py
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -8,8 +9,8 @@ from core.jellyfin.metadata_inspector import MetadataInspector
 from core.jellyfin.models import ItemType, JellyfinItem, MetadataIssueKind
 
 
-def _movie(**kwargs) -> JellyfinItem:
-    defaults: dict = {
+def _movie(**kwargs: Any) -> JellyfinItem:
+    defaults: dict[str, Any] = {
         "id": "m1",
         "name": "Test Movie",
         "item_type": ItemType.MOVIE,
@@ -21,11 +22,11 @@ def _movie(**kwargs) -> JellyfinItem:
         "has_image_backdrop": True,
         "raw": {},
     }
-    return JellyfinItem(**{**defaults, **kwargs})
+    return JellyfinItem(**cast(dict[str, Any], {**defaults, **kwargs}))
 
 
-def _episode(**kwargs) -> JellyfinItem:
-    defaults: dict = {
+def _episode(**kwargs: Any) -> JellyfinItem:
+    defaults: dict[str, Any] = {
         "id": "e1",
         "name": "Episode 1",
         "item_type": ItemType.EPISODE,
@@ -38,7 +39,7 @@ def _episode(**kwargs) -> JellyfinItem:
         "has_image_poster": False,
         "has_image_backdrop": False,
     }
-    return JellyfinItem(**{**defaults, **kwargs})
+    return JellyfinItem(**cast(dict[str, Any], {**defaults, **kwargs}))
 
 
 @pytest.fixture()

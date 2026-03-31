@@ -107,8 +107,12 @@ class MetadataExtractor:
 
     def _extract_tags(self, file_path: Path) -> dict[str, Any]:
         try:
-            from mutagen import File as mutagen_file
+            from importlib import import_module
 
+            mutagen_module = import_module("mutagen")
+            mutagen_file = getattr(mutagen_module, "File")
+            if not callable(mutagen_file):
+                return {}
             audio_easy = mutagen_file(file_path, easy=True)
             audio_raw = mutagen_file(file_path)
         except Exception as exc:

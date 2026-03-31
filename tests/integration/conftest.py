@@ -4,17 +4,15 @@ Shared fixtures and helpers for integration tests.
 Integration tests use real ffmpeg execution and generate test media.
 """
 
-import json
 import subprocess
 from pathlib import Path
-from typing import Dict, Any
 
 import pytest
 
 from utils.ffprobe_runner import ProbeResult
 
 
-def run_ffmpeg(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+def run_ffmpeg(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run ffmpeg command and return completed process."""
     cmd = ["ffmpeg", "-y"] + args  # -y to overwrite without prompting
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
@@ -114,21 +112,21 @@ def get_stream_info(file_path: Path) -> ProbeResult:
     return run_ffprobe(file_path)
 
 
-def assert_video_streams(file_path: Path, expected_count: int = 1):
+def assert_video_streams(file_path: Path, expected_count: int = 1) -> None:
     """Assert that file has expected number of video streams."""
     info = get_stream_info(file_path)
     video_streams = [s for s in info.streams if s["codec_type"] == "video"]
     assert len(video_streams) == expected_count, f"Expected {expected_count} video streams, got {len(video_streams)}"
 
 
-def assert_audio_streams(file_path: Path, expected_count: int = 1):
+def assert_audio_streams(file_path: Path, expected_count: int = 1) -> None:
     """Assert that file has expected number of audio streams."""
     info = get_stream_info(file_path)
     audio_streams = [s for s in info.streams if s["codec_type"] == "audio"]
     assert len(audio_streams) == expected_count, f"Expected {expected_count} audio streams, got {len(audio_streams)}"
 
 
-def assert_audio_languages(file_path: Path, expected_languages: list[str]):
+def assert_audio_languages(file_path: Path, expected_languages: list[str]) -> None:
     """Assert that audio streams have expected languages."""
     info = get_stream_info(file_path)
     audio_streams = [s for s in info.streams if s["codec_type"] == "audio"]
@@ -136,7 +134,7 @@ def assert_audio_languages(file_path: Path, expected_languages: list[str]):
     assert actual_languages == expected_languages, f"Expected languages {expected_languages}, got {actual_languages}"
 
 
-def assert_resolution(file_path: Path, expected_width: int, expected_height: int):
+def assert_resolution(file_path: Path, expected_width: int, expected_height: int) -> None:
     """Assert that video has expected resolution."""
     info = get_stream_info(file_path)
     video_streams = [s for s in info.streams if s["codec_type"] == "video"]
@@ -149,7 +147,7 @@ def assert_resolution(file_path: Path, expected_width: int, expected_height: int
     assert height == expected_height, f"Expected height {expected_height}, got {height}"
 
 
-def assert_container_format(file_path: Path, expected_format: str):
+def assert_container_format(file_path: Path, expected_format: str) -> None:
     """Assert that file has expected container format."""
     info = get_stream_info(file_path)
     format_name = info.format["format_name"]
@@ -157,7 +155,7 @@ def assert_container_format(file_path: Path, expected_format: str):
 
 
 @pytest.fixture
-def ffmpeg_available():
+def ffmpeg_available() -> None:
     """Skip tests if ffmpeg is not available."""
     try:
         result = subprocess.run(["ffmpeg", "-version"], capture_output=True)

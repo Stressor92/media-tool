@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 from pathlib import Path
+from typing import Any
 
 import requests
 
@@ -93,7 +94,7 @@ class ArtworkDownloader:
             return None
 
         for language_filter in [self._preferred_language, None, ""]:
-            filtered: list[dict] = []
+            filtered: list[dict[str, Any]] = []
             for option in options:
                 if not isinstance(option, dict):
                     continue

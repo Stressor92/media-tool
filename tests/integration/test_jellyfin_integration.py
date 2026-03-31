@@ -16,7 +16,7 @@ from core.jellyfin.client import JellyfinClient
 from core.jellyfin.library_manager import LibraryManager
 from core.jellyfin.models import ScanState
 
-pytestmark = [pytest.mark.integration, pytest.mark.live_integration]
+pytestmark = [pytest.mark.integration, pytest.mark.live_integration, pytest.mark.external]
 
 
 def _get_jellyfin_config() -> tuple[str, str]:

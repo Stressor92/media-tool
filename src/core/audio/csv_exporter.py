@@ -66,6 +66,7 @@ class CSVExporter:
             return "true" if value else "false"
         if isinstance(value, Path):
             return str(value)
-        if hasattr(value, "isoformat"):
-            return value.isoformat()
+        isoformat_method = getattr(value, "isoformat", None)
+        if callable(isoformat_method):
+            return str(isoformat_method())
         return str(value)

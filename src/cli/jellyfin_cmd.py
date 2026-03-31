@@ -12,6 +12,7 @@ import typer
 
 if TYPE_CHECKING:
     from core.jellyfin.library_manager import LibraryManager
+    from core.jellyfin.models import ItemType, MetadataIssue
 
 app = typer.Typer(help="Manage and sync the Jellyfin media library.")
 
@@ -226,7 +227,7 @@ def inspect(
         typer.echo("No metadata problems found.")
         return
 
-    by_kind: dict[str, list] = defaultdict(list)
+    by_kind: dict[str, list[MetadataIssue]] = defaultdict(list)
     for issue in issues:
         by_kind[issue.kind.value].append(issue)
 
@@ -310,7 +311,7 @@ def search(
     from core.jellyfin.models import ItemType
 
     manager = _get_manager()
-    types = None
+    types: list[ItemType] | None = None
     if item_type != "all":
         mapping = {
             "movie": ItemType.MOVIE,
@@ -337,7 +338,7 @@ def search(
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
-def _export_issues_csv(issues: list, path: str) -> None:
+def _export_issues_csv(issues: list[MetadataIssue], path: str) -> None:
     fieldnames = [
         "item_id",
         "item_name",

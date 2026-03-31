@@ -7,7 +7,7 @@ CLI interface for audiobook processing.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import typer
 from cli.progress_display import ConsoleProgressReporter
@@ -22,12 +22,15 @@ from core.audiobook import (
     merge_audiobook_library,
 )
 
+if TYPE_CHECKING:
+    from core.audio.metadata import AudioMetadataEnhanced
+
 app = typer.Typer(help="Process audiobook files.")
 console = Console()
 err_console = Console(stderr=True, style="bold red")
 
 
-def _print_audiobook_preview(metadata_list: list) -> None:
+def _print_audiobook_preview(metadata_list: list[AudioMetadataEnhanced]) -> None:
     """Print a Rich table preview of audiobook metadata."""
     if not metadata_list:
         console.print("[yellow]No audiobook files found.[/yellow]")
@@ -45,11 +48,11 @@ def _print_audiobook_preview(metadata_list: list) -> None:
         author = metadata.narrator or metadata.artist or metadata.parsed_artist or "Unknown"
         book = metadata.album or metadata.parsed_album or "Unknown"
         title = metadata.title or metadata.parsed_title or metadata.filename
-        duration = f"{metadata.duration:.0f}s" if metadata.duration else "Unknown"
-        format_name = metadata.file_path.suffix.upper().lstrip('.') if metadata.file_path else "Unknown"
+        duration = f"{metadata.duration_seconds:.0f}s" if metadata.duration_seconds else "Unknown"
+        format_name = metadata.filepath.suffix.upper().lstrip('.') if metadata.filepath else "Unknown"
 
         table.add_row(
-            metadata.file_path.name if metadata.file_path else "Unknown",
+            metadata.filepath.name if metadata.filepath else "Unknown",
             author[:30] + "..." if len(author) > 30 else author,
             book[:30] + "..." if len(book) > 30 else book,
             title[:40] + "..." if len(title) > 40 else title,

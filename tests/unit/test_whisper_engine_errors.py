@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from core.video.whisper_engine import WhisperConfig, WhisperEngine, WhisperModel
 
@@ -20,7 +20,7 @@ class TestWhisperEngineErrorPaths:
         assert "not found" in result.error_message.lower()
 
     @patch("core.video.whisper_engine.WhisperEngine._get_audio_duration")
-    def test_transcribe_duration_probe_failure(self, mock_duration) -> None:
+    def test_transcribe_duration_probe_failure(self, mock_duration: MagicMock) -> None:
         mock_duration.side_effect = RuntimeError("probe failed")
         with patch.object(Path, "exists", return_value=True):
             result = _engine().transcribe(Path("audio.wav"))
@@ -31,7 +31,7 @@ class TestWhisperEngineErrorPaths:
 
     @patch("core.video.whisper_engine.WhisperEngine._run_whisper")
     @patch("core.video.whisper_engine.WhisperEngine._get_audio_duration")
-    def test_transcribe_timeout(self, mock_duration, mock_run, tmp_path: Path) -> None:
+    def test_transcribe_timeout(self, mock_duration: MagicMock, mock_run: MagicMock, tmp_path: Path) -> None:
         mock_duration.return_value = 60.0
         mock_run.side_effect = TimeoutError("took too long")
         wav_path = tmp_path / "audio.wav"
@@ -47,7 +47,7 @@ class TestWhisperEngineErrorPaths:
 
     @patch("core.video.whisper_engine.WhisperEngine._run_whisper")
     @patch("core.video.whisper_engine.WhisperEngine._get_audio_duration")
-    def test_transcribe_generic_failure(self, mock_duration, mock_run, tmp_path: Path) -> None:
+    def test_transcribe_generic_failure(self, mock_duration: MagicMock, mock_run: MagicMock, tmp_path: Path) -> None:
         mock_duration.return_value = 60.0
         mock_run.side_effect = RuntimeError("decoder crashed")
         wav_path = tmp_path / "audio.wav"
@@ -61,7 +61,7 @@ class TestWhisperEngineErrorPaths:
 
     @patch("core.video.whisper_engine.WhisperEngine._run_whisper")
     @patch("core.video.whisper_engine.WhisperEngine._get_audio_duration")
-    def test_transcribe_too_long_audio(self, mock_duration, mock_run, tmp_path: Path) -> None:
+    def test_transcribe_too_long_audio(self, mock_duration: MagicMock, mock_run: MagicMock, tmp_path: Path) -> None:
         mock_duration.return_value = 90000.0
         wav_path = tmp_path / "audio.wav"
         wav_path.touch()
@@ -75,7 +75,7 @@ class TestWhisperEngineErrorPaths:
 
     @patch("core.video.whisper_engine.WhisperEngine._run_whisper")
     @patch("core.video.whisper_engine.WhisperEngine._get_audio_duration")
-    def test_transcribe_detects_missing_output_as_warning(self, mock_duration, _mock_run, tmp_path: Path) -> None:
+    def test_transcribe_detects_missing_output_as_warning(self, mock_duration: MagicMock, _mock_run: MagicMock, tmp_path: Path) -> None:
         mock_duration.return_value = 60.0
         wav_path = tmp_path / "audio.wav"
         wav_path.touch()

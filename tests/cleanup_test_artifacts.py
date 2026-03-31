@@ -1,5 +1,6 @@
 """Utility to clean temporary test artifact files from project root."""
 
+import logging
 from pathlib import Path
 
 ARTIFACTS = [
@@ -12,7 +13,7 @@ ARTIFACTS = [
 ]
 
 
-def cleanup_root_artifacts(root: Path | str = ".."):  # default from tests/ path
+def cleanup_root_artifacts(root: Path | str = "..") -> list[str]:  # default from tests/ path
     root_path = Path(root).resolve()
 
     deleted = []
@@ -26,11 +27,17 @@ def cleanup_root_artifacts(root: Path | str = ".."):  # default from tests/ path
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    logger = logging.getLogger(__name__)
     root_path = Path(__file__).resolve().parent.parent
     removed = cleanup_root_artifacts(root_path)
     if removed:
-        print("Removed test artifacts:")
+        logger.info("Removed test artifacts")
         for f in removed:
-            print(f" - {f}")
+            logger.info("artifact_removed", extra={"context": {"path": f}})
     else:
-        print("No root test artifacts found.")
+        logger.info("No root test artifacts found")

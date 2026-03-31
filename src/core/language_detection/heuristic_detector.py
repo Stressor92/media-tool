@@ -6,7 +6,9 @@ Extrem schnell (< 1ms), hohe Konfidenz bei eindeutigen Mustern.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from core.language_detection.models import DetectionMethod, LanguageDetectionResult
 
@@ -43,7 +45,7 @@ class HeuristicDetector:
         self,
         video_path: Path,
         stream_index: int = 0,
-        probe: dict | None = None,
+        probe: Mapping[str, Any] | None = None,
     ) -> LanguageDetectionResult | None:
         """
         Versucht die Sprache aus Pfad, Dateiname und Container-Tags zu lesen.
@@ -64,11 +66,15 @@ class HeuristicDetector:
         return self._from_directory(video_path)
 
     def _from_container_tags(
-        self, probe: dict, stream_index: int
+        self, probe: Mapping[str, Any], stream_index: int
     ) -> LanguageDetectionResult | None:
-        streams = [
-            s for s in probe.get("streams", [])
-            if s.get("codec_type") == "audio"
+        raw_streams = probe.get("streams", [])
+        if not isinstance(raw_streams, list):
+            return None
+
+        streams: list[dict[str, Any]] = [
+            s for s in raw_streams
+            if isinstance(s, dict) and s.get("codec_type") == "audio"
         ]
         if stream_index >= len(streams):
             return None

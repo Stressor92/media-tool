@@ -10,7 +10,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import typer
 from rich.console import Console
@@ -19,6 +19,9 @@ from rich.table import Table
 from rich import box
 
 from core.video import VIDEO_EXTENSIONS, export_to_csv
+
+if TYPE_CHECKING:
+    from core.video.inspector import VideoInfo
 
 app = typer.Typer(help="Scan a media library and export video metadata to CSV.")
 console = Console()
@@ -189,7 +192,7 @@ def scan_command(
             console.print(f"  [red]✘[/red] {r.file_name}: {r.probe_error_message[:80]}")
 
 
-def _print_preview(results: list) -> None:
+def _print_preview(results: list[VideoInfo]) -> None:
     """Render a condensed Rich table preview of inspection results."""
     table = Table(
         title="Media Library Preview",

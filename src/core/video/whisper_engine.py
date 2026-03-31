@@ -20,7 +20,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -298,8 +298,10 @@ class HallucinationDetector:
                 kept.append(block)
                 continue
 
-            seg_start = self._parse_timestamp(m.group(1, 2, 3, 4))
-            seg_end = self._parse_timestamp(m.group(5, 6, 7, 8))
+            start_parts = cast(tuple[str, str, str, str], m.group(1, 2, 3, 4))
+            end_parts = cast(tuple[str, str, str, str], m.group(5, 6, 7, 8))
+            seg_start = self._parse_timestamp(start_parts)
+            seg_end = self._parse_timestamp(end_parts)
             in_range = any(
                 rs <= seg_start and seg_end <= re_end
                 for rs, re_end in ranges_to_strip
@@ -381,7 +383,7 @@ class HallucinationDetector:
         return warnings
     
     @staticmethod
-    def _parse_timestamp(time_parts: tuple) -> float:
+    def _parse_timestamp(time_parts: tuple[str, str, str, str]) -> float:
         """Convert timestamp parts to seconds."""
         h, m, s, ms = int(time_parts[0]), int(time_parts[1]), int(time_parts[2]), int(time_parts[3])
         return h * 3600 + m * 60 + s + ms / 1000
@@ -564,7 +566,11 @@ class WhisperEngine:
         from faster_whisper import WhisperModel
         
         self.logger.info(f"Using faster-whisper ({self.config.model.value} model)")
-        print(f"[Whisper] Loading model '{self.config.model.value}' on {self.config.device}...")
+        self.logger.info(
+            "Loading Whisper model '%s' on %s",
+            self.config.model.value,
+            self.config.device,
+        )
         
         model = WhisperModel(
             self.config.model.value,
@@ -572,7 +578,7 @@ class WhisperEngine:
             compute_type=self.config.compute_type
         )
         
-        print(f"[Whisper] Starting transcription (language={self.config.language})...")
+        self.logger.info("Starting transcription (language=%s)", self.config.language)
         segments, info = model.transcribe(
             str(wav_path),
             language=self.config.language,
@@ -581,7 +587,7 @@ class WhisperEngine:
         )
         
         total_duration = info.duration if info.duration > 0 else (wav_duration or 1.0)
-        print(f"[Whisper] Audio duration: {total_duration:.1f}s — processing segments live:\n")
+        self.logger.info("Audio duration %.1fs - processing segments", total_duration)
         
         # Convert to SRT — segments is a lazy generator; iterate to drive transcription
         srt_lines = []
@@ -625,12 +631,15 @@ class WhisperEngine:
         
         model = whisper.load_model(self.config.model.value, device=self.config.device)
         
-        print(f"[Whisper] Starting transcription via openai-whisper (language={self.config.language})...")
+        self.logger.info(
+            "Starting openai-whisper transcription (language=%s)",
+            self.config.language,
+        )
         result = model.transcribe(
             str(wav_path),
             language=self.config.language,
             temperature=self.config.temperature,
-            verbose=True,  # print each recognized segment to stdout
+            verbose=False,
         )
         
         # Convert to SRT

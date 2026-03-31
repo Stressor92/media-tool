@@ -7,11 +7,11 @@ from core.audio.metadata_extractor import AudioFileMetadata, MetadataExtractor
 from utils.audio_analyzer import AudioTechnicalMetadata
 
 
-class FakeEasyAudio(dict):
+class FakeEasyAudio(dict[str, object]):
     tags = None
 
 
-class FakeRawTags(dict):
+class FakeRawTags(dict[str, object]):
     pass
 
 

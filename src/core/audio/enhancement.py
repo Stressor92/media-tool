@@ -27,8 +27,8 @@ class AudioEnhancementResult:
     output_file: Path
     operations_performed: list[str]
     ffmpeg_result: FFmpegResult
-    input_metadata: Optional[dict] = None
-    output_metadata: Optional[dict] = None
+    input_metadata: Optional[dict[str, object]] = None
+    output_metadata: Optional[dict[str, object]] = None
 
     @property
     def failed(self) -> bool:

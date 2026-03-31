@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from core.language_detection.detector_protocol import DetectorProtocol
 from core.language_detection.heuristic_detector import HeuristicDetector
@@ -46,7 +48,7 @@ class LanguageDetectionPipeline:
     def detect(
         self,
         request: DetectionRequest,
-        probe: dict | None = None,
+        probe: Mapping[str, Any] | None = None,
     ) -> LanguageDetectionResult:
         """
         Führt die Pipeline für eine einzelne Audiospur aus.

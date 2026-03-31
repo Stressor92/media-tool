@@ -17,7 +17,7 @@ import logging
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from utils import audio_processor
 from utils.ffmpeg_runner import FFmpegMuxer
@@ -377,7 +377,7 @@ class SubtitleGenerator:
                 except Exception as e:
                     self.logger.warning(f"Failed to cleanup temp dir {temp_dir}: {e}")
     
-    def _validate_input(self, mkv_path: Path) -> dict:
+    def _validate_input(self, mkv_path: Path) -> dict[str, Any]:
         """
         Validate input MKV file.
         

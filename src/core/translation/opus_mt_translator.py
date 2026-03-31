@@ -98,7 +98,7 @@ class OpusMtTranslator:
     def _is_cuda_available() -> bool:
         try:
             import ctranslate2
-            return ctranslate2.get_cuda_device_count() > 0
+            return int(ctranslate2.get_cuda_device_count()) > 0
         except Exception:
             return False
 

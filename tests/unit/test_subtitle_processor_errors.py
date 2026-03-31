@@ -57,6 +57,46 @@ class TestSubtitleDownloadManagerErrors:
         assert result.success is False
         assert "Download failed" in result.message
 
+    def test_process_interactive_without_callback_returns_failure(self, tmp_path: Path) -> None:
+        provider = MagicMock(spec=SubtitleProvider)
+        match = MagicMock(format="srt", language="en")
+        provider.search.return_value = [match]
+        provider.get_best_match.return_value = match
+        manager = SubtitleDownloadManager(provider, MagicMock())
+        video = tmp_path / "movie.mkv"
+        video.touch()
+
+        manager_any: Any = manager
+        manager_any._should_process_file = MagicMock(return_value=True)
+        manager_any._extract_movie_info = MagicMock()
+
+        result = manager.process(video, auto_select=False)
+
+        assert result.success is False
+        assert "selection callback" in result.message
+
+    def test_process_interactive_with_callback_selects_match(self, tmp_path: Path) -> None:
+        provider = MagicMock(spec=SubtitleProvider)
+        match = MagicMock(format="srt", language="en")
+        provider.search.return_value = [match]
+        manager = SubtitleDownloadManager(provider, MagicMock())
+        video = tmp_path / "movie.mkv"
+        video.touch()
+
+        manager_any: Any = manager
+        manager_any._should_process_file = MagicMock(return_value=True)
+        manager_any._extract_movie_info = MagicMock()
+        manager_any._download_subtitle = MagicMock(return_value=tmp_path / "movie.en.srt")
+
+        result = manager.process(
+            video,
+            auto_select=False,
+            embed=False,
+            selection_callback=lambda matches: matches[0],
+        )
+
+        assert result.success is True
+
 
 class TestSubtitleValidationErrors:
     def test_validate_srt_utf8_valid(self, tmp_path: Path) -> None:

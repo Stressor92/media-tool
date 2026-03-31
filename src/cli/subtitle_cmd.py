@@ -14,7 +14,7 @@ from typing import Annotated, Optional
 from rich.console import Console
 
 from core.subtitles.opensubtitles_provider import OpenSubtitlesProvider
-from core.subtitles.subtitle_provider import MovieInfo
+from core.subtitles.subtitle_provider import MovieInfo, SubtitleMatch
 from core.subtitles.subtitle_downloader import SubtitleDownloadManager
 from utils.config import build_missing_config_hint, get_config, has_config_file
 from utils.video_hasher import VideoHasher
@@ -23,6 +23,46 @@ from utils.ffprobe_runner import probe_file
 
 app = typer.Typer(help="Download and manage subtitles. Use 'download' to fetch from OpenSubtitles.org, 'search' to check availability.")
 console = Console()
+
+
+def _prompt_user_selection(matches: list[SubtitleMatch]) -> SubtitleMatch | None:
+    """Render match table in CLI and return selected subtitle or None."""
+    from rich.table import Table
+
+    table = Table(title="Available Subtitles")
+    table.add_column("#", style="cyan", justify="right")
+    table.add_column("Language", style="cyan")
+    table.add_column("Release", style="white", max_width=40)
+    table.add_column("Rating", justify="right", style="green")
+    table.add_column("Downloads", justify="right", style="yellow")
+    table.add_column("Uploader", style="blue", max_width=20)
+
+    for index, match in enumerate(matches, 1):
+        table.add_row(
+            str(index),
+            match.language.upper(),
+            match.release_name[:40],
+            f"{match.rating:.1f}",
+            f"{match.download_count:,}",
+            match.uploader[:20],
+        )
+
+    console.print(table)
+    raw = typer.prompt("Enter number to select, or 'q' to cancel", default="q").strip().lower()
+    if raw in {"q", "quit", "cancel"}:
+        return None
+
+    try:
+        selected_index = int(raw) - 1
+    except ValueError:
+        console.print("[red]Invalid input[/red]")
+        return None
+
+    if 0 <= selected_index < len(matches):
+        return matches[selected_index]
+
+    console.print("[red]Invalid selection[/red]")
+    return None
 
 
 @app.command()
@@ -100,7 +140,8 @@ def download(
                 languages=language_list,
                 auto_select=not interactive,
                 embed=embed,
-                overwrite=overwrite
+                overwrite=overwrite,
+                selection_callback=_prompt_user_selection if interactive else None,
             )
 
             if result.success:

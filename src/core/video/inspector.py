@@ -20,6 +20,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 from utils.ffprobe_runner import probe_file
 
@@ -98,7 +99,7 @@ def _parse_fps(r_frame_rate: str) -> str:
         return r_frame_rate
 
 
-def _stream_languages(streams: list[dict]) -> str:
+def _stream_languages(streams: list[dict[str, Any]]) -> str:
     """Extract language tags from a list of streams, comma-joined."""
     langs = [s.get("tags", {}).get("language", "") for s in streams]
     result = ", ".join(l for l in langs if l)
@@ -126,7 +127,10 @@ def inspect_file(path: Path) -> VideoInfo:
     probe = probe_file(path)
 
     if probe.failed:
-        logger.warning("ffprobe failed for: %s", path)
+        logger.warning(
+            "ffprobe failed during inspection",
+            extra={"context": {"file": str(path)}},
+        )
         return VideoInfo(
             file_name=path.name,
             file_path=str(path),
@@ -214,14 +218,37 @@ def scan_directory(
         if f.is_file() and f.suffix.lower() in extensions
     )
 
-    logger.info("Found %d video file(s) in %s", len(files), directory)
+    logger.info(
+        "Video scan started",
+        extra={
+            "context": {
+                "directory": str(directory),
+                "files": len(files),
+                "recursive": recursive,
+            }
+        },
+    )
 
     results: list[VideoInfo] = []
     for idx, f in enumerate(files, start=1):
-        logger.info("[%d/%d] Inspecting: %s", idx, len(files), f.name)
+        logger.info(
+            "Inspecting video file",
+            extra={
+                "context": {
+                    "index": idx,
+                    "total": len(files),
+                    "file": str(f),
+                }
+            },
+        )
         results.append(inspect_file(f))
         if progress_callback is not None:
             progress_callback(idx, len(files), f)
+
+    logger.info(
+        "Video scan finished",
+        extra={"context": {"directory": str(directory), "processed": len(results)}},
+    )
 
     return results
 
@@ -281,4 +308,7 @@ def export_to_csv(
             row = asdict(v)
             writer.writerow(row)
 
-    logger.info("CSV exported: %s (%d rows)", output_path, len(videos))
+    logger.info(
+        "Video CSV export completed",
+        extra={"context": {"output": str(output_path), "rows": len(videos)}},
+    )

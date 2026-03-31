@@ -10,10 +10,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import List, Optional
-
-from rich.console import Console
-from rich.table import Table
+from typing import Callable, List, Optional
 
 from .subtitle_provider import SubtitleProvider, SubtitleMatch, MovieInfo, DownloadResult
 from utils.video_hasher import VideoHasher
@@ -21,7 +18,6 @@ from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
 
 logger = logging.getLogger(__name__)
-console = Console()
 
 
 class SubtitleDownloadManager:
@@ -54,10 +50,11 @@ class SubtitleDownloadManager:
     def process(
         self,
         video_path: Path,
-        languages: List[str] = ["en"],
+        languages: Optional[List[str]] = None,
         auto_select: bool = True,
         embed: bool = True,
-        overwrite: bool = False
+        overwrite: bool = False,
+        selection_callback: Optional[Callable[[List[SubtitleMatch]], Optional[SubtitleMatch]]] = None,
     ) -> DownloadResult:
         """
         Complete subtitle download workflow:
@@ -81,6 +78,8 @@ class SubtitleDownloadManager:
         Returns:
             DownloadResult with success status and metadata
         """
+        if languages is None:
+            languages = ["en"]
 
         # Step 1: Pre-checks
         if not self._should_process_file(video_path, overwrite):
@@ -112,7 +111,12 @@ class SubtitleDownloadManager:
         if auto_select:
             best_match = self.provider.get_best_match(matches)
         else:
-            best_match = self._prompt_user_selection(matches)
+            if selection_callback is None:
+                return DownloadResult(
+                    success=False,
+                    message="Interactive selection requires a CLI selection callback"
+                )
+            best_match = selection_callback(matches)
 
         if not best_match:
             return DownloadResult(
@@ -231,51 +235,6 @@ class SubtitleDownloadManager:
             return title, year
 
         return None, None
-
-    def _prompt_user_selection(self, matches: List[SubtitleMatch]) -> Optional[SubtitleMatch]:
-        """
-        Display matches in table format and let user select.
-
-        Returns selected SubtitleMatch or None if cancelled.
-        """
-
-        # Display matches in table
-        table = Table(title="Available Subtitles")
-        table.add_column("#", style="cyan", justify="right")
-        table.add_column("Language", style="cyan")
-        table.add_column("Release", style="white", max_width=40)
-        table.add_column("Rating", justify="right", style="green")
-        table.add_column("Downloads", justify="right", style="yellow")
-        table.add_column("Uploader", style="blue", max_width=20)
-
-        for i, match in enumerate(matches, 1):
-            table.add_row(
-                str(i),
-                match.language.upper(),
-                match.release_name[:40],
-                f"{match.rating:.1f}",
-                f"{match.download_count:,}",
-                match.uploader[:20]
-            )
-
-        console.print(table)
-        console.print("\n[yellow]Enter number to select, or 'q' to cancel:[/yellow] ", end="")
-
-        try:
-            choice = input().strip().lower()
-            if choice in ('q', 'quit', 'cancel'):
-                return None
-
-            index = int(choice) - 1
-            if 0 <= index < len(matches):
-                return matches[index]
-            else:
-                console.print("[red]Invalid selection[/red]")
-                return None
-
-        except (ValueError, EOFError):
-            console.print("[red]Invalid input[/red]")
-            return None
 
     def _download_subtitle(self, match: SubtitleMatch, video_path: Path) -> Path:
         """Download subtitle file to appropriate location."""

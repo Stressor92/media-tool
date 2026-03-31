@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
+from typing import Any
 
 
 class ArtworkType(str, Enum):
@@ -79,9 +80,9 @@ class MovieMetadata:
     trailer_url: str | None = None
     poster_path: str | None = None
     backdrop_path: str | None = None
-    available_posters: list[dict] = field(default_factory=list)
-    available_backdrops: list[dict] = field(default_factory=list)
-    available_logos: list[dict] = field(default_factory=list)
+    available_posters: list[dict[str, Any]] = field(default_factory=list)
+    available_backdrops: list[dict[str, Any]] = field(default_factory=list)
+    available_logos: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass

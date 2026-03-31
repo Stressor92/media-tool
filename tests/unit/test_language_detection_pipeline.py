@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -140,7 +141,7 @@ class TestPipeline:
         req = DetectionRequest(video_path=f)
 
         class _FakeWhisper:
-            def detect(self, audio_sample: Path, hint_languages=None) -> LanguageDetectionResult:
+            def detect(self, audio_sample: Path, hint_languages: list[str] | None = None) -> LanguageDetectionResult:
                 return _mock_result("ger", 0.95)
 
         with patch("core.language_detection.pipeline.extract_audio_sample") as mock_sampler:

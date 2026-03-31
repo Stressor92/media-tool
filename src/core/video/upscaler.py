@@ -29,6 +29,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
+from typing import Any
 
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 from utils.ffprobe_runner import probe_cropdetect, probe_file
@@ -164,7 +165,7 @@ def _is_anime(name: str) -> bool:
     return bool(ANIME_KEYWORDS.search(name))
 
 
-def _compute_dar(video_stream: dict) -> float | None:
+def _compute_dar(video_stream: dict[str, Any]) -> float | None:
     """
     Compute the Display Aspect Ratio from a video stream probe dict.
 

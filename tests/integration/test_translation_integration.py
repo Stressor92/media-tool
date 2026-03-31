@@ -48,6 +48,7 @@ Das Wetter ist wunderschön.
 
 pytestmark = [
     pytest.mark.integration,
+    pytest.mark.external,
     pytest.mark.live_integration,
     pytest.mark.skipif(
         os.environ.get("MEDIA_TOOL_LIVE_INTEGRATION_TESTS") != "1",

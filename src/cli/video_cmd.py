@@ -174,15 +174,15 @@ def inspect_command(
     console.print(f"[dim]TV Shows:[/dim] {tv_shows}")
     console.print(f"[dim]Other:[/dim] {other}")
 
-    # Export to CSV if requested
-    if output:
-        try:
-            from core.video import export_to_csv
-            export_to_csv(videos, output)
-            console.print(f"[dim]Exported to:[/dim] {output}")
-        except Exception as e:
-            err_console.print(f"Error exporting CSV: {e}")
-            raise typer.Exit(code=1)
+    # Always export CSV. If --output is omitted, use <directory>/video_list.csv.
+    csv_output = output or (directory / "video_list.csv")
+    try:
+        from core.video import export_to_csv
+        export_to_csv(videos, csv_output)
+        console.print(f"[dim]Exported to:[/dim] {csv_output}")
+    except Exception as e:
+        err_console.print(f"Error exporting CSV: {e}")
+        raise typer.Exit(code=1)
 
     # Preview if requested
     if preview:

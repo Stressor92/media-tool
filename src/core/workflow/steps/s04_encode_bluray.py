@@ -26,7 +26,7 @@ _BLURAY_PATTERN = re.compile(r"blu.?ray|bdrip|brrip|remux", re.IGNORECASE)
 _BITRATE_THRESHOLD = 15_000_000  # 15 Mbit/s
 
 
-def _is_bluray_candidate(path: Path, video: dict) -> bool:
+def _is_bluray_candidate(path: Path, video: dict[str, object]) -> bool:
     if _BLURAY_PATTERN.search(path.stem):
         return True
     codec = str(video.get("codec_name", ""))

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+from typing import Any, Callable, cast
 
 import pytest
 from mutagen.flac import FLAC
@@ -16,7 +17,8 @@ from core.audio.metadata_extractor import MetadataExtractor
 def _tag_mp3(file_path: Path, *, artist: str, album: str, title: str, tracknumber: str) -> None:
     audio = MP3(file_path, ID3=EasyID3)
     try:
-        audio.add_tags()
+        add_tags = cast(Callable[[], None], audio.add_tags)
+        add_tags()
     except Exception:
         pass
     audio["artist"] = [artist]
@@ -36,7 +38,7 @@ def _tag_flac(file_path: Path, *, artist: str, album: str, title: str, tracknumb
 
 
 @pytest.mark.integration
-def test_complete_scan_workflow(tmp_path: Path, media_generator) -> None:
+def test_complete_scan_workflow(tmp_path: Path, media_generator: Any) -> None:
     library_root = tmp_path / "library"
     album_one = library_root / "Artist1" / "Album1"
     album_two = library_root / "Artist2" / "Album2"

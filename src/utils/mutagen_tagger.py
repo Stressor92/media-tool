@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+from importlib import import_module
 from pathlib import Path
-from mutagen import File
+from typing import Any, Callable, cast
 
 from core.audio.metadata_providers.provider import TrackMetadata
 
@@ -25,7 +26,9 @@ class MutagenTagger:
             return False
 
         try:
-            audio = File(audio_file_path, easy=True)
+            mutagen_module = import_module("mutagen")
+            mutagen_file = cast(Callable[..., Any], getattr(mutagen_module, "File"))
+            audio = mutagen_file(audio_file_path, easy=True)
             if audio is None:
                 logger.error("Unsupported format: %s", audio_file_path)
                 return False

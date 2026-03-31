@@ -18,6 +18,7 @@ import subprocess
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from utils.config import get_config
 
@@ -30,7 +31,7 @@ class ProbeResult:
 
     success: bool
     return_code: int
-    data: dict          # parsed JSON (empty dict on failure)
+    data: dict[str, Any]          # parsed JSON (empty dict on failure)
     stderr: str
 
     @property
@@ -48,23 +49,27 @@ class ProbeResult:
     # ------------------------------------------------------------------
 
     @property
-    def streams(self) -> list[dict]:
-        return self.data.get("streams", [])
+    def streams(self) -> list[dict[str, Any]]:
+        value = self.data.get("streams")
+        if not isinstance(value, list):
+            return []
+        return [item for item in value if isinstance(item, dict)]
 
     @property
-    def format(self) -> dict:
-        return self.data.get("format", {})
+    def format(self) -> dict[str, Any]:
+        value = self.data.get("format")
+        return value if isinstance(value, dict) else {}
 
-    def video_streams(self) -> list[dict]:
+    def video_streams(self) -> list[dict[str, Any]]:
         return [s for s in self.streams if s.get("codec_type") == "video"]
 
-    def audio_streams(self) -> list[dict]:
+    def audio_streams(self) -> list[dict[str, Any]]:
         return [s for s in self.streams if s.get("codec_type") == "audio"]
 
-    def subtitle_streams(self) -> list[dict]:
+    def subtitle_streams(self) -> list[dict[str, Any]]:
         return [s for s in self.streams if s.get("codec_type") == "subtitle"]
 
-    def first_video(self) -> dict | None:
+    def first_video(self) -> dict[str, Any] | None:
         vs = self.video_streams()
         return vs[0] if vs else None
 
@@ -125,8 +130,11 @@ def probe_file(path: Path) -> ProbeResult:
     try:
         # Decode stdout safely and parse JSON
         stdout_str = result.stdout.decode("utf-8", errors="replace")
-        data = json.loads(stdout_str)
-    except json.JSONDecodeError as exc:
+        loaded: Any = json.loads(stdout_str)
+        if not isinstance(loaded, dict):
+            raise ValueError("ffprobe JSON root is not an object")
+        data = {str(k): v for k, v in loaded.items()}
+    except (json.JSONDecodeError, ValueError) as exc:
         logger.error("ffprobe returned invalid JSON for %s: %s", path, exc)
         return ProbeResult(
             success=False,

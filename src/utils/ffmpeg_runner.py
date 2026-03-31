@@ -64,7 +64,15 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
         FileNotFoundError: If ffmpeg is not installed / not on PATH.
     """
     command = [get_config().tools.ffmpeg] + args
-    logger.debug("Running ffmpeg: %s", " ".join(command))
+    logger.debug(
+        "Starting ffmpeg process",
+        extra={
+            "context": {
+                "executable": command[0],
+                "arg_count": len(args),
+            }
+        },
+    )
 
     try:
         result = subprocess.run(
@@ -84,10 +92,25 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
         # Decode stderr safely for logging
         stderr_str = result.stderr.decode("utf-8", errors="replace")
         logger.warning(
-            "ffmpeg exited with code %d.\nCommand: %s\nStderr: %s",
-            result.returncode,
-            " ".join(command),
-            stderr_str[-2000:],  # tail to avoid huge logs
+            "ffmpeg process failed",
+            extra={
+                "context": {
+                    "return_code": result.returncode,
+                    "executable": command[0],
+                    "arg_count": len(args),
+                    "stderr_tail": stderr_str[-1000:],
+                }
+            },
+        )
+    else:
+        logger.debug(
+            "ffmpeg process succeeded",
+            extra={
+                "context": {
+                    "executable": command[0],
+                    "arg_count": len(args),
+                }
+            },
         )
 
     return FFmpegResult(
