@@ -170,6 +170,60 @@ class MetadataConfig(BaseModel):
         return value
 
 
+class EbookOrganizationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    structure: str = "{author}/{series}/{title}"
+
+    @field_validator("structure")
+    @classmethod
+    def _validate_structure(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("ebook.organization.structure must not be empty")
+        return normalized
+
+
+class EbookConversionConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_format: str = "epub"
+
+    @field_validator("target_format")
+    @classmethod
+    def _validate_target_format(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("ebook.conversion.target_format must not be empty")
+        return normalized
+
+
+class EbookConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    preferred_format: str = "epub"
+    download_cover: bool = True
+    metadata_providers: list[str] = Field(default_factory=lambda: ["openlibrary", "googlebooks"])
+    organization: EbookOrganizationConfig = Field(default_factory=EbookOrganizationConfig)
+    conversion: EbookConversionConfig = Field(default_factory=EbookConversionConfig)
+
+    @field_validator("preferred_format")
+    @classmethod
+    def _validate_preferred_format(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("ebook.preferred_format must not be empty")
+        return normalized
+
+    @field_validator("metadata_providers")
+    @classmethod
+    def _normalize_metadata_providers(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip().lower() for item in value if item.strip()]
+        if not normalized:
+            raise ValueError("ebook.metadata_providers must contain at least one provider")
+        return normalized
+
+
 class DefaultConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -245,6 +299,7 @@ class AppConfig(BaseModel):
     jellyfin: JellyfinConfig = Field(default_factory=lambda: JellyfinConfig())
     language_detection: LanguageDetectionConfig = Field(default_factory=LanguageDetectionConfig)
     metadata: MetadataConfig = Field(default_factory=MetadataConfig)
+    ebook: EbookConfig = Field(default_factory=EbookConfig)
 
 
 _CONFIG_CACHE: AppConfig | None = None
@@ -385,7 +440,7 @@ def _legacy_env_mapping(key: str) -> list[str] | None:
 def _parse_env_value(field_name: str, value: str) -> Any:
     normalized = value.strip()
 
-    if field_name in {"languages", "subtitle_languages", "sponsorblock_remove"}:
+    if field_name in {"languages", "subtitle_languages", "sponsorblock_remove", "metadata_providers"}:
         if normalized.startswith("["):
             try:
                 parsed = json.loads(normalized)

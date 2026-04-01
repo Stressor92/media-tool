@@ -35,6 +35,11 @@ def test_get_config_uses_defaults_when_file_missing(tmp_path: Path) -> None:
     assert config.tools.yt_dlp == "yt-dlp"
     assert config.defaults.subtitles.languages == ["en"]
     assert config.api.opensubtitles_api_key is None
+    assert config.ebook.preferred_format == "epub"
+    assert config.ebook.download_cover is True
+    assert config.ebook.metadata_providers == ["openlibrary", "googlebooks"]
+    assert config.ebook.organization.structure == "{author}/{series}/{title}"
+    assert config.ebook.conversion.target_format == "epub"
 
 
 def test_get_config_reads_file_and_env_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -50,6 +55,17 @@ yt_dlp = "C:/tools/yt-dlp.exe"
 
 [defaults.subtitles]
 languages = ["en", "de"]
+
+[ebook]
+preferred_format = "mobi"
+download_cover = false
+metadata_providers = ["googlebooks"]
+
+[ebook.organization]
+structure = "{author}/{title}"
+
+[ebook.conversion]
+target_format = "mobi"
 """.strip(),
         encoding="utf-8",
     )
@@ -57,6 +73,7 @@ languages = ["en", "de"]
     monkeypatch.setenv("MEDIA_TOOL_CONFIG", str(config_path))
     monkeypatch.setenv("MEDIA_TOOL_API__OPENSUBTITLES_API_KEY", "from-env")
     monkeypatch.setenv("MEDIA_TOOL_DEFAULTS__SUBTITLES__LANGUAGES", "de,fr")
+    monkeypatch.setenv("MEDIA_TOOL_EBOOK__METADATA_PROVIDERS", "openlibrary,googlebooks")
 
     config = get_config()
 
@@ -64,6 +81,11 @@ languages = ["en", "de"]
     assert config.tools.ffmpeg == "C:/tools/ffmpeg.exe"
     assert config.tools.yt_dlp == "C:/tools/yt-dlp.exe"
     assert config.defaults.subtitles.languages == ["de", "fr"]
+    assert config.ebook.preferred_format == "mobi"
+    assert config.ebook.download_cover is False
+    assert config.ebook.metadata_providers == ["openlibrary", "googlebooks"]
+    assert config.ebook.organization.structure == "{author}/{title}"
+    assert config.ebook.conversion.target_format == "mobi"
 
 
 def test_get_config_supports_legacy_environment_variables(monkeypatch: pytest.MonkeyPatch) -> None:

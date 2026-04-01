@@ -39,6 +39,17 @@ embed_subtitles = true
 embed_thumbnail = true
 sponsorblock_remove = ["sponsor"]
 
+[ebook]
+preferred_format = "epub"
+download_cover = true
+metadata_providers = ["openlibrary", "googlebooks"]
+
+[ebook.organization]
+structure = "{author}/{series}/{title}"
+
+[ebook.conversion]
+target_format = "epub"
+
 # yt-dlp is used by the Python download subsystem.
 # Keep [tools].yt_dlp aligned with your shell setup for manual usage or legacy scripts.
 

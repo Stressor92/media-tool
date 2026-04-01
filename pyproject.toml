@@ -24,6 +24,7 @@ dependencies = [
     "pyacoustid>=1.1",  # AcoustID fingerprint lookup
     "musicbrainzngs>=0.7",  # MusicBrainz metadata lookup
     "yt-dlp>=2024.11.0",  # Downloader backend for web media sources
+    "Pillow>=11.0",  # Cover image processing for ebook enrichment
 ]
 
 [project.optional-dependencies]

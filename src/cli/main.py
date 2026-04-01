@@ -26,6 +26,7 @@ from cli.workflow_cmd import app as workflow_app
 from cli.jellyfin_cmd import app as jellyfin_app
 from cli.audit_cmd import app as audit_app
 from cli.metadata_cmd import app as metadata_app
+from cli.ebook_cmd import app as ebook_app
 
 # ---------------------------------------------------------------------------
 # Root app
@@ -51,6 +52,7 @@ app.add_typer(workflow_app, name="workflow", help="Run automated media processin
 app.add_typer(jellyfin_app, name="jellyfin", help="Manage and sync the Jellyfin media library.")
 app.add_typer(audit_app, name="audit", help="Audit a media library for quality and naming issues.")
 app.add_typer(metadata_app, name="metadata", help="Fetch movie metadata and artwork from TMDB.")
+app.add_typer(ebook_app, name="ebook", help="Process ebooks and show active ebook configuration.")
 
 
 # ---------------------------------------------------------------------------
