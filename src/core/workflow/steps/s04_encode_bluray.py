@@ -63,15 +63,25 @@ class EncodeBlurayStep(BaseStep):
             out = source.with_stem(source.stem + " [h265]")
             if not ctx.dry_run:
                 args = [
-                    "-y", "-i", str(source),
-                    "-map", "0",
-                    "-c:v", "libx265",
-                    "-crf", "18",
-                    "-preset", "slow",
-                    "-c:a", "copy",
-                    "-c:s", "copy",
-                    "-map_metadata", "0",
-                    "-map_chapters", "0",
+                    "-y",
+                    "-i",
+                    str(source),
+                    "-map",
+                    "0",
+                    "-c:v",
+                    "libx265",
+                    "-crf",
+                    "18",
+                    "-preset",
+                    "slow",
+                    "-c:a",
+                    "copy",
+                    "-c:s",
+                    "copy",
+                    "-map_metadata",
+                    "0",
+                    "-map_chapters",
+                    "0",
                     str(out),
                 ]
                 result = run_ffmpeg(args)
@@ -81,9 +91,7 @@ class EncodeBlurayStep(BaseStep):
             outputs.append(out)
             originals.append(source)
 
-        ctx.working_files = [
-            f for f in ctx.working_files if f not in originals
-        ] + outputs
+        ctx.working_files = [f for f in ctx.working_files if f not in originals] + outputs
 
         return StepResult(
             step_name=self.name,

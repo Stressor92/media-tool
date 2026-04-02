@@ -11,19 +11,17 @@ Test video conversion logic including:
 
 from __future__ import annotations
 
-
 import pytest
 
 from core.video.converter import (
+    BatchConversionSummary,
     ConversionResult,
     ConversionStatus,
-    BatchConversionSummary,
+    batch_convert_directory,
     convert_mp4_to_mkv,
     resolve_output_path,
-    batch_convert_directory,
 )
 from utils.ffmpeg_runner import FFmpegResult
-
 
 # ---------------------------------------------------------------------------
 # Tests for ConversionStatus enum
@@ -35,17 +33,17 @@ class TestConversionStatus:
 
     def test_has_success_status(self):
         """Should have SUCCESS status."""
-        assert hasattr(ConversionStatus, 'SUCCESS')
+        assert hasattr(ConversionStatus, "SUCCESS")
         assert ConversionStatus.SUCCESS is not None
 
     def test_has_skipped_status(self):
         """Should have SKIPPED status."""
-        assert hasattr(ConversionStatus, 'SKIPPED')
+        assert hasattr(ConversionStatus, "SKIPPED")
         assert ConversionStatus.SKIPPED is not None
 
     def test_has_failed_status(self):
         """Should have FAILED status."""
-        assert hasattr(ConversionStatus, 'FAILED')
+        assert hasattr(ConversionStatus, "FAILED")
         assert ConversionStatus.FAILED is not None
 
 
@@ -61,14 +59,14 @@ class TestConversionResult:
         """Should correctly identify successful conversion."""
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
-        
+
         result = ConversionResult(
             status=ConversionStatus.SUCCESS,
             source=source,
             target=target,
             message="Converted successfully",
         )
-        
+
         assert result.succeeded is True
         assert result.failed is False
         assert result.skipped is False
@@ -77,14 +75,14 @@ class TestConversionResult:
         """Should correctly identify skipped conversion."""
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
-        
+
         result = ConversionResult(
             status=ConversionStatus.SKIPPED,
             source=source,
             target=target,
             message="File already exists",
         )
-        
+
         assert result.skipped is True
         assert result.succeeded is False
         assert result.failed is False
@@ -93,14 +91,14 @@ class TestConversionResult:
         """Should correctly identify failed conversion."""
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
-        
+
         result = ConversionResult(
             status=ConversionStatus.FAILED,
             source=source,
             target=target,
             message="ffmpeg error",
         )
-        
+
         assert result.failed is True
         assert result.succeeded is False
         assert result.skipped is False
@@ -113,7 +111,7 @@ class TestConversionResult:
             target=tmp_media_dir / "out.mkv",
             message="Test",
         )
-        
+
         with pytest.raises(Exception):  # FrozenInstanceError
             result.message = "Changed"
 
@@ -126,7 +124,7 @@ class TestConversionResult:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = ConversionResult(
             status=ConversionStatus.SUCCESS,
             source=tmp_media_dir / "in.mp4",
@@ -134,7 +132,7 @@ class TestConversionResult:
             message="Done",
             ffmpeg_result=ffmpeg_result,
         )
-        
+
         assert result.ffmpeg_result == ffmpeg_result
 
 
@@ -157,7 +155,7 @@ class TestBatchConversionSummary:
             )
             for i in range(3)
         ]
-        
+
         summary = BatchConversionSummary(results=results)
         assert summary.total == 3
 
@@ -177,7 +175,7 @@ class TestBatchConversionSummary:
                 message="Error",
             ),
         ]
-        
+
         summary = BatchConversionSummary(results=results)
         assert len(summary.succeeded) == 1
         assert summary.succeeded[0].succeeded
@@ -198,7 +196,7 @@ class TestBatchConversionSummary:
                 message="Exists",
             ),
         ]
-        
+
         summary = BatchConversionSummary(results=results)
         assert len(summary.skipped) == 2
         assert all(r.skipped for r in summary.skipped)
@@ -213,7 +211,7 @@ class TestBatchConversionSummary:
                 message="Error",
             ),
         ]
-        
+
         summary = BatchConversionSummary(results=results)
         assert len(summary.failed) == 1
         assert summary.failed[0].failed
@@ -240,7 +238,7 @@ class TestBatchConversionSummary:
                 message="Error",
             ),
         ]
-        
+
         summary = BatchConversionSummary(results=results)
         assert summary.total == 3
         assert len(summary.succeeded) == 1
@@ -269,7 +267,7 @@ class TestConvertMp4ToMkv:
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -277,9 +275,9 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.succeeded
         assert result.status == ConversionStatus.SUCCESS
         assert result.source == source
@@ -290,7 +288,7 @@ class TestConvertMp4ToMkv:
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -298,9 +296,9 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"Error: Unknown encoder",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed
         assert result.status == ConversionStatus.FAILED
 
@@ -310,9 +308,9 @@ class TestConvertMp4ToMkv:
         target = tmp_media_dir / "output.mkv"
         source.touch()
         target.touch()  # Target already exists
-        
+
         result = convert_mp4_to_mkv(source, target, overwrite=False)
-        
+
         assert result.skipped
         assert result.status == ConversionStatus.SKIPPED
         # Should not call ffmpeg
@@ -324,7 +322,7 @@ class TestConvertMp4ToMkv:
         target = tmp_media_dir / "output.mkv"
         source.touch()
         target.touch()  # Target already exists
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -332,9 +330,9 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target, overwrite=True)
-        
+
         assert result.succeeded
         # Should have called ffmpeg
         patch_run_ffmpeg.assert_called_once()
@@ -344,7 +342,7 @@ class TestConvertMp4ToMkv:
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -352,9 +350,9 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         convert_mp4_to_mkv(source, target, audio_language="eng", audio_title="English")
-        
+
         # Check ffmpeg was called with correct language
         patch_run_ffmpeg.assert_called_once()
         call_args = patch_run_ffmpeg.call_args[0][0]
@@ -367,7 +365,7 @@ class TestConvertMp4ToMkv:
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -375,9 +373,9 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         convert_mp4_to_mkv(source, target)
-        
+
         # Check ffmpeg was called with default German language
         patch_run_ffmpeg.assert_called_once()
         call_args = patch_run_ffmpeg.call_args[0][0]
@@ -388,7 +386,7 @@ class TestConvertMp4ToMkv:
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -396,9 +394,9 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         convert_mp4_to_mkv(source, target)
-        
+
         # Check ffmpeg uses copy codec
         patch_run_ffmpeg.assert_called_once()
         call_args = patch_run_ffmpeg.call_args[0][0]
@@ -409,7 +407,7 @@ class TestConvertMp4ToMkv:
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -417,9 +415,9 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.message
         assert "successfully" in result.message.lower() or "OK" in result.message
 
@@ -428,7 +426,7 @@ class TestConvertMp4ToMkv:
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -436,23 +434,21 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"Codec error",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.message
         assert "failed" in result.message.lower() or "error" in result.message.lower()
 
-    def test_convert_cleans_up_incomplete_output_on_failure(
-        self, tmp_media_dir, patch_run_ffmpeg
-    ):
+    def test_convert_cleans_up_incomplete_output_on_failure(self, tmp_media_dir, patch_run_ffmpeg):
         """Should remove incomplete output file on conversion failure."""
         source = tmp_media_dir / "input.mp4"
         target = tmp_media_dir / "output.mkv"
         source.touch()
-        
+
         # Create output file without overwrite to trigger the skip behavior
         # Then test with overwrite=True and failure
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -460,9 +456,9 @@ class TestConvertMp4ToMkv:
             stderr_bytes=b"Error",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target, overwrite=True)
-        
+
         # Output should be cleaned up onFailure
         assert result.failed
         # File might be deleted by the function (behavior depends on implementation)
@@ -485,19 +481,19 @@ class TestConversionIntegration:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         files = []
         for i in range(3):
             source = tmp_media_dir / f"input{i}.mp4"
             source.touch()
             files.append(source)
-        
+
         results = []
         for source in files:
             target = tmp_media_dir / f"output{source.stem}.mkv"
             result = convert_mp4_to_mkv(source, target)
             results.append(result)
-        
+
         # All should succeed
         assert all(r.succeeded for r in results)
 
@@ -507,7 +503,7 @@ class TestConversionIntegration:
         target = tmp_media_dir / "output.mkv"
         source.touch()
         target.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -515,14 +511,14 @@ class TestConversionIntegration:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         # First try without overwrite - should skip
         result1 = convert_mp4_to_mkv(source, target, overwrite=False)
         assert result1.skipped
-        
+
         # Reset mock
         patch_run_ffmpeg.reset_mock()
-        
+
         # Then try with overwrite - should process
         result2 = convert_mp4_to_mkv(source, target, overwrite=True)
         assert result2.succeeded
@@ -592,7 +588,7 @@ class TestBatchConvertDirectory:
         """Should convert single MP4 file."""
         source = tmp_media_dir / "input.mp4"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -600,9 +596,9 @@ class TestBatchConvertDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         summary = batch_convert_directory(tmp_media_dir)
-        
+
         assert summary.total == 1
         assert summary.succeeded == [summary.results[0]]
         assert len(summary.failed) == 0
@@ -615,7 +611,7 @@ class TestBatchConvertDirectory:
             source = tmp_media_dir / f"input{i}.mp4"
             source.touch()
             sources.append(source)
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -623,9 +619,9 @@ class TestBatchConvertDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         summary = batch_convert_directory(tmp_media_dir)
-        
+
         assert summary.total == 3
         assert len(summary.succeeded) == 3
         assert len(summary.failed) == 0
@@ -635,7 +631,7 @@ class TestBatchConvertDirectory:
         source = tmp_media_dir / "input.mp4"
         output_root = tmp_media_dir / "output"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -643,9 +639,9 @@ class TestBatchConvertDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         summary = batch_convert_directory(tmp_media_dir, output_root=output_root)
-        
+
         assert summary.total == 1
         result = summary.results[0]
         assert result.succeeded
@@ -661,7 +657,7 @@ class TestBatchConvertDirectory:
         source2 = subdir / "input2.mp4"
         source1.touch()
         source2.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -669,11 +665,11 @@ class TestBatchConvertDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         # Non-recursive should only find top-level file
         summary = batch_convert_directory(tmp_media_dir, recursive=False)
         assert summary.total == 1
-        
+
         # Recursive should find both
         summary = batch_convert_directory(tmp_media_dir, recursive=True)
         assert summary.total == 2
@@ -682,7 +678,7 @@ class TestBatchConvertDirectory:
         """Should pass custom audio language to conversion."""
         source = tmp_media_dir / "input.mp4"
         source.touch()
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -690,13 +686,9 @@ class TestBatchConvertDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
-        summary = batch_convert_directory(
-            tmp_media_dir, 
-            audio_language="eng", 
-            audio_title="English"
-        )
-        
+
+        summary = batch_convert_directory(tmp_media_dir, audio_language="eng", audio_title="English")
+
         assert summary.total == 1
         # Check that ffmpeg was called with custom language
         patch_run_ffmpeg.assert_called_once()
@@ -709,7 +701,7 @@ class TestBatchConvertDirectory:
         target = tmp_media_dir / "input" / "input.mkv"
         source.touch()
         target.touch()  # Pre-existing target
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -717,15 +709,15 @@ class TestBatchConvertDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         # With overwrite=False, should skip
         summary = batch_convert_directory(tmp_media_dir, overwrite=False)
         assert summary.total == 1
         assert len(summary.skipped) == 1
-        
+
         # Reset mock
         patch_run_ffmpeg.reset_mock()
-        
+
         # With overwrite=True, should process
         summary = batch_convert_directory(tmp_media_dir, overwrite=True)
         assert summary.total == 1
@@ -736,7 +728,7 @@ class TestBatchConvertDirectory:
         """Should raise NotADirectoryError for invalid path."""
         file_path = tmp_path / "not_a_dir.txt"
         file_path.touch()
-        
+
         with pytest.raises(NotADirectoryError, match="Not a directory"):
             batch_convert_directory(file_path)
 
@@ -748,7 +740,7 @@ class TestBatchConvertDirectory:
             source = tmp_media_dir / name
             source.touch()
             sources.append(source)
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -756,9 +748,9 @@ class TestBatchConvertDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         summary = batch_convert_directory(tmp_media_dir)
-        
+
         assert summary.total == 3
         # Should be processed in sorted order (alpha, beta, zebra)
         expected_order = ["alpha", "beta", "zebra"]

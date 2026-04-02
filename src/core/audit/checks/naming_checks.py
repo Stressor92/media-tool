@@ -21,9 +21,7 @@ class BadMovieNamingCheck(BaseCheck):
     check_id = "C01"
     check_name = "Falsche Filmbenennung (kein 'Titel (Jahr)')"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             is_series = any(_SEASON_RE.search(p.name) for p in f.parents)
@@ -35,10 +33,7 @@ class BadMovieNamingCheck(BaseCheck):
                         kind=FindingKind.BAD_MOVIE_NAMING,
                         severity=CheckSeverity.HIGH,
                         path=f,
-                        message=(
-                            f"'{f.name}' entspricht nicht dem Jellyfin-Schema "
-                            "'Titel (Jahr).mkv'."
-                        ),
+                        message=(f"'{f.name}' entspricht nicht dem Jellyfin-Schema " "'Titel (Jahr).mkv'."),
                     )
                 )
         return findings
@@ -48,9 +43,7 @@ class DuplicateMovieCheck(BaseCheck):
     check_id = "C02"
     check_name = "Doppelte Filme"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         title_map: dict[str, list[Path]] = defaultdict(list)
         for f in files:
             m = _TITLE_YEAR_RE.search(f.stem)
@@ -87,9 +80,7 @@ class FileInRootCheck(BaseCheck):
     def __init__(self, root_dir: Path) -> None:
         self._root = root_dir
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             if f.parent == self._root:
@@ -98,10 +89,7 @@ class FileInRootCheck(BaseCheck):
                         kind=FindingKind.FILE_IN_ROOT,
                         severity=CheckSeverity.MEDIUM,
                         path=f,
-                        message=(
-                            f"'{f.name}' liegt direkt im Wurzelordner "
-                            "statt in eigenem Unterordner."
-                        ),
+                        message=(f"'{f.name}' liegt direkt im Wurzelordner " "statt in eigenem Unterordner."),
                     )
                 )
         return findings
@@ -114,9 +102,7 @@ class EmptyFolderCheck(BaseCheck):
     def __init__(self, root_dir: Path) -> None:
         self._root = root_dir
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for folder in self._root.rglob("*"):
             if folder.is_dir() and not any(folder.iterdir()):
@@ -135,9 +121,7 @@ class SpecialCharsCheck(BaseCheck):
     check_id = "C05"
     check_name = "Jellyfin-inkompatible Sonderzeichen im Dateinamen"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             bad_chars = _SPECIAL_CHARS.findall(f.name)
@@ -147,9 +131,7 @@ class SpecialCharsCheck(BaseCheck):
                         kind=FindingKind.SPECIAL_CHARS,
                         severity=CheckSeverity.MEDIUM,
                         path=f,
-                        message=(
-                            f"Problematische Zeichen: {set(bad_chars)} in '{f.name}'."
-                        ),
+                        message=(f"Problematische Zeichen: {set(bad_chars)} in '{f.name}'."),
                     )
                 )
         return findings
@@ -159,9 +141,7 @@ class NameTooLongCheck(BaseCheck):
     check_id = "C06"
     check_name = "Dateiname zu lang (> 200 Zeichen)"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             if len(f.name) > _MAX_NAME_LEN:
@@ -170,10 +150,7 @@ class NameTooLongCheck(BaseCheck):
                         kind=FindingKind.NAME_TOO_LONG,
                         severity=CheckSeverity.LOW,
                         path=f,
-                        message=(
-                            f"Dateiname ist {len(f.name)} Zeichen lang "
-                            f"(Limit: {_MAX_NAME_LEN})."
-                        ),
+                        message=(f"Dateiname ist {len(f.name)} Zeichen lang " f"(Limit: {_MAX_NAME_LEN})."),
                         details={"name_length": len(f.name)},
                     )
                 )

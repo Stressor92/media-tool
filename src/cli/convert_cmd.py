@@ -13,12 +13,11 @@ Rules:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 from rich.text import Text
 
 from core.video import (
@@ -44,7 +43,7 @@ def _status_text(status: ConversionStatus) -> Text:
     mapping = {
         ConversionStatus.SUCCESS: Text("✔  OK", style="bold green"),
         ConversionStatus.SKIPPED: Text("⏭  Skipped", style="yellow"),
-        ConversionStatus.FAILED:  Text("✘  Failed",  style="bold red"),
+        ConversionStatus.FAILED: Text("✘  Failed", style="bold red"),
     }
     return mapping[status]
 
@@ -94,9 +93,10 @@ def batch_command(
         readable=True,
         help="Directory to scan for .mp4 files.",
     ),
-    output_dir: Optional[Path] = typer.Option(
+    output_dir: Path | None = typer.Option(
         None,
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         help=(
             "Root directory for output subfolders. "
             "Defaults to the source directory (files placed next to originals)."
@@ -104,7 +104,8 @@ def batch_command(
     ),
     language: str = typer.Option(
         "deu",
-        "--language", "-l",
+        "--language",
+        "-l",
         help="ISO 639-2/B language code for the first audio stream (e.g. deu, eng).",
     ),
     audio_title: str = typer.Option(
@@ -119,7 +120,8 @@ def batch_command(
     ),
     recursive: bool = typer.Option(
         False,
-        "--recursive", "-r",
+        "--recursive",
+        "-r",
         help="Also scan subdirectories for .mp4 files.",
     ),
 ) -> None:
@@ -169,17 +171,16 @@ def single_command(
         readable=True,
         help="Path to the source .mp4 file.",
     ),
-    target: Optional[Path] = typer.Option(
+    target: Path | None = typer.Option(
         None,
-        "--target", "-t",
-        help=(
-            "Explicit output path for the .mkv file. "
-            "Defaults to <source_parent>/<stem>/<stem>.mkv"
-        ),
+        "--target",
+        "-t",
+        help=("Explicit output path for the .mkv file. " "Defaults to <source_parent>/<stem>/<stem>.mkv"),
     ),
     language: str = typer.Option(
         "deu",
-        "--language", "-l",
+        "--language",
+        "-l",
         help="ISO 639-2/B language code for the first audio stream.",
     ),
     audio_title: str = typer.Option(
@@ -219,9 +220,7 @@ def single_command(
         err_console.print(f"\n✘  {result.message}")
         if result.ffmpeg_result:
             # Show last 20 lines of stderr for quick debugging
-            stderr_tail = "\n".join(
-                result.ffmpeg_result.stderr.splitlines()[-20:]
-            )
+            stderr_tail = "\n".join(result.ffmpeg_result.stderr.splitlines()[-20:])
             console.print(
                 f"\n[dim]ffmpeg stderr (tail):[/dim]\n{stderr_tail}",
                 highlight=False,

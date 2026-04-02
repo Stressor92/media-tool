@@ -26,8 +26,4 @@ class ConfidenceScorer:
     ) -> float:
         """Blend text similarity and metadata richness into one ranking score."""
         completeness = candidate.calculate_completeness()
-        return (
-            title_similarity * 0.6
-            + author_similarity * 0.3
-            + completeness * 0.1
-        )
+        return title_similarity * 0.6 + author_similarity * 0.3 + completeness * 0.1

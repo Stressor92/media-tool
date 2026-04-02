@@ -6,16 +6,17 @@ Complete audio library processing workflow for mixed music collections.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from utils.progress import ProgressEvent, emit_progress
-from .metadata import AudioMetadataEnhanced, extract_audio_metadata_enhanced
-from .enhancement import improve_audio_library
-from .organization import organize_music
+
 from .conversion import convert_audio
+from .enhancement import improve_audio_library
+from .metadata import AudioMetadataEnhanced, extract_audio_metadata_enhanced
+from .organization import organize_music
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ def process_audio_library_workflow(
             "organized_files": 0,
             "converted_files": 0,
             "errors": 0,
-        }
+        },
     }
 
     # Step 1: Scan and analyze all audio files
@@ -193,15 +194,16 @@ def process_audio_library_workflow(
     if improve and temp_dir.exists():
         try:
             import shutil
+
             shutil.rmtree(temp_dir)
             logger.info("Cleaned up temporary directory")
         except Exception as e:
             logger.warning(f"Failed to cleanup temp directory: {e}")
 
     results["statistics"]["processed_files"] = (
-        results["statistics"]["improved_files"] +
-        results["statistics"]["organized_files"] +
-        results["statistics"]["converted_files"]
+        results["statistics"]["improved_files"]
+        + results["statistics"]["organized_files"]
+        + results["statistics"]["converted_files"]
     )
 
     logger.info("Audio library workflow completed")
@@ -214,11 +216,11 @@ def _scan_audio_library(
 ) -> ScanResults:
     """Scan audio library and extract metadata."""
     files: list[AudioMetadataEnhanced] = []
-    audio_extensions = {'.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wav', '.wma'}
+    audio_extensions = {".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma"}
 
     matching_files = [
         file_path
-        for file_path in input_dir.rglob('*')
+        for file_path in input_dir.rglob("*")
         if file_path.is_file() and file_path.suffix.lower() in audio_extensions
     ]
     total = len(matching_files)
@@ -257,16 +259,14 @@ def _convert_organized_library(
     converted = []
     errors = 0
 
-    audio_extensions = {'.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wav', '.wma'}
+    audio_extensions = {".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma"}
 
     matching_files = [
         file_path
-        for file_path in organized_dir.rglob('*')
+        for file_path in organized_dir.rglob("*")
         if file_path.is_file() and file_path.suffix.lower() in audio_extensions
     ]
-    to_convert = [
-        file_path for file_path in matching_files if file_path.suffix.lower() != f'.{target_format.lower()}'
-    ]
+    to_convert = [file_path for file_path in matching_files if file_path.suffix.lower() != f".{target_format.lower()}"]
     total = len(to_convert)
 
     for index, file_path in enumerate(to_convert, start=1):
@@ -277,7 +277,7 @@ def _convert_organized_library(
             )
 
             try:
-                output_file = file_path.with_suffix(f'.{target_format}')
+                output_file = file_path.with_suffix(f".{target_format}")
                 result = convert_audio(
                     input_file=file_path,
                     output_file=output_file,
@@ -291,7 +291,9 @@ def _convert_organized_library(
                     file_path.unlink()
                     emit_progress(
                         progress_callback,
-                        ProgressEvent("convert-audio", index, total, file_path.name, "success", f"Created {output_file.name}"),
+                        ProgressEvent(
+                            "convert-audio", index, total, file_path.name, "success", f"Created {output_file.name}"
+                        ),
                     )
                 else:
                     errors += 1

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import csv
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from core.audio.csv_exporter import CSVExporter
@@ -34,8 +34,8 @@ def test_csv_export_writes_expected_columns_and_values(tmp_path: Path) -> None:
         is_lossless=True,
         is_tagged=True,
         has_cover_art=False,
-        date_modified=datetime(2024, 1, 2, tzinfo=timezone.utc),
-        date_scanned=datetime(2024, 1, 3, tzinfo=timezone.utc),
+        date_modified=datetime(2024, 1, 2, tzinfo=UTC),
+        date_scanned=datetime(2024, 1, 3, tzinfo=UTC),
     )
 
     exporter = CSVExporter()

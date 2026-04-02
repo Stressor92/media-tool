@@ -3,11 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from core.language_detection.heuristic_detector import HeuristicDetector
 from core.language_detection.models import DetectionMethod
-
 
 detector = HeuristicDetector()
 
@@ -39,9 +36,7 @@ class TestHeuristicDetector:
 
     def test_container_tag_highest_confidence(self, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
-        probe = {"streams": [
-            {"codec_type": "audio", "tags": {"language": "ger"}}
-        ]}
+        probe = {"streams": [{"codec_type": "audio", "tags": {"language": "ger"}}]}
         result = detector.detect_from_path(f, stream_index=0, probe=probe)
         assert result is not None
         assert result.language == "ger"
@@ -49,26 +44,20 @@ class TestHeuristicDetector:
 
     def test_und_container_tag_ignored(self, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
-        probe = {"streams": [
-            {"codec_type": "audio", "tags": {"language": "und"}}
-        ]}
+        probe = {"streams": [{"codec_type": "audio", "tags": {"language": "und"}}]}
         result = detector._from_container_tags(probe, 0)
         assert result is None
 
     def test_normalizes_full_language_name(self, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
-        probe = {"streams": [
-            {"codec_type": "audio", "tags": {"language": "german"}}
-        ]}
+        probe = {"streams": [{"codec_type": "audio", "tags": {"language": "german"}}]}
         result = detector.detect_from_path(f, probe=probe)
         assert result is not None
         assert result.language == "ger"
 
     def test_english_container_tag(self, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
-        probe = {"streams": [
-            {"codec_type": "audio", "tags": {"language": "english"}}
-        ]}
+        probe = {"streams": [{"codec_type": "audio", "tags": {"language": "english"}}]}
         result = detector.detect_from_path(f, probe=probe)
         assert result is not None
         assert result.language == "eng"
@@ -95,30 +84,32 @@ class TestHeuristicDetector:
         # with reduced confidence (filename confidence × 0.85)
         assert result is not None
         assert result.language == "ger"
-        assert result.confidence < 0.97   # directory confidence is reduced
+        assert result.confidence < 0.97  # directory confidence is reduced
 
     def test_stream_index_out_of_range_returns_none(self, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
-        probe = {"streams": [
-            {"codec_type": "audio", "tags": {"language": "eng"}}
-        ]}
+        probe = {"streams": [{"codec_type": "audio", "tags": {"language": "eng"}}]}
         result = detector._from_container_tags(probe, stream_index=5)
         assert result is None
 
     def test_missing_tags_dict_handled(self, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
-        probe = {"streams": [
-            {"codec_type": "audio"}  # no tags key at all
-        ]}
+        probe = {
+            "streams": [
+                {"codec_type": "audio"}  # no tags key at all
+            ]
+        }
         result = detector._from_container_tags(probe, 0)
         assert result is None
 
     def test_non_audio_streams_ignored(self, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
-        probe = {"streams": [
-            {"codec_type": "video", "tags": {"language": "ger"}},
-            {"codec_type": "audio", "tags": {"language": "und"}},
-        ]}
+        probe = {
+            "streams": [
+                {"codec_type": "video", "tags": {"language": "ger"}},
+                {"codec_type": "audio", "tags": {"language": "und"}},
+            ]
+        }
         result = detector._from_container_tags(probe, 0)
         # First audio stream is "und" → should return None
         assert result is None

@@ -13,17 +13,17 @@ which:
 The original MKV is overwritten in-place (after a temp-copy backup approach).
 Pass dry_run=True to stop before any file write.
 """
+
 from __future__ import annotations
 
 import logging
 import shutil
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from utils.config import get_config
-from utils.ffprobe_runner import ProbeResult, probe_file
+from utils.ffprobe_runner import probe_file
 
 logger = logging.getLogger(__name__)
 
@@ -32,30 +32,34 @@ logger = logging.getLogger(__name__)
 # Data models
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SubtitleTrackInfo:
     """Metadata of one subtitle stream inside an MKV."""
-    stream_index: int       # global stream index in the container
-    sub_index: int          # subtitle-only index (0, 1, 2 …)
-    codec_name: str         # srt, ass, subrip, webvtt, …
-    language: str           # ISO 639-2 or 639-1 (or "und")
+
+    stream_index: int  # global stream index in the container
+    sub_index: int  # subtitle-only index (0, 1, 2 …)
+    codec_name: str  # srt, ass, subrip, webvtt, …
+    language: str  # ISO 639-2 or 639-1 (or "und")
     title: str = ""
 
 
 @dataclass
 class MkvTranslationResult:
     """Result of one full extract → translate → remux operation."""
+
     success: bool
     source_path: Path
-    output_path: Optional[Path] = None
+    output_path: Path | None = None
     error_message: str = ""
-    extracted_sub: Optional[Path] = None
-    translated_sub: Optional[Path] = None
+    extracted_sub: Path | None = None
+    translated_sub: Path | None = None
 
 
 # ---------------------------------------------------------------------------
 # Public class
 # ---------------------------------------------------------------------------
+
 
 class SubtitleMuxer:
     """
@@ -91,13 +95,15 @@ class SubtitleMuxer:
             lang = tags.get("language", "und")
             title = tags.get("title", "")
             codec = stream.get("codec_name", "unknown")
-            tracks.append(SubtitleTrackInfo(
-                stream_index=stream["index"],
-                sub_index=sub_idx,
-                codec_name=codec,
-                language=lang,
-                title=title,
-            ))
+            tracks.append(
+                SubtitleTrackInfo(
+                    stream_index=stream["index"],
+                    sub_index=sub_idx,
+                    codec_name=codec,
+                    language=lang,
+                    title=title,
+                )
+            )
             sub_idx += 1
         return tracks
 
@@ -105,7 +111,7 @@ class SubtitleMuxer:
         self,
         video_path: Path,
         language: str,
-    ) -> Optional[SubtitleTrackInfo]:
+    ) -> SubtitleTrackInfo | None:
         """
         Find the first subtitle track whose language matches *language*.
 
@@ -126,7 +132,7 @@ class SubtitleMuxer:
         self,
         video_path: Path,
         sub_index: int = 0,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
     ) -> Path:
         """
         Extract the subtitle stream at *sub_index* to an SRT file.
@@ -153,15 +159,15 @@ class SubtitleMuxer:
 
         args = [
             "-y",
-            "-i", str(video_path),
-            "-map", f"0:s:{sub_index}",
+            "-i",
+            str(video_path),
+            "-map",
+            f"0:s:{sub_index}",
             str(output_path),
         ]
         result = run_ffmpeg(args)
         if result.return_code != 0:
-            raise RuntimeError(
-                f"ffmpeg extract failed (rc={result.return_code}): {result.stderr[-500:]}"
-            )
+            raise RuntimeError(f"ffmpeg extract failed (rc={result.return_code}): {result.stderr[-500:]}")
         if not output_path.exists():
             raise RuntimeError(f"ffmpeg produced no output file at {output_path}")
         logger.debug("Extracted subtitle track %d → %s", sub_index, output_path)
@@ -176,7 +182,7 @@ class SubtitleMuxer:
         video_path: Path,
         subtitle_path: Path,
         language: str,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         title: str = "",
         forced: bool = False,
         default: bool = False,
@@ -209,12 +215,14 @@ class SubtitleMuxer:
         if replace_in_place:
             tmp_fd, tmp_path_str = tempfile.mkstemp(suffix=".mkv")
             import os
+
             os.close(tmp_fd)
             output_path = Path(tmp_path_str)
 
         sub_track_idx = 1  # index of the newly mapped subtitle in output
         metadata_args = [
-            f"-metadata:s:s:{sub_track_idx}", f"language={language}",
+            f"-metadata:s:s:{sub_track_idx}",
+            f"language={language}",
         ]
         if title:
             metadata_args += [f"-metadata:s:s:{sub_track_idx}", f"title={title}"]
@@ -225,19 +233,22 @@ class SubtitleMuxer:
 
         args = [
             ("-y" if overwrite else "-n"),
-            "-i", str(video_path),
-            "-i", str(subtitle_path),
-            "-map", "0",
-            "-map", "1:0",
-            "-c", "copy",
+            "-i",
+            str(video_path),
+            "-i",
+            str(subtitle_path),
+            "-map",
+            "0",
+            "-map",
+            "1:0",
+            "-c",
+            "copy",
             *metadata_args,
             str(output_path),
         ]
         result = run_ffmpeg(args)
         if result.return_code != 0:
-            raise RuntimeError(
-                f"ffmpeg mux failed (rc={result.return_code}): {result.stderr[-500:]}"
-            )
+            raise RuntimeError(f"ffmpeg mux failed (rc={result.return_code}): {result.stderr[-500:]}")
 
         if replace_in_place:
             # Atomically replace the source file
@@ -252,13 +263,14 @@ class SubtitleMuxer:
 # High-level pipeline function
 # ---------------------------------------------------------------------------
 
+
 def translate_mkv_subtitles(
     video_path: Path,
     source_lang: str,
     target_lang: str,
     backend: str = "opus-mt",
     model_size: str = "big",
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
     overwrite: bool = False,
     dry_run: bool = False,
     # SubtitleTranslator knobs forwarded as-is
@@ -314,7 +326,9 @@ def translate_mkv_subtitles(
 
     logger.info(
         "Found %s subtitle track (stream %d) in %s",
-        track.language, track.stream_index, video_path.name,
+        track.language,
+        track.stream_index,
+        video_path.name,
     )
 
     if dry_run:

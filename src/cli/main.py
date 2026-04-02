@@ -11,22 +11,21 @@ from pathlib import Path
 
 import typer
 
-from utils.logging_config import setup_logging
-
-from cli.convert_cmd import app as convert_app
-from cli.upscale_cmd import app as upscale_app
-from cli.inspect_cmd import app as inspect_app
-from cli.merge_cmd import app as merge_app
 from cli.audio_cmd import app as audio_app
-from cli.video_cmd import app as video_app
 from cli.audiobook_cmd import app as audiobook_app
-from cli.subtitle_cmd import app as subtitle_app
-from cli.download_cmd import app as download_app
-from cli.workflow_cmd import app as workflow_app
-from cli.jellyfin_cmd import app as jellyfin_app
 from cli.audit_cmd import app as audit_app
-from cli.metadata_cmd import app as metadata_app
+from cli.convert_cmd import app as convert_app
+from cli.download_cmd import app as download_app
 from cli.ebook_cmd import app as ebook_app
+from cli.inspect_cmd import app as inspect_app
+from cli.jellyfin_cmd import app as jellyfin_app
+from cli.merge_cmd import app as merge_app
+from cli.metadata_cmd import app as metadata_app
+from cli.subtitle_cmd import app as subtitle_app
+from cli.upscale_cmd import app as upscale_app
+from cli.video_cmd import app as video_app
+from cli.workflow_cmd import app as workflow_app
+from utils.logging_config import setup_logging
 
 # ---------------------------------------------------------------------------
 # Root app
@@ -64,7 +63,8 @@ app.add_typer(ebook_app, name="ebook", help="Process ebooks and show active eboo
 def global_options(
     verbose: bool = typer.Option(
         False,
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         help="Enable informative progress logging (INFO level).",
         is_eager=True,
     ),
@@ -76,7 +76,8 @@ def global_options(
     ),
     quiet: bool = typer.Option(
         False,
-        "--quiet", "-q",
+        "--quiet",
+        "-q",
         help="Show only warnings and errors.",
         is_eager=True,
     ),

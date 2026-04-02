@@ -6,11 +6,10 @@ Audio enhancement functions for music library improvement.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 from utils.progress import ProgressEvent, emit_progress
@@ -27,8 +26,8 @@ class AudioEnhancementResult:
     output_file: Path
     operations_performed: list[str]
     ffmpeg_result: FFmpegResult
-    input_metadata: Optional[dict[str, object]] = None
-    output_metadata: Optional[dict[str, object]] = None
+    input_metadata: dict[str, object] | None = None
+    output_metadata: dict[str, object] | None = None
 
     @property
     def failed(self) -> bool:
@@ -40,7 +39,7 @@ def remove_silence(
     output_file: Path,
     silence_threshold: float = -50.0,
     silence_duration: float = 0.5,
-    overwrite: bool = False
+    overwrite: bool = False,
 ) -> AudioEnhancementResult:
     """
     Remove silence from the beginning and end of an audio file.
@@ -65,14 +64,17 @@ def remove_silence(
     # Silence detection and removal
     # This uses ffmpeg's silencedetect filter to find silence periods
     # and then removes them
-    args.extend([
-        "-af",
-        f"silenceremove=start_threshold={silence_threshold}dB:"
-        f"start_duration={silence_duration}:"
-        f"stop_threshold={silence_threshold}dB:"
-        f"stop_duration={silence_duration}",
-        "-c:a", "aac"  # Use AAC codec for re-encoding with filters
-    ])
+    args.extend(
+        [
+            "-af",
+            f"silenceremove=start_threshold={silence_threshold}dB:"
+            f"start_duration={silence_duration}:"
+            f"stop_threshold={silence_threshold}dB:"
+            f"stop_duration={silence_duration}",
+            "-c:a",
+            "aac",  # Use AAC codec for re-encoding with filters
+        ]
+    )
 
     # Output options
     if overwrite:
@@ -102,7 +104,7 @@ def normalize_audio(
     compression_ratio: float = 4.0,
     attack_time: float = 0.1,
     release_time: float = 0.1,
-    overwrite: bool = False
+    overwrite: bool = False,
 ) -> AudioEnhancementResult:
     """
     Normalize audio to consistent volume levels using dynamic range compression.
@@ -128,11 +130,14 @@ def normalize_audio(
 
     # Audio filter chain for normalization
     # Uses loudnorm filter for true peak normalization
-    args.extend([
-        "-af",
-        f"loudnorm=I={target_level}:TP=-1.5:LRA=11",
-        "-c:a", "aac"  # Use AAC codec for re-encoding with filters
-    ])
+    args.extend(
+        [
+            "-af",
+            f"loudnorm=I={target_level}:TP=-1.5:LRA=11",
+            "-c:a",
+            "aac",  # Use AAC codec for re-encoding with filters
+        ]
+    )
 
     # Output options
     if overwrite:
@@ -161,7 +166,7 @@ def enhance_audio_quality(
     apply_declick: bool = True,
     apply_decrackle: bool = True,
     apply_equalization: bool = True,
-    overwrite: bool = False
+    overwrite: bool = False,
 ) -> AudioEnhancementResult:
     """
     Apply various audio quality enhancements.
@@ -242,7 +247,7 @@ def improve_audio_file(
     enhance_quality: bool = True,
     silence_threshold: float = -50.0,
     target_level: float = -16.0,
-    overwrite: bool = False
+    overwrite: bool = False,
 ) -> AudioEnhancementResult:
     """
     Apply comprehensive audio improvements to a single file.
@@ -380,7 +385,9 @@ def improve_audio_library(
                 counts["skipped"] += 1
                 emit_progress(
                     progress_callback,
-                    ProgressEvent("improve-audio", index, total, input_file.name, "skipped", f"Target exists: {output_file.name}"),
+                    ProgressEvent(
+                        "improve-audio", index, total, input_file.name, "skipped", f"Target exists: {output_file.name}"
+                    ),
                 )
                 continue
 
@@ -399,14 +406,23 @@ def improve_audio_library(
                 counts["improved"] += 1
                 emit_progress(
                     progress_callback,
-                    ProgressEvent("improve-audio", index, total, input_file.name, "success", ", ".join(result.operations_performed)),
+                    ProgressEvent(
+                        "improve-audio",
+                        index,
+                        total,
+                        input_file.name,
+                        "success",
+                        ", ".join(result.operations_performed),
+                    ),
                 )
             elif result.success:
                 # File copied without changes
                 counts["processed"] += 1
                 emit_progress(
                     progress_callback,
-                    ProgressEvent("improve-audio", index, total, input_file.name, "success", "No enhancement filters applied"),
+                    ProgressEvent(
+                        "improve-audio", index, total, input_file.name, "success", "No enhancement filters applied"
+                    ),
                 )
             else:
                 logger.error(f"Failed to improve: {input_file}")

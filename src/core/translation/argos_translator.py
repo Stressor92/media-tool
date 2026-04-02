@@ -25,9 +25,7 @@ class ArgosTranslator:
             import argostranslate.package
             import argostranslate.translate
         except ImportError as e:
-            raise RuntimeError(
-                "argos backend requires: pip install argostranslate"
-            ) from e
+            raise RuntimeError("argos backend requires: pip install argostranslate") from e
 
         installed = argostranslate.translate.get_installed_languages()
         codes = {lang.code for lang in installed}
@@ -57,14 +55,11 @@ class ArgosTranslator:
         self._ensure_initialized(source_lang, target_lang)
 
         installed = argostranslate.translate.get_installed_languages()
-        src_lang_obj = next(l for l in installed if l.code == source_lang)
-        tgt_lang_obj = next(l for l in installed if l.code == target_lang)
+        src_lang_obj = next(lang for lang in installed if lang.code == source_lang)
+        tgt_lang_obj = next(lang for lang in installed if lang.code == target_lang)
         translation = src_lang_obj.get_translation(tgt_lang_obj)
 
-        return [
-            translation.translate(t) if t.strip() else t
-            for t in texts
-        ]
+        return [translation.translate(t) if t.strip() else t for t in texts]
 
     def is_language_pair_supported(self, source_lang: str, target_lang: str) -> bool:
         return (source_lang, target_lang) in _SUPPORTED_PAIRS

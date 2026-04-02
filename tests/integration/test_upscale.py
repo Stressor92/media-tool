@@ -12,15 +12,18 @@ Tests validate the complete DVD-to-720p upscaling workflow including:
 - Batch directory processing
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from core.video.upscaler import (
-    upscale_dvd,
-    batch_upscale_directory,
     UpscaleOptions,
+    batch_upscale_directory,
+    upscale_dvd,
 )
-from .conftest import create_test_video
 from utils.ffprobe_runner import probe_file
+
+from .conftest import create_test_video
 
 
 class TestUpscaleIntegration:
@@ -29,11 +32,7 @@ class TestUpscaleIntegration:
     def test_upscale_low_res_video(self, tmp_path):
         """Test upscaling a low-resolution video to 720p."""
         # Create a low-res test video (480p)
-        input_file = create_test_video(
-            tmp_path / "test_480p.mkv",
-            resolution="720x480",
-            duration=2
-        )
+        input_file = create_test_video(tmp_path / "test_480p.mkv", resolution="720x480", duration=2)
 
         # Run upscale
         result = upscale_dvd(input_file)
@@ -56,11 +55,7 @@ class TestUpscaleIntegration:
     def test_skip_already_upscaled(self, tmp_path):
         """Test that already upscaled files are skipped."""
         # Create a video and upscale it once
-        input_file = create_test_video(
-            tmp_path / "test_video.mkv",
-            resolution="720x480",
-            duration=2
-        )
+        input_file = create_test_video(tmp_path / "test_video.mkv", resolution="720x480", duration=2)
 
         # First upscale
         result1 = upscale_dvd(input_file)
@@ -76,11 +71,7 @@ class TestUpscaleIntegration:
     def test_skip_high_res_video(self, tmp_path):
         """Test that videos already at 720p or higher are skipped."""
         # Create a 1080p test video
-        input_file = create_test_video(
-            tmp_path / "test_1080p.mkv",
-            resolution="1920x1080",
-            duration=2
-        )
+        input_file = create_test_video(tmp_path / "test_1080p.mkv", resolution="1920x1080", duration=2)
 
         # Run upscale
         result = upscale_dvd(input_file)
@@ -93,11 +84,7 @@ class TestUpscaleIntegration:
     def test_anime_detection_disables_crop(self, tmp_path):
         """Test that anime files skip crop detection."""
         # Create a video with anime in the name
-        input_file = create_test_video(
-            tmp_path / "Anime_Series_Ep01.mkv",
-            resolution="720x480",
-            duration=2
-        )
+        input_file = create_test_video(tmp_path / "Anime_Series_Ep01.mkv", resolution="720x480", duration=2)
 
         # Run upscale with crop detection enabled
         result = upscale_dvd(input_file)
@@ -112,11 +99,7 @@ class TestUpscaleIntegration:
 
     def test_custom_upscale_options(self, tmp_path):
         """Test upscaling with custom options."""
-        input_file = create_test_video(
-            tmp_path / "test_custom.mkv",
-            resolution="720x480",
-            duration=2
-        )
+        input_file = create_test_video(tmp_path / "test_custom.mkv", resolution="720x480", duration=2)
 
         # Custom options
         opts = UpscaleOptions(
@@ -139,11 +122,7 @@ class TestUpscaleIntegration:
 
     def test_explicit_output_path(self, tmp_path):
         """Test upscaling with explicit output path."""
-        input_file = create_test_video(
-            tmp_path / "input.mkv",
-            resolution="720x480",
-            duration=2
-        )
+        input_file = create_test_video(tmp_path / "input.mkv", resolution="720x480", duration=2)
 
         output_file = tmp_path / "custom_output.mkv"
         result = upscale_dvd(input_file, target=output_file)
@@ -155,11 +134,7 @@ class TestUpscaleIntegration:
 
     def test_overwrite_existing_output(self, tmp_path):
         """Test overwriting existing output files."""
-        input_file = create_test_video(
-            tmp_path / "test_overwrite.mkv",
-            resolution="720x480",
-            duration=2
-        )
+        input_file = create_test_video(tmp_path / "test_overwrite.mkv", resolution="720x480", duration=2)
 
         # First upscale
         result1 = upscale_dvd(input_file)
@@ -168,6 +143,7 @@ class TestUpscaleIntegration:
 
         # Wait a bit
         import time
+
         time.sleep(0.1)
 
         # Upscale again with overwrite=True
@@ -211,11 +187,7 @@ class TestBatchUpscaleIntegration:
         # Create multiple test videos
         files = []
         for i in range(3):
-            video_file = create_test_video(
-                tmp_path / f"batch_test_{i}.mkv",
-                resolution="720x480",
-                duration=1
-            )
+            video_file = create_test_video(tmp_path / f"batch_test_{i}.mkv", resolution="720x480", duration=1)
             files.append(video_file)
 
         # Run batch upscale
@@ -235,16 +207,8 @@ class TestBatchUpscaleIntegration:
     def test_batch_mixed_resolutions(self, tmp_path):
         """Test batch upscaling with mixed resolutions (some should be skipped)."""
         # Create videos with different resolutions
-        low_res = create_test_video(
-            tmp_path / "low_res.mkv",
-            resolution="720x480",
-            duration=1
-        )
-        high_res = create_test_video(
-            tmp_path / "high_res.mkv",
-            resolution="1920x1080",
-            duration=1
-        )
+        low_res = create_test_video(tmp_path / "low_res.mkv", resolution="720x480", duration=1)
+        high_res = create_test_video(tmp_path / "high_res.mkv", resolution="1920x1080", duration=1)
 
         # Run batch upscale
         summary = batch_upscale_directory(tmp_path)
@@ -252,7 +216,7 @@ class TestBatchUpscaleIntegration:
         # Verify results
         assert summary.total == 2
         assert len(summary.succeeded) == 1  # Only low_res should be upscaled
-        assert len(summary.skipped) == 1    # high_res should be skipped
+        assert len(summary.skipped) == 1  # high_res should be skipped
 
         # Check which file was processed
         success_result = summary.succeeded[0]
@@ -269,16 +233,8 @@ class TestBatchUpscaleIntegration:
         subdir.mkdir()
 
         # Create videos in both root and subdir
-        root_video = create_test_video(
-            tmp_path / "root.mkv",
-            resolution="720x480",
-            duration=1
-        )
-        sub_video = create_test_video(
-            subdir / "sub.mkv",
-            resolution="720x480",
-            duration=1
-        )
+        root_video = create_test_video(tmp_path / "root.mkv", resolution="720x480", duration=1)
+        sub_video = create_test_video(subdir / "sub.mkv", resolution="720x480", duration=1)
 
         # Run recursive batch upscale
         summary = batch_upscale_directory(tmp_path, recursive=True)
@@ -360,10 +316,10 @@ class TestUpscaleWorkflowIntegration:
 
         # Create mix of DVD and HD content
         files_info = [
-            ("DVD_Movie.mkv", "720x480", True),   # Should be upscaled
-            ("HD_Movie.mkv", "1920x1080", False), # Should be skipped
-            ("SD_Movie.mkv", "640x480", True),    # Should be upscaled
-            ("UHD_Movie.mkv", "3840x2160", False), # Should be skipped
+            ("DVD_Movie.mkv", "720x480", True),  # Should be upscaled
+            ("HD_Movie.mkv", "1920x1080", False),  # Should be skipped
+            ("SD_Movie.mkv", "640x480", True),  # Should be upscaled
+            ("UHD_Movie.mkv", "3840x2160", False),  # Should be skipped
         ]
 
         created_files = []
@@ -426,7 +382,7 @@ class TestUpscaleWorkflowIntegration:
         # Note: batch_upscale_directory processes all .mkv files, but corrupted ones fail
         assert summary.total == 2  # Both files are attempted
         assert len(summary.succeeded) == 1  # Only valid file succeeds
-        assert len(summary.failed) == 1     # Corrupted file fails
+        assert len(summary.failed) == 1  # Corrupted file fails
 
         # Verify the valid file was processed
         result = summary.succeeded[0]

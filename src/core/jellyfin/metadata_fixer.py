@@ -124,9 +124,7 @@ class MetadataFixer:
         series = self._manager.get_item(correct_series_id)
         if not episode or not series:
             # Return a minimal error result without a real item
-            item = episode or series or JellyfinItem(
-                id="", name="unknown", item_type=ItemType.UNKNOWN
-            )
+            item = episode or series or JellyfinItem(id="", name="unknown", item_type=ItemType.UNKNOWN)
             return FixResult(
                 issue=MetadataIssue(
                     item=item,
@@ -147,7 +145,6 @@ class MetadataFixer:
             ),
             success=True,
             applied_fix=(
-                f"Refresh triggered for series '{series.name}'. "
-                f"Episode '{episode.name}' should be reassigned."
+                f"Refresh triggered for series '{series.name}'. " f"Episode '{episode.name}' should be reassigned."
             ),
         )

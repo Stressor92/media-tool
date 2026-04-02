@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import logging
-from pathlib import Path
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -61,9 +61,7 @@ class YtDlpRunner:
                 timeout=10,
             )
         except FileNotFoundError as exc:
-            raise YtDlpNotFoundError(
-                f"yt-dlp executable not found: {self.ytdlp_binary}"
-            ) from exc
+            raise YtDlpNotFoundError(f"yt-dlp executable not found: {self.ytdlp_binary}") from exc
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
             raise YtDlpError(f"Failed to verify yt-dlp executable: {exc}") from exc
 
@@ -93,17 +91,13 @@ class YtDlpRunner:
                 timeout=timeout_seconds,
             )
         except FileNotFoundError as exc:
-            raise YtDlpNotFoundError(
-                f"yt-dlp executable not found: {self.ytdlp_binary}"
-            ) from exc
+            raise YtDlpNotFoundError(f"yt-dlp executable not found: {self.ytdlp_binary}") from exc
         except subprocess.TimeoutExpired as exc:
             raise YtDlpError(f"yt-dlp search timed out for query '{query}'") from exc
 
         if completed.returncode != 0:
             stderr = completed.stderr.strip()
-            raise YtDlpError(
-                f"yt-dlp search failed for query '{query}': {stderr or 'unknown error'}"
-            )
+            raise YtDlpError(f"yt-dlp search failed for query '{query}': {stderr or 'unknown error'}")
 
         videos: list[VideoInfo] = []
         for line in completed.stdout.splitlines():
@@ -211,13 +205,7 @@ class YtDlpRunner:
             uploader=payload.get("uploader") if isinstance(payload.get("uploader"), str) else None,
             duration=payload.get("duration") if isinstance(payload.get("duration"), int) else None,
             view_count=payload.get("view_count") if isinstance(payload.get("view_count"), int) else None,
-            upload_date=(
-                payload.get("upload_date")
-                if isinstance(payload.get("upload_date"), str)
-                else None
-            ),
-            description=(
-                payload.get("description") if isinstance(payload.get("description"), str) else None
-            ),
+            upload_date=(payload.get("upload_date") if isinstance(payload.get("upload_date"), str) else None),
+            description=(payload.get("description") if isinstance(payload.get("description"), str) else None),
             language=payload.get("language") if isinstance(payload.get("language"), str) else None,
         )

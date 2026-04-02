@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from core.audit.checks.audio_checks import MissingDeAudioCheck, UnlabeledAudioCheck
 from core.audit.checks.file_quality_checks import (
     BrokenFileCheck,
@@ -27,24 +25,15 @@ from core.audit.checks.subtitle_checks import (
 )
 from core.audit.models import CheckSeverity, FindingKind
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
 def _probe_with_subs(*langs: str) -> dict[str, object]:
-    return {
-        "streams": [
-            {"codec_type": "subtitle", "tags": {"language": lang}} for lang in langs
-        ]
-    }
+    return {"streams": [{"codec_type": "subtitle", "tags": {"language": lang}} for lang in langs]}
 
 
 def _probe_with_audio(*langs: str) -> dict[str, object]:
-    return {
-        "streams": [
-            {"codec_type": "audio", "tags": {"language": lang}} for lang in langs
-        ]
-    }
+    return {"streams": [{"codec_type": "audio", "tags": {"language": lang}} for lang in langs]}
 
 
 def _probe_empty() -> dict[str, object]:
@@ -128,9 +117,7 @@ class TestUnlabeledAudioCheck:
     def test_unlabeled_detected(self, tmp_path: Path) -> None:
         f = tmp_path / "Film (2020).mkv"
         f.touch()
-        probe = {
-            "streams": [{"codec_type": "audio", "tags": {"language": "und"}}]
-        }
+        probe = {"streams": [{"codec_type": "audio", "tags": {"language": "und"}}]}
         findings = UnlabeledAudioCheck().run([f], {f: probe})
         assert len(findings) == 1
         assert findings[0].kind == FindingKind.UNLABELED_AUDIO

@@ -7,7 +7,6 @@ from typer.testing import CliRunner
 from cli.main import app
 from utils.config import reset_config_cache
 
-
 runner = CliRunner()
 
 

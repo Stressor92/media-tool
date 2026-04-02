@@ -11,7 +11,9 @@ class _Identifier:
     def identify(self, file_path: Path) -> BookIdentity:
         if "noisbn" in file_path.name:
             return BookIdentity(title="Book", author="Author", confidence_score=0.9)
-        return BookIdentity(title="Book", author="Author", isbn="9780441172719", isbn13="9780441172719", confidence_score=0.9)
+        return BookIdentity(
+            title="Book", author="Author", isbn="9780441172719", isbn13="9780441172719", confidence_score=0.9
+        )
 
 
 class _MetadataService:

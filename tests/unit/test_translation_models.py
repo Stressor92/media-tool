@@ -1,6 +1,7 @@
 # tests/unit/test_translation_models.py
-import pytest
 from pathlib import Path
+
+import pytest
 
 from core.translation.models import LanguagePair, SubtitleFormat, SubtitleSegment
 

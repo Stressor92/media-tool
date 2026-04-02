@@ -12,10 +12,10 @@ from core.workflow.models import StepResult, StepStatus, WorkflowContext
 from core.workflow.runner import WorkflowRunner
 from core.workflow.step import BaseStep
 
-
 # ---------------------------------------------------------------------------
 # Minimal stub steps
 # ---------------------------------------------------------------------------
+
 
 class _AlwaysSuccess(BaseStep):
     name = "always_success"
@@ -61,6 +61,7 @@ class _AlwaysRaise(BaseStep):
 # Fixture
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def ctx(tmp_path: Path) -> WorkflowContext:
     return WorkflowContext(source_dir=tmp_path, output_dir=tmp_path)
@@ -69,6 +70,7 @@ def ctx(tmp_path: Path) -> WorkflowContext:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_all_success(ctx: WorkflowContext) -> None:
     runner = WorkflowRunner([_AlwaysSuccess(), _AlwaysSuccess()])

@@ -30,14 +30,8 @@ def _needs_subtitles(path: Path) -> bool:
     """True wenn: nur englische Audiospuren + keine passenden Subs."""
     probe = probe_file(path)
 
-    audio_langs = {
-        (s.get("tags") or {}).get("language", "").lower()
-        for s in probe.audio_streams()
-    }
-    sub_langs = {
-        (s.get("tags") or {}).get("language", "").lower()
-        for s in probe.subtitle_streams()
-    }
+    audio_langs = {(s.get("tags") or {}).get("language", "").lower() for s in probe.audio_streams()}
+    sub_langs = {(s.get("tags") or {}).get("language", "").lower() for s in probe.subtitle_streams()}
 
     only_english_audio = bool(audio_langs) and audio_langs.issubset(_ENGLISH_LANG_CODES)
     no_relevant_subs = not sub_langs.intersection(_WANTED_SUBTITLE_LANGS)
@@ -61,9 +55,7 @@ class SubtitleStep(BaseStep):
         config = get_config()
         api_key = config.api.opensubtitles_api_key
         if not api_key:
-            logger.warning(
-                "OpenSubtitles API key not configured – subtitle step skipped."
-            )
+            logger.warning("OpenSubtitles API key not configured – subtitle step skipped.")
             return StepResult(
                 step_name=self.name,
                 status=StepStatus.SKIPPED,

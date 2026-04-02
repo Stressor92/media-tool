@@ -3,6 +3,7 @@
 Stufe 1: Spracherkennung aus Metadaten, Dateinamen und Ordnerstruktur.
 Extrem schnell (< 1ms), hohe Konfidenz bei eindeutigen Mustern.
 """
+
 from __future__ import annotations
 
 import re
@@ -15,11 +16,11 @@ from core.language_detection.models import DetectionMethod, LanguageDetectionRes
 # Muster → (ISO 639-2, Konfidenz)
 _FILENAME_PATTERNS: list[tuple[re.Pattern[str], str, float]] = [
     (re.compile(r"[.\[( _-](german|deutsch|ger|deu)[.\])\-_ ]", re.I), "ger", 0.97),
-    (re.compile(r"[.\[( _-](english|eng)[.\])\-_ ]",              re.I), "eng", 0.97),
-    (re.compile(r"[.\[( _-](french|fre|fra)[.\])\-_ ]",           re.I), "fra", 0.97),
-    (re.compile(r"[.\[( _-](spanish|spa|esp)[.\])\-_ ]",          re.I), "spa", 0.97),
-    (re.compile(r"[.\[( _-](italian|ita)[.\])\-_ ]",              re.I), "ita", 0.97),
-    (re.compile(r"[.\[( _-](japanese|jpn|jap)[.\])\-_ ]",         re.I), "jpn", 0.97),
+    (re.compile(r"[.\[( _-](english|eng)[.\])\-_ ]", re.I), "eng", 0.97),
+    (re.compile(r"[.\[( _-](french|fre|fra)[.\])\-_ ]", re.I), "fra", 0.97),
+    (re.compile(r"[.\[( _-](spanish|spa|esp)[.\])\-_ ]", re.I), "spa", 0.97),
+    (re.compile(r"[.\[( _-](italian|ita)[.\])\-_ ]", re.I), "ita", 0.97),
+    (re.compile(r"[.\[( _-](japanese|jpn|jap)[.\])\-_ ]", re.I), "jpn", 0.97),
     # Doppelsprachigkeit (z. B. "[DE-EN]")
     (re.compile(r"\[DE\]", re.I), "ger", 0.95),
     (re.compile(r"\[EN\]", re.I), "eng", 0.95),
@@ -29,12 +30,27 @@ _FILENAME_PATTERNS: list[tuple[re.Pattern[str], str, float]] = [
 
 # Containersprachen → ISO 639-2 Mapping
 _CONTAINER_LANG_MAP: dict[str, str] = {
-    "german": "ger",  "deutsch": "ger", "de":  "ger", "deu": "ger", "ger": "ger",
-    "english": "eng", "en":      "eng", "eng": "eng",
-    "french": "fra",  "fr":      "fra", "fre": "fra", "fra": "fra",
-    "spanish": "spa", "es":      "spa", "spa": "spa",
-    "italian": "ita", "it":      "ita", "ita": "ita",
-    "japanese": "jpn", "ja":     "jpn", "jpn": "jpn",
+    "german": "ger",
+    "deutsch": "ger",
+    "de": "ger",
+    "deu": "ger",
+    "ger": "ger",
+    "english": "eng",
+    "en": "eng",
+    "eng": "eng",
+    "french": "fra",
+    "fr": "fra",
+    "fre": "fra",
+    "fra": "fra",
+    "spanish": "spa",
+    "es": "spa",
+    "spa": "spa",
+    "italian": "ita",
+    "it": "ita",
+    "ita": "ita",
+    "japanese": "jpn",
+    "ja": "jpn",
+    "jpn": "jpn",
 }
 
 
@@ -65,16 +81,13 @@ class HeuristicDetector:
         # 3. Ordnerpfad (z. B. "German Audio/" oder "[DE]" im Pfad)
         return self._from_directory(video_path)
 
-    def _from_container_tags(
-        self, probe: Mapping[str, Any], stream_index: int
-    ) -> LanguageDetectionResult | None:
+    def _from_container_tags(self, probe: Mapping[str, Any], stream_index: int) -> LanguageDetectionResult | None:
         raw_streams = probe.get("streams", [])
         if not isinstance(raw_streams, list):
             return None
 
         streams: list[dict[str, Any]] = [
-            s for s in raw_streams
-            if isinstance(s, dict) and s.get("codec_type") == "audio"
+            s for s in raw_streams if isinstance(s, dict) and s.get("codec_type") == "audio"
         ]
         if stream_index >= len(streams):
             return None
@@ -86,7 +99,7 @@ class HeuristicDetector:
             normalized = _CONTAINER_LANG_MAP.get(raw_lang, raw_lang[:3])
             return LanguageDetectionResult(
                 language=normalized,
-                confidence=0.99,   # Direktes Container-Tag ist sehr verlässlich
+                confidence=0.99,  # Direktes Container-Tag ist sehr verlässlich
                 method=DetectionMethod.HEURISTIC,
                 stream_index=stream_index,
             )
@@ -120,6 +133,4 @@ class HeuristicDetector:
         hint_languages: list[str] | None = None,
     ) -> LanguageDetectionResult:
         # Fallback für Protocol-Kompatibilität — Heuristik braucht kein Audio
-        return LanguageDetectionResult(
-            language="und", confidence=0.0, method=DetectionMethod.UNKNOWN
-        )
+        return LanguageDetectionResult(language="und", confidence=0.0, method=DetectionMethod.UNKNOWN)

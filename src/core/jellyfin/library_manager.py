@@ -5,7 +5,6 @@ import logging
 import time
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Optional
 
 from core.jellyfin.client import JellyfinClient
 from core.jellyfin.models import (
@@ -86,9 +85,7 @@ class LibraryManager:
                     "ReplaceAllMetadata": replace_metadata,
                 },
             )
-            return RefreshResult(
-                triggered=True, item_id=item_id, message=f"Item {item_id} refreshed."
-            )
+            return RefreshResult(triggered=True, item_id=item_id, message=f"Item {item_id} refreshed.")
         except Exception as exc:
             return RefreshResult(triggered=False, error=str(exc))
 
@@ -101,9 +98,7 @@ class LibraryManager:
         if library:
             logger.info("Refresh triggered for library '%s'.", library.name)
             return self.refresh_library(library.id)
-        logger.warning(
-            "No matching library found for %s — triggering full refresh.", path
-        )
+        logger.warning("No matching library found for %s — triggering full refresh.", path)
         return self.refresh_all()
 
     # ── Scan Status ──────────────────────────────────────────────────────
@@ -195,9 +190,7 @@ class LibraryManager:
         try:
             data = self._client.get(
                 f"/Items/{item_id}",
-                params={
-                    "Fields": "Path,ProviderIds,Overview,ImageTags,BackdropImageTags"
-                },
+                params={"Fields": "Path,ProviderIds,Overview,ImageTags,BackdropImageTags"},
             )
             return self._parse_item(data)
         except Exception:

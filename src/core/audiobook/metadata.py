@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional, List
 
 from ..audio.metadata import AudioMetadataEnhanced, extract_audio_metadata_enhanced
 
 logger = logging.getLogger(__name__)
 
 
-def extract_audiobook_metadata_enhanced(file_path: Path) -> Optional[AudioMetadataEnhanced]:
+def extract_audiobook_metadata_enhanced(file_path: Path) -> AudioMetadataEnhanced | None:
     """
     Extract enhanced metadata from audiobook files.
 
@@ -54,7 +53,7 @@ def extract_audiobook_metadata_enhanced(file_path: Path) -> Optional[AudioMetada
     return metadata
 
 
-def scan_audiobook_library(directory: Path, recursive: bool = True) -> List[AudioMetadataEnhanced]:
+def scan_audiobook_library(directory: Path, recursive: bool = True) -> list[AudioMetadataEnhanced]:
     """
     Scan a directory for audiobook files and extract metadata.
 

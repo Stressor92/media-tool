@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from core.download.download_manager import DownloadManager
-from core.download.models import DownloadRequest, MediaType, DownloadStatus
+from core.download.models import DownloadRequest, DownloadStatus, MediaType
 
 
 def _raw_info(**kwargs: Any) -> dict[str, Any]:
@@ -38,9 +38,7 @@ def manager(mock_runner: MagicMock) -> DownloadManager:
 
 
 class TestDownloadManager:
-    def test_successful_download(
-        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_successful_download(self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path) -> None:
         request = DownloadRequest(
             url="https://example.com/video",
             media_type=MediaType.VIDEO,
@@ -49,14 +47,10 @@ class TestDownloadManager:
         result = manager.download(request)
 
         assert result.status == DownloadStatus.SUCCESS
-        mock_runner.extract_info.assert_called_once_with(
-            "https://example.com/video", download=False
-        )
+        mock_runner.extract_info.assert_called_once_with("https://example.com/video", download=False)
         mock_runner.download.assert_called_once()
 
-    def test_dry_run_skips_download(
-        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_dry_run_skips_download(self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path) -> None:
         request = DownloadRequest(
             url="https://example.com/video",
             media_type=MediaType.VIDEO,
@@ -69,9 +63,7 @@ class TestDownloadManager:
         assert result.skipped_reason == "dry_run"
         mock_runner.download.assert_not_called()
 
-    def test_failure_returns_error(
-        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_failure_returns_error(self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path) -> None:
         mock_runner.extract_info.side_effect = RuntimeError("connection refused")
         request = DownloadRequest(
             url="https://example.com/video",
@@ -114,9 +106,7 @@ class TestDownloadManager:
     def test_series_request_sets_outtmpl(
         self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
     ) -> None:
-        mock_runner.extract_info.return_value = _raw_info(
-            series="My Show", season_number=1, episode_number=3
-        )
+        mock_runner.extract_info.return_value = _raw_info(series="My Show", season_number=1, episode_number=3)
         request = DownloadRequest(
             url="https://example.com/episode",
             media_type=MediaType.SERIES,

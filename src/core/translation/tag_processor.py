@@ -7,6 +7,7 @@ stable placeholders before translation, then restores them afterwards.
 
 This keeps the translator from mangling or dropping inline formatting.
 """
+
 from __future__ import annotations
 
 import re
@@ -22,6 +23,7 @@ _PLACEHOLDER_SUFFIX = "__"
 @dataclass
 class TagMapping:
     """A single placeholder ↔ original tag pair."""
+
     placeholder: str
     original: str
     original_position: int = 0  # char offset in the source text (0 = prefix)
@@ -30,6 +32,7 @@ class TagMapping:
 @dataclass
 class TagProcessorResult:
     """Result of stripping tags from a text string."""
+
     clean_text: str
     mappings: list[TagMapping] = field(default_factory=list)
 
@@ -60,11 +63,13 @@ class TagProcessor:
         def _replace(m: re.Match[str]) -> str:
             nonlocal counter
             ph = f"{_PLACEHOLDER_PREFIX}{counter}{_PLACEHOLDER_SUFFIX}"
-            mappings.append(TagMapping(
-                placeholder=ph,
-                original=m.group(),
-                original_position=m.start(),
-            ))
+            mappings.append(
+                TagMapping(
+                    placeholder=ph,
+                    original=m.group(),
+                    original_position=m.start(),
+                )
+            )
             counter += 1
             return f" {ph} "
 

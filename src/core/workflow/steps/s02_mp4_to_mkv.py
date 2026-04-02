@@ -39,11 +39,17 @@ class Mp4ToMkvStep(BaseStep):
             out = mp4.with_suffix(".mkv")
             if not ctx.dry_run:
                 args = [
-                    "-y", "-i", str(mp4),
-                    "-map", "0",
-                    "-c", "copy",
-                    "-metadata:s:a:0", "language=ger",
-                    "-disposition:a:0", "default",
+                    "-y",
+                    "-i",
+                    str(mp4),
+                    "-map",
+                    "0",
+                    "-c",
+                    "copy",
+                    "-metadata:s:a:0",
+                    "language=ger",
+                    "-disposition:a:0",
+                    "default",
                     str(out),
                 ]
                 result = run_ffmpeg(args)
@@ -53,9 +59,7 @@ class Mp4ToMkvStep(BaseStep):
             outputs.append(out)
             originals.append(mp4)
 
-        ctx.working_files = [
-            f for f in (ctx.working_files or []) if f not in originals
-        ] + outputs
+        ctx.working_files = [f for f in (ctx.working_files or []) if f not in originals] + outputs
 
         return StepResult(
             step_name=self.name,

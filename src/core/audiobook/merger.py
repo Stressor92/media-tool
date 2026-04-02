@@ -6,13 +6,14 @@ Audiobook chapter merging functionality.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, TypedDict
+from typing import Any, TypedDict
 
 from utils.progress import ProgressEvent, emit_progress
+
 from .metadata import extract_audiobook_metadata_enhanced
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ class MergeLibraryResult(TypedDict):
     errors: list[str]
 
 
-def detect_chapter_files(directory: Path) -> Dict[str, List[Tuple[Path, int]]]:
+def detect_chapter_files(directory: Path) -> dict[str, list[tuple[Path, int]]]:
     """
     Detect and group chapter files by book title.
 
@@ -74,13 +75,13 @@ def detect_chapter_files(directory: Path) -> Dict[str, List[Tuple[Path, int]]]:
             match = pattern.match(filename)
             if match:
                 groups = match.groups()
-                
+
                 # Check if this is the "number first" pattern (last pattern in list)
                 if pattern == CHAPTER_PATTERNS[-1]:  # "01 - Book Title" pattern
                     chapter_str, book_title = groups
                 else:  # All other patterns: title first, then number
                     book_title, chapter_str = groups
-                
+
                 try:
                     chapter_num = int(chapter_str)
                     book_title = book_title.strip()
@@ -106,17 +107,17 @@ def detect_chapter_files(directory: Path) -> Dict[str, List[Tuple[Path, int]]]:
 def _clean_book_title(title: str) -> str:
     """Clean and normalize book title for grouping."""
     # Remove common prefixes/suffixes that might interfere with grouping
-    title = re.sub(r'\s+', ' ', title)  # Normalize whitespace
+    title = re.sub(r"\s+", " ", title)  # Normalize whitespace
     title = title.strip()
 
     # Remove trailing numbers that might be part of chapter detection
-    title = re.sub(r'\s+\d+$', '', title)
+    title = re.sub(r"\s+\d+$", "", title)
 
     return title
 
 
 def merge_audiobook_chapters(
-    chapter_files: List[Path],
+    chapter_files: list[Path],
     output_file: Path,
     preserve_metadata: bool = True,
     overwrite: bool = False,
@@ -147,7 +148,7 @@ def merge_audiobook_chapters(
 
     try:
         # Write concat file
-        with open(concat_file, 'w', encoding='utf-8') as f:
+        with open(concat_file, "w", encoding="utf-8") as f:
             for chapter_file in chapter_files:
                 # Escape single quotes in filename for ffmpeg
                 escaped_path = str(chapter_file).replace("'", "\\'")
@@ -155,10 +156,14 @@ def merge_audiobook_chapters(
 
         # Build ffmpeg command for concatenation
         args = [
-            "-f", "concat",
-            "-safe", "0",  # Allow absolute paths
-            "-i", str(concat_file),
-            "-c", "copy",  # Copy streams without re-encoding
+            "-f",
+            "concat",
+            "-safe",
+            "0",  # Allow absolute paths
+            "-i",
+            str(concat_file),
+            "-c",
+            "copy",  # Copy streams without re-encoding
         ]
 
         if preserve_metadata:
@@ -177,6 +182,7 @@ def merge_audiobook_chapters(
 
         # Run ffmpeg
         from utils.ffmpeg_runner import run_ffmpeg
+
         result = run_ffmpeg(args)
 
         # Clean up concat file
@@ -264,7 +270,9 @@ def merge_audiobook_library(
             logger.info(f"Skipping '{book_title}' - only {len(chapters)} chapter(s)")
             emit_progress(
                 progress_callback,
-                ProgressEvent("merge-audiobook", index, total, book_title, "skipped", f"Only {len(chapters)} chapter(s)"),
+                ProgressEvent(
+                    "merge-audiobook", index, total, book_title, "skipped", f"Only {len(chapters)} chapter(s)"
+                ),
             )
             continue
 
@@ -280,13 +288,15 @@ def merge_audiobook_library(
 
         if dry_run:
             # In dry run mode, do not perform actual merging.
-            results["merged_books"].append({
-                "title": book_title,
-                "chapters": len(chapters),
-                "output_file": str(output_file),
-                "size_mb": None,
-                "dry_run": True,
-            })
+            results["merged_books"].append(
+                {
+                    "title": book_title,
+                    "chapters": len(chapters),
+                    "output_file": str(output_file),
+                    "size_mb": None,
+                    "dry_run": True,
+                }
+            )
             logger.info(f"Dry run: would merge '{book_title}'")
             emit_progress(
                 progress_callback,
@@ -304,16 +314,20 @@ def merge_audiobook_library(
 
         if merge_result["success"]:
             results["books_merged"] += 1
-            results["merged_books"].append({
-                "title": book_title,
-                "chapters": len(chapters),
-                "output_file": str(output_file),
-                "size_mb": round(merge_result.get("total_size", 0) / 1_048_576, 2),
-            })
+            results["merged_books"].append(
+                {
+                    "title": book_title,
+                    "chapters": len(chapters),
+                    "output_file": str(output_file),
+                    "size_mb": round(merge_result.get("total_size", 0) / 1_048_576, 2),
+                }
+            )
             logger.info(f"✓ Successfully merged '{book_title}'")
             emit_progress(
                 progress_callback,
-                ProgressEvent("merge-audiobook", index, total, book_title, "success", f"Merged {len(chapters)} chapters"),
+                ProgressEvent(
+                    "merge-audiobook", index, total, book_title, "success", f"Merged {len(chapters)} chapters"
+                ),
             )
         else:
             error_msg = f"Failed to merge '{book_title}': {merge_result.get('error', 'Unknown error')}"
@@ -330,5 +344,6 @@ def merge_audiobook_library(
 def _sanitize_filename(name: str) -> str:
     """Sanitize filename by removing/replacing invalid characters."""
     import re
+
     # Replace invalid characters with underscores
-    return re.sub(r'[<>:"/\\|?*]', '_', name)
+    return re.sub(r'[<>:"/\\|?*]', "_", name)

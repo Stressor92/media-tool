@@ -7,14 +7,13 @@ CLI interface for the DVD upscale workflow (H.265 720p re-encode).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
-from cli.progress_display import ConsoleProgressReporter
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
+from cli.progress_display import ConsoleProgressReporter
 from core.video import (
     BUILTIN_PROFILES,
     BatchUpscaleSummary,
@@ -32,8 +31,7 @@ err_console = Console(stderr=True, style="bold red")
 # Build profile list for help text once at import time
 _PROFILE_NAMES = ", ".join(sorted(BUILTIN_PROFILES))
 _PROFILE_HELP = (
-    f"Named upscale profile to use. Available: {_PROFILE_NAMES}. "
-    "Run with --list-profiles to see full descriptions."
+    f"Named upscale profile to use. Available: {_PROFILE_NAMES}. " "Run with --list-profiles to see full descriptions."
 )
 
 
@@ -77,24 +75,24 @@ def _print_summary(summary: BatchUpscaleSummary) -> None:
     table.add_column("File", style="cyan", no_wrap=True)
     table.add_column("Status", justify="center")
     table.add_column("Before", justify="right")
-    table.add_column("After",  justify="right")
-    table.add_column("Δ",      justify="right")
-    table.add_column("Time",   justify="right")
+    table.add_column("After", justify="right")
+    table.add_column("Δ", justify="right")
+    table.add_column("Time", justify="right")
     table.add_column("Message")
 
     for r in summary.results:
         status_map = {
             UpscaleStatus.SUCCESS: "[bold green]✔  OK[/bold green]",
             UpscaleStatus.SKIPPED: "[yellow]⏭  Skipped[/yellow]",
-            UpscaleStatus.FAILED:  "[bold red]✘  Failed[/bold red]",
+            UpscaleStatus.FAILED: "[bold red]✘  Failed[/bold red]",
         }
         table.add_row(
             r.source.name,
             status_map[r.status],
             f"{r.size_before_gb:.3f} GB" if r.size_before_gb else "-",
-            f"{r.size_after_gb:.3f} GB"  if r.size_after_gb  else "-",
-            f"{r.size_delta_gb:+.3f} GB" if r.succeeded       else "-",
-            f"{r.duration_seconds:.0f}s"  if r.duration_seconds else "-",
+            f"{r.size_after_gb:.3f} GB" if r.size_after_gb else "-",
+            f"{r.size_delta_gb:+.3f} GB" if r.succeeded else "-",
+            f"{r.duration_seconds:.0f}s" if r.duration_seconds else "-",
             r.message,
         )
 
@@ -110,34 +108,45 @@ def _print_summary(summary: BatchUpscaleSummary) -> None:
 @app.command("batch")
 def batch_command(
     directory: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Directory to scan for .mkv files.",
     ),
     profile: str = typer.Option(
-        "dvd", "--profile", "-p",
+        "dvd",
+        "--profile",
+        "-p",
         help=_PROFILE_HELP,
     ),
-    crf: Optional[int] = typer.Option(
-        None, "--crf",
+    crf: int | None = typer.Option(
+        None,
+        "--crf",
         help="Override CRF quality value (lower = better, 14–28). Overrides profile.",
     ),
-    preset: Optional[str] = typer.Option(
-        None, "--preset",
+    preset: str | None = typer.Option(
+        None,
+        "--preset",
         help="Override ffmpeg encoding preset (ultrafast…veryslow). Overrides profile.",
     ),
     overwrite: bool = typer.Option(False, "--overwrite", help="Re-encode even if output already exists."),
     recursive: bool = typer.Option(False, "--recursive", "-r", help="Also scan subdirectories."),
-    target_height: Optional[int] = typer.Option(
-        None, "--height",
+    target_height: int | None = typer.Option(
+        None,
+        "--height",
         help="Override target output height in pixels. Overrides profile.",
     ),
-    deinterlace: Optional[bool] = typer.Option(
-        None, "--deinterlace/--no-deinterlace",
+    deinterlace: bool | None = typer.Option(
+        None,
+        "--deinterlace/--no-deinterlace",
         help="Enable deinterlacing (yadif). Recommended for PAL TV recordings. Overrides profile.",
     ),
-    deinterlace_mode: Optional[str] = typer.Option(
-        None, "--deinterlace-mode",
-        help='Deinterlace filter to use: \"yadif\" (fast) or \"bwdif\" (higher quality). Default: yadif.',
+    deinterlace_mode: str | None = typer.Option(
+        None,
+        "--deinterlace-mode",
+        help='Deinterlace filter to use: "yadif" (fast) or "bwdif" (higher quality). Default: yadif.',
     ),
 ) -> None:
     """
@@ -202,21 +211,27 @@ def batch_command(
 @app.command("single")
 def single_command(
     source: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
         help="Path to the source .mkv file.",
     ),
     profile: str = typer.Option("dvd", "--profile", "-p", help=_PROFILE_HELP),
-    crf: Optional[int] = typer.Option(None, "--crf"),
-    preset: Optional[str] = typer.Option(None, "--preset"),
+    crf: int | None = typer.Option(None, "--crf"),
+    preset: str | None = typer.Option(None, "--preset"),
     overwrite: bool = typer.Option(False, "--overwrite"),
-    target_height: Optional[int] = typer.Option(None, "--height"),
-    deinterlace: Optional[bool] = typer.Option(
-        None, "--deinterlace/--no-deinterlace",
+    target_height: int | None = typer.Option(None, "--height"),
+    deinterlace: bool | None = typer.Option(
+        None,
+        "--deinterlace/--no-deinterlace",
         help="Enable deinterlacing (yadif). Recommended for PAL TV recordings. Overrides profile.",
     ),
-    deinterlace_mode: Optional[str] = typer.Option(
-        None, "--deinterlace-mode",
-        help='Deinterlace filter: \"yadif\" (fast) or \"bwdif\" (higher quality). Default: yadif.',
+    deinterlace_mode: str | None = typer.Option(
+        None,
+        "--deinterlace-mode",
+        help='Deinterlace filter: "yadif" (fast) or "bwdif" (higher quality). Default: yadif.',
     ),
 ) -> None:
     """Upscale a single MKV file to H.265 using the chosen profile."""
@@ -235,8 +250,10 @@ def single_command(
         crf=crf,
         encoder_preset=preset,
         target_height=target_height,
-        overwrite=overwrite,        deinterlace=deinterlace,
-        deinterlace_mode=deinterlace_mode,    )
+        overwrite=overwrite,
+        deinterlace=deinterlace,
+        deinterlace_mode=deinterlace_mode,
+    )
     console.print(
         f"[dim]Settings:[/dim] "
         f"{opts.target_height}p · CRF {opts.crf} · preset {opts.preset} · "

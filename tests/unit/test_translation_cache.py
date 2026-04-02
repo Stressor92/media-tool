@@ -1,11 +1,8 @@
 # tests/unit/test_translation_cache.py
 from __future__ import annotations
 
-import json
-import tempfile
 from pathlib import Path
 
-import pytest
 from core.translation.translation_cache import TranslationCache
 
 
@@ -33,7 +30,7 @@ class TestTranslationCacheMemory:
     def test_hit_miss_counters(self) -> None:
         cache = TranslationCache()
         cache.put("en", "de", "Word", "Wort")
-        cache.get("en", "de", "Word")   # hit
+        cache.get("en", "de", "Word")  # hit
         cache.get("en", "de", "Other")  # miss
         assert cache.hits == 1
         assert cache.misses == 1
@@ -44,7 +41,7 @@ class TestTranslationCacheMemory:
         cache.get("en", "de", "Word")
         cache.get("en", "de", "Word")
         cache.get("en", "de", "Missing")
-        assert abs(cache.hit_rate - 2/3) < 0.01
+        assert abs(cache.hit_rate - 2 / 3) < 0.01
 
     def test_clear(self) -> None:
         cache = TranslationCache()

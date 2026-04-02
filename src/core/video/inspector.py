@@ -47,14 +47,14 @@ class VideoInfo:
     file_path: str
     extension: str
     size_gb: float
-    duration: str               # HH:MM:SS
+    duration: str  # HH:MM:SS
     video_codec: str
-    resolution: str             # "1920 x 1080" or "Unknown"
-    fps: str                    # "23.98" or "?"
+    resolution: str  # "1920 x 1080" or "Unknown"
+    fps: str  # "23.98" or "?"
     audio_track_count: int
-    audio_languages: str        # comma-separated, e.g. "deu, eng"
+    audio_languages: str  # comma-separated, e.g. "deu, eng"
     subtitle_track_count: int
-    subtitle_languages: str     # comma-separated
+    subtitle_languages: str  # comma-separated
 
     # Internal flag — not exported to CSV
     probe_error: bool = field(default=False, repr=False)
@@ -102,7 +102,7 @@ def _parse_fps(r_frame_rate: str) -> str:
 def _stream_languages(streams: list[dict[str, Any]]) -> str:
     """Extract language tags from a list of streams, comma-joined."""
     langs = [s.get("tags", {}).get("language", "") for s in streams]
-    result = ", ".join(l for l in langs if l)
+    result = ", ".join(lang for lang in langs if lang)
     return result or "-"
 
 
@@ -213,10 +213,7 @@ def scan_directory(
         raise NotADirectoryError(f"Not a directory: {directory}")
 
     pattern = "**/*" if recursive else "*"
-    files = sorted(
-        f for f in directory.glob(pattern)
-        if f.is_file() and f.suffix.lower() in extensions
-    )
+    files = sorted(f for f in directory.glob(pattern) if f.is_file() and f.suffix.lower() in extensions)
 
     logger.info(
         "Video scan started",
@@ -259,18 +256,18 @@ def scan_directory(
 
 # Column headers for the CSV — maps VideoInfo field names to display labels
 _CSV_COLUMNS: dict[str, str] = {
-    "file_name":            "Dateiname",
-    "file_path":            "Pfad",
-    "extension":            "Typ",
-    "size_gb":              "Dateigröße (GB)",
-    "duration":             "Dauer",
-    "video_codec":          "Video-Codec",
-    "resolution":           "Auflösung",
-    "fps":                  "FPS",
-    "audio_track_count":    "Audiospuren",
-    "audio_languages":      "Audiosprachen",
+    "file_name": "Dateiname",
+    "file_path": "Pfad",
+    "extension": "Typ",
+    "size_gb": "Dateigröße (GB)",
+    "duration": "Dauer",
+    "video_codec": "Video-Codec",
+    "resolution": "Auflösung",
+    "fps": "FPS",
+    "audio_track_count": "Audiospuren",
+    "audio_languages": "Audiosprachen",
     "subtitle_track_count": "Untertitelspuren",
-    "subtitle_languages":   "Untertitelsprachen",
+    "subtitle_languages": "Untertitelsprachen",
 }
 
 

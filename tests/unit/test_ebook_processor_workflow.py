@@ -12,12 +12,16 @@ from core.ebook.workflow.ebook_processor import EbookProcessor
 
 class _Identifier:
     def identify(self, file_path: Path) -> BookIdentity:
-        return BookIdentity(title="Dune", author="Frank Herbert", isbn="9780441172719", isbn13="9780441172719", confidence_score=0.9)
+        return BookIdentity(
+            title="Dune", author="Frank Herbert", isbn="9780441172719", isbn13="9780441172719", confidence_score=0.9
+        )
 
 
 class _MetadataService:
     def fetch_metadata(self, identity: BookIdentity) -> BookMetadata | None:
-        return BookMetadata(title=identity.title, author=identity.author, isbn=identity.isbn, isbn13=identity.isbn13, source="test")
+        return BookMetadata(
+            title=identity.title, author=identity.author, isbn=identity.isbn, isbn13=identity.isbn13, source="test"
+        )
 
 
 class _CoverService:

@@ -13,9 +13,9 @@ from pathlib import Path
 def _sanitize_filename(name: str) -> str:
     """Sanitize filename by removing/replacing invalid characters."""
     # Replace invalid characters with safe alternatives
-    name = name.replace('<', '').replace('>', '').replace(':', ' -')
-    name = name.replace('"', '').replace('|', '').replace('?', '')
-    name = name.replace('*', '').replace('\\', '').replace('/', '')
+    name = name.replace("<", "").replace(">", "").replace(":", " -")
+    name = name.replace('"', "").replace("|", "").replace("?", "")
+    name = name.replace("*", "").replace("\\", "").replace("/", "")
     return name.strip()
 
 
@@ -38,11 +38,11 @@ def format_movie_name(title: str, year: int | str | None) -> str:
     if year:
         year_str = str(year).strip()
         # Ensure year is 4 digits
-        if re.match(r'^\d{4}$', year_str):
+        if re.match(r"^\d{4}$", year_str):
             return f"{title} ({year_str})"
         else:
             # Try to extract year
-            match = re.search(r'(\d{4})', year_str)
+            match = re.search(r"(\d{4})", year_str)
             if match:
                 return f"{title} ({match.group(1)})"
 
@@ -50,10 +50,7 @@ def format_movie_name(title: str, year: int | str | None) -> str:
 
 
 def format_series_episode(
-    series_name: str,
-    season: int | str,
-    episode: int | str,
-    episode_title: str | None = None
+    series_name: str, season: int | str, episode: int | str, episode_title: str | None = None
 ) -> str:
     """
     Format a TV episode name according to Jellyfin standards.
@@ -113,11 +110,7 @@ def generate_movie_folder_path(title: str, year: int | str | None, base_dir: Pat
 
 
 def generate_movie_file_path(
-    title: str,
-    year: int | str | None,
-    extension: str,
-    base_dir: Path,
-    suffix: str | None = None
+    title: str, year: int | str | None, extension: str, base_dir: Path, suffix: str | None = None
 ) -> Path:
     """
     Generate the full file path for a movie.
@@ -197,7 +190,7 @@ def generate_episode_file_path(
     episode: int | str,
     extension: str,
     base_dir: Path,
-    episode_title: str | None = None
+    episode_title: str | None = None,
 ) -> Path:
     """
     Generate the full file path for a TV episode.

@@ -69,7 +69,7 @@ class DownloadManager:
                     if not self._is_auth_error(retry_exc):
                         raise
 
-            raise last_error
+            raise last_error from exc
 
     def _should_retry_with_browser_cookies(self, request: DownloadRequest, exc: Exception) -> bool:
         if request.cookies_from_browser or request.cookies_file is not None:

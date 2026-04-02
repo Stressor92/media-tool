@@ -8,12 +8,10 @@ Tests invalid inputs, FFmpeg failures, filesystem errors, and cleanup behavior.
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from core.video.converter import (
-    convert_mp4_to_mkv,
     ConversionStatus,
+    convert_mp4_to_mkv,
 )
 from utils.ffmpeg_runner import FFmpegResult
 
@@ -25,9 +23,9 @@ class TestVideoConverterInvalidInput:
         """Test handling when source file doesn't exist."""
         source = tmp_path / "nonexistent.mp4"
         target = tmp_path / "output.mkv"
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
         assert result.status == ConversionStatus.FAILED
         assert "not found" in result.message.lower()
@@ -38,9 +36,9 @@ class TestVideoConverterInvalidInput:
         source = tmp_path / "directory"
         source.mkdir()
         target = tmp_path / "output.mkv"
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
         # Could fail at exists check or at ffmpeg stage
 
@@ -49,7 +47,7 @@ class TestVideoConverterInvalidInput:
         source = tmp_path / "corrupt.mp4"
         source.write_bytes(b"This is not a valid video file")
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -57,9 +55,9 @@ class TestVideoConverterInvalidInput:
             stderr_bytes=b"Invalid data found when processing input",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
         assert "Invalid data" in result.ffmpeg_result.stderr
 
@@ -68,7 +66,7 @@ class TestVideoConverterInvalidInput:
         source = tmp_path / "input.mkv"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -76,20 +74,20 @@ class TestVideoConverterInvalidInput:
             stderr_bytes=b"Unknown format or codec",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
 
     def test_convert_invalid_output_directory_path(self, tmp_path):
         """Test handling when target directory path is invalid."""
         source = tmp_path / "input.mp4"
         source.touch()
-        
+
         # Try to put output in a path that doesn't exist
         # (mkdir should create it, so use a read-only parent)
         target = tmp_path / "readonly" / "nested" / "output.mkv"
-        
+
         # Skip this test if we can't create a read-only directory (Windows)
         pytest.skip("Read-only directory test is platform-specific")
 
@@ -102,7 +100,7 @@ class TestVideoConverterFFmpegFailures:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -110,9 +108,9 @@ class TestVideoConverterFFmpegFailures:
             stderr_bytes=b"Unknown encoder 'libx265'",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
         assert "libx265" in result.ffmpeg_result.stderr
 
@@ -121,7 +119,7 @@ class TestVideoConverterFFmpegFailures:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -129,9 +127,9 @@ class TestVideoConverterFFmpegFailures:
             stderr_bytes=b"Stream specifier ':a:0' does not match any stream",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
 
     def test_convert_ffmpeg_timeout(self, tmp_path, patch_run_ffmpeg):
@@ -139,10 +137,10 @@ class TestVideoConverterFFmpegFailures:
         source = tmp_path / "huge_file.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         # Simulate timeout by raising exception
         patch_run_ffmpeg.side_effect = TimeoutError("FFmpeg conversion timed out")
-        
+
         with pytest.raises(TimeoutError):
             convert_mp4_to_mkv(source, target)
 
@@ -151,7 +149,7 @@ class TestVideoConverterFFmpegFailures:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=-9,  # SIGKILL
@@ -159,9 +157,9 @@ class TestVideoConverterFFmpegFailures:
             stderr_bytes=b"Process killed",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
         assert result.ffmpeg_result.return_code == -9
 
@@ -175,9 +173,9 @@ class TestVideoConverterFilesystemErrors:
         source.touch()
         target = tmp_path / "output.mkv"
         target.touch()  # Target already exists
-        
+
         result = convert_mp4_to_mkv(source, target, overwrite=False)
-        
+
         assert result.skipped is True
         assert result.status == ConversionStatus.SKIPPED
         assert "already exists" in result.message.lower()
@@ -188,7 +186,7 @@ class TestVideoConverterFilesystemErrors:
         source.touch()
         target = tmp_path / "output.mkv"
         target.touch()  # Target already exists
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -196,9 +194,9 @@ class TestVideoConverterFilesystemErrors:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target, overwrite=True)
-        
+
         assert result.succeeded is True
 
     def test_convert_output_cleanup_on_failure(self, tmp_path, patch_run_ffmpeg):
@@ -206,7 +204,7 @@ class TestVideoConverterFilesystemErrors:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         # Simulate FFmpeg creating partial output before failing
         patch_run_ffmpeg.side_effect = lambda args: (
             target.write_bytes(b"partial mkv data"),
@@ -216,11 +214,11 @@ class TestVideoConverterFilesystemErrors:
                 command=["ffmpeg"],
                 stderr_bytes=b"Write error",
                 stdout_bytes=b"",
-            )
+            ),
         )[1]
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
         # Output should be cleaned up
         assert not target.exists()
@@ -229,10 +227,10 @@ class TestVideoConverterFilesystemErrors:
         """Test that output directory is created if it doesn't exist."""
         source = tmp_path / "input.mp4"
         source.touch()
-        
+
         # Nested directory that doesn't exist yet
         target = tmp_path / "outputs" / "converted" / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -240,9 +238,9 @@ class TestVideoConverterFilesystemErrors:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.succeeded is True
         assert target.parent.exists()
 
@@ -251,7 +249,7 @@ class TestVideoConverterFilesystemErrors:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -259,9 +257,9 @@ class TestVideoConverterFilesystemErrors:
             stderr_bytes=b"Permission denied",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
 
 
@@ -273,7 +271,7 @@ class TestVideoConverterErrorMessages:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -281,9 +279,9 @@ class TestVideoConverterErrorMessages:
             stderr_bytes=b"Specific error detail",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
         assert len(result.message) > 20  # Non-trivial message
         assert "exit" in result.message.lower() or "failed" in result.message.lower()
@@ -293,7 +291,7 @@ class TestVideoConverterErrorMessages:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -301,9 +299,9 @@ class TestVideoConverterErrorMessages:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.succeeded is True
         assert "successfully" in result.message.lower()
         assert target.name in result.message
@@ -314,9 +312,9 @@ class TestVideoConverterErrorMessages:
         source.touch()
         target = tmp_path / "output.mkv"
         target.touch()
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.skipped is True
         assert "skip" in result.message.lower() or "exists" in result.message.lower()
 
@@ -329,7 +327,7 @@ class TestVideoConverterMetadataHandling:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -337,14 +335,9 @@ class TestVideoConverterMetadataHandling:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
-        result = convert_mp4_to_mkv(
-            source, 
-            target,
-            audio_language="eng",
-            audio_title="English"
-        )
-        
+
+        result = convert_mp4_to_mkv(source, target, audio_language="eng", audio_title="English")
+
         assert result.succeeded is True
         # Verify the command includes language metadata
         call_args = patch_run_ffmpeg.call_args[0][0]
@@ -355,7 +348,7 @@ class TestVideoConverterMetadataHandling:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -363,13 +356,9 @@ class TestVideoConverterMetadataHandling:
             stderr_bytes=b"Invalid language code",
             stdout_bytes=b"",
         )
-        
-        result = convert_mp4_to_mkv(
-            source,
-            target,
-            audio_language="invalid_code"
-        )
-        
+
+        result = convert_mp4_to_mkv(source, target, audio_language="invalid_code")
+
         # Current implementation doesn't validate, but we test the behavior
         assert result.failed is True or result.succeeded is True
 
@@ -384,9 +373,9 @@ class TestVideoConverterIntegration:
             source = tmp_path / f"input{i}.mp4"
             source.touch()
             files.append(source)
-        
+
         target = tmp_path / "output.mkv"
-        
+
         # Mock: first two succeed, third fails
         results = [
             FFmpegResult(success=True, return_code=0, command=["ffmpeg"], stderr_bytes=b"", stdout_bytes=b""),
@@ -394,12 +383,12 @@ class TestVideoConverterIntegration:
             FFmpegResult(success=False, return_code=1, command=["ffmpeg"], stderr_bytes=b"Error", stdout_bytes=b""),
         ]
         patch_run_ffmpeg.side_effect = results
-        
+
         outcomes = []
         for source in files:
             result = convert_mp4_to_mkv(source, target)
             outcomes.append(result)
-        
+
         assert outcomes[0].succeeded is True
         assert outcomes[1].succeeded is True
         assert outcomes[2].failed is True
@@ -409,7 +398,7 @@ class TestVideoConverterIntegration:
         source = tmp_path / "input.mp4"
         source.touch()
         target = tmp_path / "output.mkv"
-        
+
         patch_run_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -417,9 +406,9 @@ class TestVideoConverterIntegration:
             stderr_bytes=b"Detailed error information",
             stdout_bytes=b"",
         )
-        
+
         result = convert_mp4_to_mkv(source, target)
-        
+
         assert result.failed is True
         assert result.ffmpeg_result is not None
         assert result.ffmpeg_result.stderr_bytes == b"Detailed error information"

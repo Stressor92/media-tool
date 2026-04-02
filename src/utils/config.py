@@ -416,7 +416,7 @@ def _env_overrides() -> dict[str, Any]:
 
         mapped_path = _legacy_env_mapping(key)
         if mapped_path is None and key.startswith(ENV_PREFIX):
-            mapped_path = [segment.lower() for segment in key[len(ENV_PREFIX):].split("__") if segment]
+            mapped_path = [segment.lower() for segment in key[len(ENV_PREFIX) :].split("__") if segment]
 
         if not mapped_path:
             continue

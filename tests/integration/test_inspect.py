@@ -11,15 +11,18 @@ Tests validate the complete media inspection workflow including:
 - Progress reporting and statistics
 """
 
-import pytest
 import csv
 from pathlib import Path
+
+import pytest
+
 from core.video import (
     VIDEO_EXTENSIONS,
     export_to_csv,
     inspect_file,
     scan_directory,
 )
+
 from .conftest import create_test_video
 
 
@@ -33,11 +36,7 @@ class TestInspectScanIntegration:
 
         created_files = []
         for fmt in formats:
-            video_file = create_test_video(
-                tmp_path / f"test_video.{fmt}",
-                resolution="1920x1080",
-                duration=30
-            )
+            video_file = create_test_video(tmp_path / f"test_video.{fmt}", resolution="1920x1080", duration=30)
             created_files.append(video_file)
 
         # Scan directory
@@ -137,11 +136,7 @@ class TestInspectFileAnalysisIntegration:
 
     def test_inspect_single_video_file(self, tmp_path):
         """Test inspecting a single video file."""
-        video_file = create_test_video(
-            tmp_path / "single_test.mp4",
-            resolution="1920x1080",
-            duration=60
-        )
+        video_file = create_test_video(tmp_path / "single_test.mp4", resolution="1920x1080", duration=60)
 
         # Inspect file
         video_info = inspect_file(video_file)
@@ -185,11 +180,7 @@ class TestInspectCSVExportIntegration:
         # Create test video files
         videos = []
         for i in range(3):
-            video_file = create_test_video(
-                tmp_path / f"export_test_{i}.mp4",
-                resolution="1280x720",
-                duration=30
-            )
+            video_file = create_test_video(tmp_path / f"export_test_{i}.mp4", resolution="1280x720", duration=30)
             video_info = inspect_file(video_file)
             videos.append(video_info)
 
@@ -202,8 +193,8 @@ class TestInspectCSVExportIntegration:
         assert csv_file.stat().st_size > 0
 
         # Verify CSV content
-        with open(csv_file, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f, delimiter=';')
+        with open(csv_file, encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
             rows = list(reader)
 
         assert len(rows) == len(videos)
@@ -217,11 +208,7 @@ class TestInspectCSVExportIntegration:
     def test_export_to_csv_with_errors(self, tmp_path):
         """Test CSV export when some files have errors."""
         # Create valid video
-        valid_video = create_test_video(
-            tmp_path / "valid.mp4",
-            resolution="1920x1080",
-            duration=30
-        )
+        valid_video = create_test_video(tmp_path / "valid.mp4", resolution="1920x1080", duration=30)
         valid_info = inspect_file(valid_video)
 
         # Create "corrupted" video
@@ -238,26 +225,22 @@ class TestInspectCSVExportIntegration:
         # Verify CSV was created despite errors
         assert csv_file.exists()
 
-        with open(csv_file, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f, delimiter=';')
+        with open(csv_file, encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
             rows = list(reader)
 
         assert len(rows) == 2  # Both entries should be in CSV
 
     def test_export_to_csv_different_delimiters(self, tmp_path):
         """Test CSV export with different delimiters."""
-        video_file = create_test_video(
-            tmp_path / "delimiter_test.mp4",
-            resolution="1280x720",
-            duration=30
-        )
+        video_file = create_test_video(tmp_path / "delimiter_test.mp4", resolution="1280x720", duration=30)
         video_info = inspect_file(video_file)
 
         # Test with comma delimiter
         csv_comma = tmp_path / "comma.csv"
         export_to_csv([video_info], csv_comma, delimiter=",")
 
-        with open(csv_comma, 'r', encoding='utf-8-sig') as f:
+        with open(csv_comma, encoding="utf-8-sig") as f:
             content = f.read()
             assert "," in content
 
@@ -265,7 +248,7 @@ class TestInspectCSVExportIntegration:
         csv_semicolon = tmp_path / "semicolon.csv"
         export_to_csv([video_info], csv_semicolon, delimiter=";")
 
-        with open(csv_semicolon, 'r', encoding='utf-8-sig') as f:
+        with open(csv_semicolon, encoding="utf-8-sig") as f:
             content = f.read()
             assert ";" in content
 
@@ -298,7 +281,7 @@ class TestInspectWorkflowIntegration:
             create_test_video(
                 media_file,
                 resolution="1920x1080" if "Movie" in str(media_file) else "1280x720",
-                duration=45 if "Movie" in str(media_file) else 25
+                duration=45 if "Movie" in str(media_file) else 25,
             )
 
         # Step 2: Scan the library
@@ -315,8 +298,8 @@ class TestInspectWorkflowIntegration:
         assert csv_output.exists()
 
         # Step 4: Verify CSV content
-        with open(csv_output, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f, delimiter=';')
+        with open(csv_output, encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f, delimiter=";")
             csv_rows = list(reader)
 
         assert len(csv_rows) == len(videos)

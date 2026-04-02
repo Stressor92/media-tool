@@ -1,10 +1,9 @@
 # tests/unit/test_converter.py
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.translation.converter import ConversionResult, ConversionStatus, SubtitleConverter
+from core.translation.converter import ConversionStatus, SubtitleConverter
 from core.translation.models import SubtitleFormat
 
 SRT_CONTENT = "1\n00:00:01,000 --> 00:00:03,000\nHello\n\n"

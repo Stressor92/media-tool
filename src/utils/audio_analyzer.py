@@ -14,9 +14,9 @@ Rules:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
 
 from .ffprobe_runner import ProbeResult, probe_file
 
@@ -54,26 +54,26 @@ class AudioMetadata:
     sample_rate: int
     channels: int
     channel_layout: str
-    bits_per_sample: Optional[int]
+    bits_per_sample: int | None
 
     # Metadata tags
-    title: Optional[str] = None
-    artist: Optional[str] = None
-    album: Optional[str] = None
-    album_artist: Optional[str] = None
-    genre: Optional[str] = None
-    year: Optional[int] = None
-    track_number: Optional[int] = None
-    track_total: Optional[int] = None
-    disc_number: Optional[int] = None
-    disc_total: Optional[int] = None
-    composer: Optional[str] = None
-    comment: Optional[str] = None
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    album_artist: str | None = None
+    genre: str | None = None
+    year: int | None = None
+    track_number: int | None = None
+    track_total: int | None = None
+    disc_number: int | None = None
+    disc_total: int | None = None
+    composer: str | None = None
+    comment: str | None = None
 
     # Audiobook specific
-    narrator: Optional[str] = None
-    series: Optional[str] = None
-    series_part: Optional[int] = None
+    narrator: str | None = None
+    series: str | None = None
+    series_part: int | None = None
 
     @property
     def duration_minutes(self) -> float:
@@ -84,10 +84,10 @@ class AudioMetadata:
     def is_audiobook(self) -> bool:
         """Check if this appears to be an audiobook based on metadata."""
         return bool(
-            self.narrator or
-            self.series or
-            "audiobook" in (self.genre or "").lower() or
-            "spoken" in (self.comment or "").lower()
+            self.narrator
+            or self.series
+            or "audiobook" in (self.genre or "").lower()
+            or "spoken" in (self.comment or "").lower()
         )
 
     @property
@@ -247,7 +247,7 @@ def _safe_float(value: object, default: float = 0.0) -> float:
 def scan_audio_directory(
     directory: Path,
     extensions: frozenset[str] = frozenset({".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wma"}),
-    recursive: bool = True
+    recursive: bool = True,
 ) -> list[AudioMetadata]:
     """
     Scan a directory for audio files and extract metadata.

@@ -17,9 +17,7 @@ class BrokenFileCheck(BaseCheck):
     check_id = "B01"
     check_name = "Defekte Dateien"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             probe = probes.get(f)
@@ -29,10 +27,7 @@ class BrokenFileCheck(BaseCheck):
                         kind=FindingKind.BROKEN_FILE,
                         severity=CheckSeverity.CRITICAL,
                         path=f,
-                        message=(
-                            "Datei ist leer oder konnte nicht analysiert werden "
-                            "(ffprobe fehlgeschlagen)."
-                        ),
+                        message=("Datei ist leer oder konnte nicht analysiert werden " "(ffprobe fehlgeschlagen)."),
                     )
                 )
         return findings
@@ -42,9 +37,7 @@ class WrongContainerCheck(BaseCheck):
     check_id = "B02"
     check_name = "Falsches Container-Format (nicht MKV)"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             if f.suffix.lower() in (".mp4", ".avi", ".mov", ".wmv"):
@@ -57,9 +50,7 @@ class WrongContainerCheck(BaseCheck):
                             f"Container {f.suffix.upper()} statt MKV. "
                             "Mehrere Spuren können nicht eingebettet werden."
                         ),
-                        suggested_command=(
-                            f'media-tool video convert "{f}" --language de'
-                        ),
+                        suggested_command=(f'media-tool video convert "{f}" --language de'),
                     )
                 )
         return findings
@@ -69,9 +60,7 @@ class InefficientCodecCheck(BaseCheck):
     check_id = "B03"
     check_name = "Nicht-H.265 bei großer Datei (> 4 GB)"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             probe = probes.get(f, {})
@@ -92,13 +81,10 @@ class InefficientCodecCheck(BaseCheck):
                         severity=CheckSeverity.LOW,
                         path=f,
                         message=(
-                            f"Codec {codec.upper()}, Größe {size_gb:.1f} GB. "
-                            "H.265-Enkodierung würde Platz sparen."
+                            f"Codec {codec.upper()}, Größe {size_gb:.1f} GB. " "H.265-Enkodierung würde Platz sparen."
                         ),
                         details={"codec": codec, "size_gb": round(size_gb, 2)},
-                        suggested_command=(
-                            f'media-tool video upscale "{f}" --profile dvd-hq'
-                        ),
+                        suggested_command=(f'media-tool video upscale "{f}" --profile dvd-hq'),
                     )
                 )
         return findings
@@ -108,9 +94,7 @@ class SuspiciousFileSizeCheck(BaseCheck):
     check_id = "B04"
     check_name = "Verdächtig kleine Dateien (< 100 MB)"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             size = f.stat().st_size
@@ -132,9 +116,7 @@ class LowBitrateCheck(BaseCheck):
     check_id = "B05"
     check_name = "Sehr niedrige Video-Bitrate"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             probe = probes.get(f, {})
@@ -151,10 +133,7 @@ class LowBitrateCheck(BaseCheck):
                         kind=FindingKind.LOW_BITRATE,
                         severity=CheckSeverity.LOW,
                         path=f,
-                        message=(
-                            f"Video-Bitrate nur {bitrate // 1000} kbps "
-                            "— sehr schlechte Qualität."
-                        ),
+                        message=(f"Video-Bitrate nur {bitrate // 1000} kbps " "— sehr schlechte Qualität."),
                         details={"bitrate_kbps": bitrate // 1000},
                     )
                 )

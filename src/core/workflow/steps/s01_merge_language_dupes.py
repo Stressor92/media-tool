@@ -44,10 +44,7 @@ class MergeLanguageDupesStep(BaseStep):
     name = "01_merge_language_dupes"
 
     def precondition(self, ctx: WorkflowContext) -> bool:
-        videos = (
-            list(ctx.source_dir.rglob("*.mkv"))
-            + list(ctx.source_dir.rglob("*.mp4"))
-        )
+        videos = list(ctx.source_dir.rglob("*.mkv")) + list(ctx.source_dir.rglob("*.mp4"))
         ctx.metadata["video_files"] = videos
         groups = _group_language_dupes(videos)
         ctx.metadata["dupe_groups"] = groups
@@ -71,9 +68,7 @@ class MergeLanguageDupesStep(BaseStep):
                 for i in range(len(files)):
                     maps += ["-map", f"{i}:v?", "-map", f"{i}:a?", "-map", f"{i}:s?"]
 
-                args = ["-y"] + inputs + maps + [
-                    "-c", "copy", "-map_metadata", "0", str(output)
-                ]
+                args = ["-y"] + inputs + maps + ["-c", "copy", "-map_metadata", "0", str(output)]
                 result = run_ffmpeg(args)
                 if not result.success:
                     logger.warning("Merge fehlgeschlagen für %s", title)
@@ -81,9 +76,7 @@ class MergeLanguageDupesStep(BaseStep):
             merged.append(output)
             sources_to_delete.extend(files)
 
-        ctx.working_files = [
-            f for f in ctx.metadata["video_files"] if f not in sources_to_delete
-        ] + merged
+        ctx.working_files = [f for f in ctx.metadata["video_files"] if f not in sources_to_delete] + merged
 
         return StepResult(
             step_name=self.name,

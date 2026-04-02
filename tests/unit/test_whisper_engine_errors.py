@@ -75,7 +75,9 @@ class TestWhisperEngineErrorPaths:
 
     @patch("core.video.whisper_engine.WhisperEngine._run_whisper")
     @patch("core.video.whisper_engine.WhisperEngine._get_audio_duration")
-    def test_transcribe_detects_missing_output_as_warning(self, mock_duration: MagicMock, _mock_run: MagicMock, tmp_path: Path) -> None:
+    def test_transcribe_detects_missing_output_as_warning(
+        self, mock_duration: MagicMock, _mock_run: MagicMock, tmp_path: Path
+    ) -> None:
         mock_duration.return_value = 60.0
         wav_path = tmp_path / "audio.wav"
         wav_path.touch()

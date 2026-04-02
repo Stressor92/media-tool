@@ -1,12 +1,11 @@
 # tests/unit/test_chunking.py
 from __future__ import annotations
 
-import pytest
 from core.translation.chunking import (
     SubtitleChunk,
+    _proportional_split,
     build_chunks,
     split_translated_chunk,
-    _proportional_split,
 )
 from core.translation.models import SubtitleSegment
 

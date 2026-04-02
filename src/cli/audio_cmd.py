@@ -7,28 +7,26 @@ CLI interface for music processing.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich import box
-from cli.progress_display import ConsoleProgressReporter
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from utils.config import build_missing_config_hint, get_config, has_config_file
-
+from cli.progress_display import ConsoleProgressReporter
 from core.audio import (
     AudioFileMetadata,
-    CSVExportError,
     CSVExporter,
+    CSVExportError,
     LibraryScanner,
     MetadataExtractor,
     convert_audio,
-    organize_music,
     improve_audio_file,
     improve_audio_library,
+    organize_music,
 )
+from utils.config import build_missing_config_hint, get_config, has_config_file
 
 app = typer.Typer(help="Process music files.")
 console = Console()
@@ -38,27 +36,41 @@ err_console = Console(stderr=True, style="bold red")
 @app.command("scan")
 def scan_command(
     directory: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Directory to scan for audio files.",
     ),
-    output: Optional[Path] = typer.Option(
-        None, "--output", "-o",
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
         help="Output CSV file path. Defaults to <directory>/music_library.csv",
     ),
     max_workers: int = typer.Option(
-        4, "--max-workers", min=1, max=16,
+        4,
+        "--max-workers",
+        min=1,
+        max=16,
         help="Parallel worker count for metadata extraction.",
     ),
     include_errors: bool = typer.Option(
-        True, "--include-errors/--exclude-errors",
+        True,
+        "--include-errors/--exclude-errors",
         help="Include unreadable files with error details in the CSV.",
     ),
     recursive: bool = typer.Option(
-        True, "--recursive/--no-recursive", "-r",
+        True,
+        "--recursive/--no-recursive",
+        "-r",
         help="Scan subdirectories (default: on).",
     ),
     preview: bool = typer.Option(
-        False, "--preview", "-p",
+        False,
+        "--preview",
+        "-p",
         help="Print a Rich table preview of the first 20 results in the terminal.",
     ),
 ) -> None:
@@ -122,9 +134,7 @@ def scan_command(
         err_console.print(f"Export failed: {exc}")
         raise typer.Exit(code=1)
 
-    console.print(
-        f"[bold green]✔  Exported {rows_written} rows to {resolved_output}[/bold green]"
-    )
+    console.print(f"[bold green]✔  Exported {rows_written} rows to {resolved_output}[/bold green]")
 
     # Optional preview
     if preview:
@@ -136,23 +146,34 @@ def scan_command(
 @app.command("organize")
 def organize_command(
     source_dir: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Source directory containing music files.",
     ),
     target_dir: Path = typer.Argument(
-        ..., file_okay=False, dir_okay=True,
+        ...,
+        file_okay=False,
+        dir_okay=True,
         help="Target directory for organized files.",
     ),
     format: str = typer.Option(
-        "flac", "--format", "-f",
+        "flac",
+        "--format",
+        "-f",
         help="Target audio format (mp3, flac, m4a, aac, opus, ogg).",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run", "-n",
+        False,
+        "--dry-run",
+        "-n",
         help="Show what would be done without making changes.",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite",
+        False,
+        "--overwrite",
         help="Overwrite existing files in target directory.",
     ),
 ) -> None:
@@ -191,30 +212,41 @@ def organize_command(
         f"Errors: {counts['errors']}"
     )
 
-    if counts['errors'] > 0:
+    if counts["errors"] > 0:
         raise typer.Exit(code=1)
 
 
 @app.command("convert")
 def convert_command(
     input_file: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
         help="Input audio file.",
     ),
     output_file: Path = typer.Argument(
-        ..., file_okay=True, dir_okay=False,
+        ...,
+        file_okay=True,
+        dir_okay=False,
         help="Output audio file path.",
     ),
     format: str = typer.Option(
-        "flac", "--format", "-f",
+        "flac",
+        "--format",
+        "-f",
         help="Target audio format (mp3, flac, m4a, aac, opus, ogg).",
     ),
-    quality: Optional[str] = typer.Option(
-        None, "--quality", "-q",
+    quality: str | None = typer.Option(
+        None,
+        "--quality",
+        "-q",
         help="Quality setting (format-specific, e.g. '0' for MP3, '256k' for AAC).",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite",
+        False,
+        "--overwrite",
         help="Overwrite output file if it exists.",
     ),
 ) -> None:
@@ -252,35 +284,47 @@ def convert_command(
 @app.command("improve")
 def improve_command(
     input_file: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
         help="Input audio file to improve.",
     ),
     output_file: Path = typer.Argument(
-        ..., file_okay=True, dir_okay=False,
+        ...,
+        file_okay=True,
+        dir_okay=False,
         help="Output improved audio file path.",
     ),
     no_silence_removal: bool = typer.Option(
-        False, "--no-silence-removal",
+        False,
+        "--no-silence-removal",
         help="Skip silence removal from start/end.",
     ),
     no_normalization: bool = typer.Option(
-        False, "--no-normalization",
+        False,
+        "--no-normalization",
         help="Skip volume normalization.",
     ),
     no_enhancement: bool = typer.Option(
-        False, "--no-enhancement",
+        False,
+        "--no-enhancement",
         help="Skip quality enhancement.",
     ),
     silence_threshold: float = typer.Option(
-        -50.0, "--silence-threshold",
+        -50.0,
+        "--silence-threshold",
         help="Silence threshold in dB (default: -50.0).",
     ),
     target_level: float = typer.Option(
-        -16.0, "--target-level",
+        -16.0,
+        "--target-level",
         help="Target volume level in dB (default: -16.0).",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite",
+        False,
+        "--overwrite",
         help="Overwrite output file if it exists.",
     ),
 ) -> None:
@@ -317,27 +361,37 @@ def improve_command(
 @app.command("improve-library")
 def improve_library_command(
     input_dir: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Input directory containing audio files to improve.",
     ),
     output_dir: Path = typer.Argument(
-        ..., file_okay=False, dir_okay=True,
+        ...,
+        file_okay=False,
+        dir_okay=True,
         help="Output directory for improved audio files.",
     ),
     no_silence_removal: bool = typer.Option(
-        False, "--no-silence-removal",
+        False,
+        "--no-silence-removal",
         help="Skip silence removal from start/end.",
     ),
     no_normalization: bool = typer.Option(
-        False, "--no-normalization",
+        False,
+        "--no-normalization",
         help="Skip volume normalization.",
     ),
     no_enhancement: bool = typer.Option(
-        False, "--no-enhancement",
+        False,
+        "--no-enhancement",
         help="Skip quality enhancement.",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite",
+        False,
+        "--overwrite",
         help="Overwrite existing files in output directory.",
     ),
 ) -> None:
@@ -374,18 +428,24 @@ def improve_library_command(
         f"Errors: {counts['errors']}"
     )
 
-    if counts['errors'] > 0:
+    if counts["errors"] > 0:
         raise typer.Exit(code=1)
 
 
 @app.command("identify")
 def identify_command(
     input_file: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
         help="Input audio file for metadata identification.",
     ),
     acoustid_api_key: str | None = typer.Option(
-        None, "--acoustid-api-key", "-k",
+        None,
+        "--acoustid-api-key",
+        "-k",
         help="AcoustID API key. Defaults to config if available.",
     ),
 ) -> None:
@@ -439,19 +499,29 @@ def identify_command(
 @app.command("auto-tag")
 def auto_tag_command(
     input_file: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
         help="Input audio file to auto-tag using AcoustID metadata.",
     ),
     acoustid_api_key: str | None = typer.Option(
-        None, "--acoustid-api-key", "-k",
+        None,
+        "--acoustid-api-key",
+        "-k",
         help="AcoustID API key. Defaults to config if available.",
     ),
     min_confidence: float = typer.Option(
-        0.70, "--min-confidence", "-c",
+        0.70,
+        "--min-confidence",
+        "-c",
         help="Minimum confidence threshold to apply tags.",
     ),
     force: bool = typer.Option(
-        False, "--force", "-f",
+        False,
+        "--force",
+        "-f",
         help="Overwrite existing tags if present.",
     ),
 ) -> None:
@@ -481,7 +551,9 @@ def auto_tag_command(
         raise typer.Exit(code=1)
 
     if not metadata:
-        console.print(f"[yellow]No metadata applied. Confidence threshold {resolved_min_confidence} not reached.[/yellow]")
+        console.print(
+            f"[yellow]No metadata applied. Confidence threshold {resolved_min_confidence} not reached.[/yellow]"
+        )
         raise typer.Exit(code=0)
 
     console.print(f"[bold green]✔  Metadata applied to {input_file}[/bold green]")
@@ -493,27 +565,38 @@ def auto_tag_command(
 @app.command("workflow")
 def workflow_command(
     input_dir: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Input directory containing mixed music library.",
     ),
     output_dir: Path = typer.Argument(
-        ..., file_okay=False, dir_okay=True,
+        ...,
+        file_okay=False,
+        dir_okay=True,
         help="Output directory for processed music library.",
     ),
     format: str = typer.Option(
-        "flac", "--format", "-f",
+        "flac",
+        "--format",
+        "-f",
         help="Target audio format (mp3, flac, m4a, aac, opus, ogg).",
     ),
     improve_audio: bool = typer.Option(
-        True, "--improve/--no-improve",
+        True,
+        "--improve/--no-improve",
         help="Apply audio improvements (silence removal, normalization, enhancement).",
     ),
     scan_only: bool = typer.Option(
-        False, "--scan-only",
+        False,
+        "--scan-only",
         help="Only scan and analyze, don't process files.",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite",
+        False,
+        "--overwrite",
         help="Overwrite existing files.",
     ),
 ) -> None:
@@ -541,6 +624,7 @@ def workflow_command(
 
     try:
         from core.audio.workflow import process_audio_library_workflow
+
         results = process_audio_library_workflow(
             input_dir=input_dir,
             output_dir=output_dir,
@@ -563,7 +647,7 @@ def workflow_command(
         f"Errors: {results['statistics']['errors']}"
     )
 
-    if results['statistics']['errors'] > 0:
+    if results["statistics"]["errors"] > 0:
         raise typer.Exit(code=1)
 
 
@@ -590,8 +674,8 @@ def detect_language_command(
       media-tool audio detect-language movie.mkv --backup
     """
     from core.language_detection.audio_tagger import AudioTagger
+    from core.language_detection.models import TaggingStatus
     from core.language_detection.pipeline import LanguageDetectionPipeline
-    from core.language_detection.models import TaggingStatus, DetectionRequest
 
     if not path.exists():
         err_console.print(f"Kein gültiger Pfad: {path}")
@@ -625,8 +709,7 @@ def detect_language_command(
                 success += 1
             case TaggingStatus.SKIPPED:
                 typer.echo(
-                    f"⏭️   {r.path.name} Spur {r.stream_index}: "
-                    f"bereits '{r.detected_language}' — übersprungen"
+                    f"⏭️   {r.path.name} Spur {r.stream_index}: " f"bereits '{r.detected_language}' — übersprungen"
                 )
                 skipped += 1
             case TaggingStatus.FAILED:

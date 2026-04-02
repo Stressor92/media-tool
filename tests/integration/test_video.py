@@ -11,14 +11,15 @@ Tests validate the complete video processing workflow including:
 - Complete video workflow processing
 """
 
-import pytest
 from pathlib import Path
+
 from core.video import (
     convert_mp4_to_mkv,
-    scan_directory,
     merge_directory,
+    scan_directory,
     upscale_dvd,
 )
+
 from .conftest import create_test_video, run_ffprobe
 
 
@@ -28,21 +29,13 @@ class TestVideoConvertIntegration:
     def test_convert_mp4_to_mkv_basic(self, tmp_path):
         """Test basic MP4 to MKV conversion."""
         # Create test MP4 file
-        input_mp4 = create_test_video(
-            tmp_path / "input.mp4",
-            resolution="1920x1080",
-            duration=10
-        )
+        input_mp4 = create_test_video(tmp_path / "input.mp4", resolution="1920x1080", duration=10)
 
         output_mkv = tmp_path / "output.mkv"
 
         # Convert MP4 to MKV
         result = convert_mp4_to_mkv(
-            source=input_mp4,
-            target=output_mkv,
-            audio_language="deu",
-            audio_title="Deutsch",
-            overwrite=False
+            source=input_mp4, target=output_mkv, audio_language="deu", audio_title="Deutsch", overwrite=False
         )
 
         # Verify conversion
@@ -56,20 +49,12 @@ class TestVideoConvertIntegration:
 
     def test_convert_with_language_metadata(self, tmp_path):
         """Test conversion with custom language metadata."""
-        input_mp4 = create_test_video(
-            tmp_path / "input_lang.mp4",
-            resolution="1280x720",
-            duration=5
-        )
+        input_mp4 = create_test_video(tmp_path / "input_lang.mp4", resolution="1280x720", duration=5)
 
         output_mkv = tmp_path / "output_lang.mkv"
 
         result = convert_mp4_to_mkv(
-            source=input_mp4,
-            target=output_mkv,
-            audio_language="eng",
-            audio_title="English",
-            overwrite=False
+            source=input_mp4, target=output_mkv, audio_language="eng", audio_title="English", overwrite=False
         )
 
         assert result.status.name == "SUCCESS"
@@ -77,41 +62,25 @@ class TestVideoConvertIntegration:
 
     def test_convert_overwrite_behavior(self, tmp_path):
         """Test conversion overwrite behavior."""
-        input_mp4 = create_test_video(
-            tmp_path / "input_overwrite.mp4",
-            resolution="1920x1080",
-            duration=5
-        )
+        input_mp4 = create_test_video(tmp_path / "input_overwrite.mp4", resolution="1920x1080", duration=5)
 
         output_mkv = tmp_path / "output_overwrite.mkv"
 
         # First conversion
         result1 = convert_mp4_to_mkv(
-            source=input_mp4,
-            target=output_mkv,
-            audio_language="deu",
-            audio_title="Deutsch",
-            overwrite=False
+            source=input_mp4, target=output_mkv, audio_language="deu", audio_title="Deutsch", overwrite=False
         )
         assert result1.status.name == "SUCCESS"
 
         # Second conversion without overwrite - should be skipped
         result2 = convert_mp4_to_mkv(
-            source=input_mp4,
-            target=output_mkv,
-            audio_language="deu",
-            audio_title="Deutsch",
-            overwrite=False
+            source=input_mp4, target=output_mkv, audio_language="deu", audio_title="Deutsch", overwrite=False
         )
         assert result2.status.name == "SKIPPED"
 
         # Third conversion with overwrite
         result3 = convert_mp4_to_mkv(
-            source=input_mp4,
-            target=output_mkv,
-            audio_language="deu",
-            audio_title="Deutsch",
-            overwrite=True
+            source=input_mp4, target=output_mkv, audio_language="deu", audio_title="Deutsch", overwrite=True
         )
         assert result3.status.name == "SUCCESS"
 
@@ -122,16 +91,8 @@ class TestVideoInspectIntegration:
     def test_inspect_video_directory(self, tmp_path):
         """Test scanning a directory with video files."""
         # Create test video files
-        video1 = create_test_video(
-            tmp_path / "movie1.mp4",
-            resolution="1920x1080",
-            duration=30
-        )
-        video2 = create_test_video(
-            tmp_path / "movie2.mkv",
-            resolution="1280x720",
-            duration=45
-        )
+        video1 = create_test_video(tmp_path / "movie1.mp4", resolution="1920x1080", duration=30)
+        video2 = create_test_video(tmp_path / "movie2.mkv", resolution="1280x720", duration=45)
 
         # Scan directory
         videos = scan_directory(tmp_path, recursive=True)
@@ -171,11 +132,7 @@ class TestVideoInspectIntegration:
         formats = ["mp4", "mkv", "avi"]  # Only formats supported by VIDEO_EXTENSIONS
 
         for fmt in formats:
-            create_test_video(
-                tmp_path / f"video.{fmt}",
-                resolution="1280x720",
-                duration=10
-            )
+            create_test_video(tmp_path / f"video.{fmt}", resolution="1280x720", duration=10)
 
         videos = scan_directory(tmp_path, recursive=True)
 
@@ -189,18 +146,10 @@ class TestVideoMergeIntegration:
     def test_merge_dual_audio_videos(self, tmp_path):
         """Test merging two videos with different audio tracks."""
         # Create German audio video
-        german_video = create_test_video(
-            tmp_path / "movie_german.mp4",
-            resolution="1920x1080",
-            duration=30
-        )
+        german_video = create_test_video(tmp_path / "movie_german.mp4", resolution="1920x1080", duration=30)
 
         # Create English audio video
-        english_video = create_test_video(
-            tmp_path / "movie_english.mp4",
-            resolution="1920x1080",
-            duration=30
-        )
+        english_video = create_test_video(tmp_path / "movie_english.mp4", resolution="1920x1080", duration=30)
 
         # Merge videos (auto-detect language pairs)
         result = merge_directory(tmp_path)
@@ -214,6 +163,7 @@ class TestVideoMergeIntegration:
 
         # Verify output has multiple audio streams
         from utils.ffprobe_runner import probe_file
+
         probe = probe_file(output_mkv)
         video = probe.first_video()
         assert video is not None
@@ -222,11 +172,7 @@ class TestVideoMergeIntegration:
         """Test unsupported pattern-like input fails cleanly without language-pair hints."""
         # Create multiple related video files without language suffixes
         for i in range(1, 4):
-            create_test_video(
-                tmp_path / f"part_{i}.mp4",
-                resolution="1920x1080",
-                duration=10
-            )
+            create_test_video(tmp_path / f"part_{i}.mp4", resolution="1920x1080", duration=10)
 
         result = merge_directory(tmp_path)
 
@@ -250,7 +196,7 @@ class TestVideoUpscaleIntegration:
         input_video = create_test_video(
             tmp_path / "dvd_movie.mp4",
             resolution="720x480",  # DVD resolution
-            duration=15
+            duration=15,
         )
 
         # Upscale to 720p
@@ -269,11 +215,7 @@ class TestVideoUpscaleIntegration:
     def test_upscale_skip_high_res(self, tmp_path):
         """Test that high-res videos are skipped during upscaling."""
         # Create already high-res video
-        high_res_video = create_test_video(
-            tmp_path / "bluray_movie.mkv",
-            resolution="1920x1080",
-            duration=15
-        )
+        high_res_video = create_test_video(tmp_path / "bluray_movie.mkv", resolution="1920x1080", duration=15)
 
         result = upscale_dvd(high_res_video)
 
@@ -285,11 +227,7 @@ class TestVideoUpscaleIntegration:
         """Test upscaling with custom options."""
         from core.video.upscaler import UpscaleOptions
 
-        input_video = create_test_video(
-            tmp_path / "custom_dvd.mp4",
-            resolution="720x480",
-            duration=10
-        )
+        input_video = create_test_video(tmp_path / "custom_dvd.mp4", resolution="720x480", duration=10)
 
         # Custom upscale options
         opts = UpscaleOptions(
@@ -313,21 +251,9 @@ class TestVideoWorkflowIntegration:
         raw_dir = tmp_path / "raw_videos"
         raw_dir.mkdir()
 
-        german_video = create_test_video(
-            raw_dir / "Movie_German.mp4",
-            resolution="1920x1080",
-            duration=30
-        )
-        english_video = create_test_video(
-            raw_dir / "Movie_English.mp4",
-            resolution="1920x1080",
-            duration=30
-        )
-        dvd_video = create_test_video(
-            raw_dir / "Old_DVD.mp4",
-            resolution="720x480",
-            duration=20
-        )
+        german_video = create_test_video(raw_dir / "Movie_German.mp4", resolution="1920x1080", duration=30)
+        english_video = create_test_video(raw_dir / "Movie_English.mp4", resolution="1920x1080", duration=30)
+        dvd_video = create_test_video(raw_dir / "Old_DVD.mp4", resolution="720x480", duration=20)
 
         # Step 2: Inspect the library
         videos = scan_directory(raw_dir, recursive=True)
@@ -338,24 +264,20 @@ class TestVideoWorkflowIntegration:
         converted_dir.mkdir()
 
         for video in videos:
-            if Path(video.file_path).suffix.lower() == '.mp4':
+            if Path(video.file_path).suffix.lower() == ".mp4":
                 output_mkv = converted_dir / f"{Path(video.file_path).stem}.mkv"
                 result = convert_mp4_to_mkv(
                     source=Path(video.file_path),
                     target=output_mkv,
                     audio_language="deu",
                     audio_title="Deutsch",
-                    overwrite=False
+                    overwrite=False,
                 )
                 assert result.status.name == "SUCCESS"
 
         # Step 4: Merge dual audio videos
         merged_mkv = tmp_path / "Movie_Complete.mkv"
-        merge_result = merge_directory(
-            directory=raw_dir,
-            output=merged_mkv,
-            pattern="Movie_*.mp4"
-        )
+        merge_result = merge_directory(directory=raw_dir, output=merged_mkv, pattern="Movie_*.mp4")
         assert merge_result.status.name == "SUCCESS"
 
         # Step 5: Upscale DVD content

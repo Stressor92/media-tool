@@ -63,9 +63,7 @@ class TestMovieChecks:
         kinds = [i.kind for i in issues]
         assert MetadataIssueKind.MISSING_YEAR in kinds
 
-    def test_missing_year_auto_fixable_when_year_in_path(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_missing_year_auto_fixable_when_year_in_path(self, inspector: MetadataInspector) -> None:
         issues = inspector._check_movie(_movie(year=None))
         year_issues = [i for i in issues if i.kind == MetadataIssueKind.MISSING_YEAR]
         assert year_issues[0].auto_fixable is True
@@ -119,9 +117,7 @@ class TestSeriesChecks:
 
 
 class TestEpisodeChecks:
-    def test_episode_with_all_data_no_issues(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_episode_with_all_data_no_issues(self, inspector: MetadataInspector) -> None:
         series = JellyfinItem(
             id="s1",
             name="My Show",
@@ -134,21 +130,15 @@ class TestEpisodeChecks:
         issues = inspector._check_episode(_episode(), [series])
         assert issues == []
 
-    def test_missing_episode_number_detected(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_missing_episode_number_detected(self, inspector: MetadataInspector) -> None:
         ep = _episode(index_number=None)
         issues = inspector._check_episode(ep, [])
         assert any(i.kind == MetadataIssueKind.MISSING_EPISODE_NUM for i in issues)
 
-    def test_missing_episode_number_auto_fixable_from_path(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_missing_episode_number_auto_fixable_from_path(self, inspector: MetadataInspector) -> None:
         ep = _episode(index_number=None)
         issues = inspector._check_episode(ep, [])
-        ep_issues = [
-            i for i in issues if i.kind == MetadataIssueKind.MISSING_EPISODE_NUM
-        ]
+        ep_issues = [i for i in issues if i.kind == MetadataIssueKind.MISSING_EPISODE_NUM]
         assert ep_issues[0].auto_fixable is True
         assert ep_issues[0].suggested_fix == "S01E01"
 
@@ -169,9 +159,7 @@ class TestEpisodeChecks:
         issues = inspector._check_episode(ep, [series_a])
         assert any(i.kind == MetadataIssueKind.WRONG_SERIES_MATCH for i in issues)
 
-    def test_wrong_series_not_auto_fixable(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_wrong_series_not_auto_fixable(self, inspector: MetadataInspector) -> None:
         series_a = JellyfinItem(
             id="s1",
             name="Breaking Bad",
@@ -211,50 +199,34 @@ class TestDuplicateDetection:
 
 class TestPathHelpers:
     def test_extract_year_from_path(self, inspector: MetadataInspector) -> None:
-        result = inspector._extract_year_from_path(
-            "/media/Inception (2010)/Inception.mkv"
-        )
+        result = inspector._extract_year_from_path("/media/Inception (2010)/Inception.mkv")
         assert result is not None
         assert "2010" in result
 
-    def test_extract_year_returns_none_if_absent(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_extract_year_returns_none_if_absent(self, inspector: MetadataInspector) -> None:
         assert inspector._extract_year_from_path("/media/NoYear.mkv") is None
         assert inspector._extract_year_from_path(None) is None
 
     def test_extract_episode_from_path(self, inspector: MetadataInspector) -> None:
         assert inspector._extract_episode_from_path("My.Show.S02E05.mkv") == "S02E05"
 
-    def test_extract_episode_case_insensitive(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_extract_episode_case_insensitive(self, inspector: MetadataInspector) -> None:
         assert inspector._extract_episode_from_path("show.s01e03.mkv") == "S01E03"
 
-    def test_extract_episode_returns_none_if_absent(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_extract_episode_returns_none_if_absent(self, inspector: MetadataInspector) -> None:
         assert inspector._extract_episode_from_path("movie.mkv") is None
 
     def test_extract_series_from_path(self, inspector: MetadataInspector) -> None:
-        result = inspector._extract_series_from_path(
-            "/media/tv/My Show/Season 01/ep.mkv"
-        )
+        result = inspector._extract_series_from_path("/media/tv/My Show/Season 01/ep.mkv")
         assert result == "My Show"
 
-    def test_extract_series_skips_season_folder(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_extract_series_skips_season_folder(self, inspector: MetadataInspector) -> None:
         # When parts[-3] (the candidate) starts with "season", return None.
         # Represents a weird layout: .../Season 02/<subfolder>/ep.mkv
-        result = inspector._extract_series_from_path(
-            "/media/Season 02/extras/ep.mkv"
-        )
+        result = inspector._extract_series_from_path("/media/Season 02/extras/ep.mkv")
         # parts[-3] = "Season 02" → starts with "season" → None
         assert result is None
 
-    def test_extract_series_returns_none_for_short_path(
-        self, inspector: MetadataInspector
-    ) -> None:
+    def test_extract_series_returns_none_for_short_path(self, inspector: MetadataInspector) -> None:
         assert inspector._extract_series_from_path("ep.mkv") is None
         assert inspector._extract_series_from_path(None) is None

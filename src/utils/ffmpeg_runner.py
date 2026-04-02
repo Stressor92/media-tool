@@ -13,11 +13,10 @@ Rules:
 
 from __future__ import annotations
 
-import subprocess
 import logging
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from utils.config import get_config
 
@@ -37,12 +36,12 @@ class FFmpegResult:
     @property
     def failed(self) -> bool:
         return not self.success
-    
+
     @property
     def stderr(self) -> str:
         """Decoded stderr with safe error handling for non-ASCII chars."""
         return self.stderr_bytes.decode("utf-8", errors="replace")
-    
+
     @property
     def stdout(self) -> str:
         """Decoded stdout with safe error handling for non-ASCII chars."""
@@ -77,14 +76,11 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
     try:
         result = subprocess.run(
             command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             # ✅ NO text=True, NO encoding - capture as bytes
         )
     except FileNotFoundError as exc:
-        raise FileNotFoundError(
-            f"ffmpeg executable not found: {command[0]}"
-        ) from exc
+        raise FileNotFoundError(f"ffmpeg executable not found: {command[0]}") from exc
 
     success = result.returncode == 0
 
@@ -126,7 +122,7 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
 class MuxResult:
     success: bool
     output_file: Path
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class FFmpegMuxer:
@@ -134,10 +130,7 @@ class FFmpegMuxer:
 
     @staticmethod
     def add_subtitle_to_mkv(
-        mkv_path: Path,
-        srt_path: Path,
-        language: str = "eng",
-        title: str = "English (Whisper AI)"
+        mkv_path: Path, srt_path: Path, language: str = "eng", title: str = "English (Whisper AI)"
     ) -> MuxResult:
         if not mkv_path.exists():
             return MuxResult(success=False, output_file=mkv_path, error_message="MKV file does not exist")
@@ -152,25 +145,36 @@ class FFmpegMuxer:
             # existing .backup file was left by a previous run or by the
             # caller's own backup step.
             import shutil as _shutil
+
             _shutil.move(str(mkv_path), str(backup_file))
 
             cmd = [
                 "-y",
-                "-i", str(backup_file),
-                "-i", str(srt_path),
-                "-map", "0",
-                "-map", "1",
-                "-c", "copy",
-                "-c:s", "srt",
-                "-metadata:s:s:0", f"language={language}",
-                "-metadata:s:s:0", f"title={title}",
-                str(mkv_temp)
+                "-i",
+                str(backup_file),
+                "-i",
+                str(srt_path),
+                "-map",
+                "0",
+                "-map",
+                "1",
+                "-c",
+                "copy",
+                "-c:s",
+                "srt",
+                "-metadata:s:s:0",
+                f"language={language}",
+                "-metadata:s:s:0",
+                f"title={title}",
+                str(mkv_temp),
             ]
 
             result = run_ffmpeg(cmd)
             if not result.success:
                 backup_file.rename(mkv_path)
-                return MuxResult(success=False, output_file=mkv_path, error_message=f"ffmpeg mux failed: {result.stderr}")
+                return MuxResult(
+                    success=False, output_file=mkv_path, error_message=f"ffmpeg mux failed: {result.stderr}"
+                )
 
             # Validate size
             orig_size = backup_file.stat().st_size
@@ -179,7 +183,9 @@ class FFmpegMuxer:
                 # rollback
                 mkv_temp.unlink(missing_ok=True)
                 backup_file.rename(mkv_path)
-                return MuxResult(success=False, output_file=mkv_path, error_message="Mux output size out of expected range")
+                return MuxResult(
+                    success=False, output_file=mkv_path, error_message="Mux output size out of expected range"
+                )
 
             mkv_temp.replace(mkv_path)
             backup_file.unlink(missing_ok=True)
@@ -190,4 +196,3 @@ class FFmpegMuxer:
             if backup_file.exists() and not mkv_path.exists():
                 backup_file.rename(mkv_path)
             return MuxResult(success=False, output_file=mkv_path, error_message=str(exc))
-

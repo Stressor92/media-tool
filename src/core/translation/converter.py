@@ -2,6 +2,7 @@
 """
 Public entry point for subtitle format conversions.
 """
+
 from __future__ import annotations
 
 import logging
@@ -9,10 +10,9 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Optional
 
 from core.translation.format_registry import FormatRegistry
-from core.translation.models import SubtitleDocument, SubtitleFormat
+from core.translation.models import SubtitleFormat
 from core.translation.style_mapper import adapt_styles_for_target
 
 logger = logging.getLogger(__name__)
@@ -21,19 +21,19 @@ logger = logging.getLogger(__name__)
 class ConversionStatus(Enum):
     SUCCESS = auto()
     SKIPPED = auto()
-    FAILED  = auto()
+    FAILED = auto()
 
 
 @dataclass
 class ConversionResult:
     status: ConversionStatus
     source_path: Path
-    output_path: Optional[Path] = None
-    source_format: Optional[SubtitleFormat] = None
-    target_format: Optional[SubtitleFormat] = None
+    output_path: Path | None = None
+    source_format: SubtitleFormat | None = None
+    target_format: SubtitleFormat | None = None
     segments_converted: int = 0
     duration_seconds: float = 0.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     warnings: list[str] = field(default_factory=list)
 
 
@@ -51,7 +51,7 @@ class SubtitleConverter:
         self,
         source_path: Path,
         target_format: SubtitleFormat,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         overwrite: bool = False,
         dry_run: bool = False,
     ) -> ConversionResult:
@@ -133,8 +133,10 @@ class SubtitleConverter:
             elapsed = round(time.monotonic() - start, 2)
             logger.info(
                 "%s → %s in %.2fs (%d segments)",
-                source_format.value, resolved_target.value,
-                elapsed, len(doc.segments),
+                source_format.value,
+                resolved_target.value,
+                elapsed,
+                len(doc.segments),
             )
 
             return ConversionResult(
@@ -161,13 +163,13 @@ class SubtitleConverter:
         self,
         sources: list[Path],
         target_format: SubtitleFormat,
-        output_dir: Optional[Path] = None,
+        output_dir: Path | None = None,
         overwrite: bool = False,
     ) -> list[ConversionResult]:
         results: list[ConversionResult] = []
         for src in sources:
             if output_dir is not None:
-                out: Optional[Path] = output_dir / self._default_output(src, target_format).name
+                out: Path | None = output_dir / self._default_output(src, target_format).name
             else:
                 out = None
             results.append(self.convert(src, target_format, output_path=out, overwrite=overwrite))

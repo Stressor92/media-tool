@@ -10,11 +10,13 @@ def _cover(width: int, height: int, image_format: str = "jpeg", source: str = "t
 
 def test_select_best_prefers_resolution_and_aspect_ratio() -> None:
     selector = CoverSelector()
-    best = selector.select_best([
-        _cover(500, 500, "png"),
-        _cover(900, 1400, "jpeg"),
-        _cover(700, 1200, "jpeg"),
-    ])
+    best = selector.select_best(
+        [
+            _cover(500, 500, "png"),
+            _cover(900, 1400, "jpeg"),
+            _cover(700, 1200, "jpeg"),
+        ]
+    )
 
     assert best is not None
     assert best.width == 900

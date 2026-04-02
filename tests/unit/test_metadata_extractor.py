@@ -42,14 +42,18 @@ def test_extract_metadata_populates_expected_fields(tmp_path: Path) -> None:
 
     extractor = MetadataExtractor()
 
-    with patch.object(extractor, "_extract_technical_specs", return_value=AudioTechnicalMetadata(
-        duration_seconds=245.12,
-        codec="mp3",
-        bitrate_kbps=320,
-        sample_rate_hz=44100,
-        channels=2,
-        bit_depth=None,
-    )):
+    with patch.object(
+        extractor,
+        "_extract_technical_specs",
+        return_value=AudioTechnicalMetadata(
+            duration_seconds=245.12,
+            codec="mp3",
+            bitrate_kbps=320,
+            sample_rate_hz=44100,
+            channels=2,
+            bit_depth=None,
+        ),
+    ):
         with patch("mutagen.File", side_effect=[easy_audio, raw_audio]):
             metadata = extractor.extract(audio_file)
 
@@ -81,7 +85,11 @@ def test_extract_metadata_detects_lossless_format_from_codec(tmp_path: Path) -> 
     extractor = MetadataExtractor()
 
     with patch.object(extractor, "_extract_tags", return_value={}):
-        with patch.object(extractor, "_extract_technical_specs", return_value=AudioTechnicalMetadata(codec="alac", duration_seconds=120.0)):
+        with patch.object(
+            extractor,
+            "_extract_technical_specs",
+            return_value=AudioTechnicalMetadata(codec="alac", duration_seconds=120.0),
+        ):
             metadata = extractor.extract(audio_file)
 
     assert metadata.is_lossless is True

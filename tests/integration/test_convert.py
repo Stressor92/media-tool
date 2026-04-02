@@ -4,7 +4,6 @@ Integration tests for video conversion functionality.
 Tests MP4 → MKV conversion with real ffmpeg execution.
 """
 
-
 from core.video.converter import convert_mp4_to_mkv
 
 
@@ -21,18 +20,15 @@ class TestVideoConversion:
 
         # Convert to MKV
         output_mkv = tmp_path / "output.mkv"
-        result = convert_mp4_to_mkv(
-            source=input_mp4,
-            target=output_mkv,
-            audio_language="deu"
-        )
+        result = convert_mp4_to_mkv(source=input_mp4, target=output_mkv, audio_language="deu")
 
         # Verify conversion succeeded
         assert result.succeeded
         assert output_mkv.exists()
 
         # Verify output is valid MKV
-        from tests.integration.conftest import assert_container_format, assert_video_streams, assert_audio_streams
+        from tests.integration.conftest import assert_audio_streams, assert_container_format, assert_video_streams
+
         assert_container_format(output_mkv, "matroska")
         assert_video_streams(output_mkv, 1)
         assert_audio_streams(output_mkv, 1)
@@ -51,6 +47,7 @@ class TestVideoConversion:
 
         # Check that input and output have same stream counts
         from tests.integration.conftest import get_stream_info
+
         input_info = get_stream_info(input_mp4)
         output_info = get_stream_info(output_mkv)
 
@@ -64,18 +61,13 @@ class TestVideoConversion:
 
     def test_convert_with_custom_audio_language(self, tmp_path, ffmpeg_available):
         """Test conversion with custom audio language metadata."""
-        from tests.integration.conftest import create_test_video, assert_audio_languages
+        from tests.integration.conftest import assert_audio_languages, create_test_video
 
         input_mp4 = tmp_path / "input.mp4"
         create_test_video(input_mp4, language="eng")
 
         output_mkv = tmp_path / "output.mkv"
-        result = convert_mp4_to_mkv(
-            source=input_mp4,
-            target=output_mkv,
-            audio_language="deu",
-            audio_title="Deutsch"
-        )
+        result = convert_mp4_to_mkv(source=input_mp4, target=output_mkv, audio_language="deu", audio_title="Deutsch")
 
         assert result.succeeded
         assert_audio_languages(output_mkv, ["deu"])
@@ -118,8 +110,8 @@ class TestBatchConversion:
 
     def test_batch_convert_directory(self, tmp_path, ffmpeg_available):
         """Test converting multiple MP4 files in a directory."""
-        from tests.integration.conftest import create_test_video
         from core.video.converter import batch_convert_directory
+        from tests.integration.conftest import create_test_video
 
         # Create test directory with multiple MP4 files
         input_dir = tmp_path / "input"
@@ -144,12 +136,13 @@ class TestBatchConversion:
             output_mkv = input_dir / original.stem / f"{original.stem}.mkv"
             assert output_mkv.exists()
             from tests.integration.conftest import assert_container_format
+
             assert_container_format(output_mkv, "matroska")
 
     def test_batch_convert_recursive_directory(self, tmp_path, ffmpeg_available):
         """Test recursive batch conversion in nested directories."""
-        from tests.integration.conftest import create_test_video
         from core.video.converter import batch_convert_directory
+        from tests.integration.conftest import create_test_video
 
         # Create nested directory structure
         root_dir = tmp_path / "media"
@@ -175,8 +168,8 @@ class TestBatchConversion:
 
     def test_batch_convert_mixed_files(self, tmp_path, ffmpeg_available):
         """Test batch conversion with mixed file types (only MP4 should be converted)."""
-        from tests.integration.conftest import create_test_video
         from core.video.converter import batch_convert_directory
+        from tests.integration.conftest import create_test_video
 
         # Create directory with MP4 and non-MP4 files
         input_dir = tmp_path / "mixed"
@@ -218,8 +211,8 @@ class TestBatchConversion:
 
     def test_batch_convert_with_custom_options(self, tmp_path, ffmpeg_available):
         """Test batch conversion with custom language and title options."""
-        from tests.integration.conftest import create_test_video, assert_audio_languages
         from core.video.converter import batch_convert_directory
+        from tests.integration.conftest import assert_audio_languages, create_test_video
 
         input_dir = tmp_path / "custom"
         input_dir.mkdir()
@@ -231,11 +224,7 @@ class TestBatchConversion:
         create_test_video(mp4_2, duration=1, language="eng")
 
         # Convert with custom options
-        summary = batch_convert_directory(
-            input_dir,
-            audio_language="deu",
-            audio_title="Deutsch"
-        )
+        summary = batch_convert_directory(input_dir, audio_language="deu", audio_title="Deutsch")
 
         assert summary.total == 2
         assert len(summary.succeeded) == 2
@@ -246,8 +235,8 @@ class TestBatchConversion:
 
     def test_batch_convert_overwrite_handling(self, tmp_path, ffmpeg_available):
         """Test batch conversion overwrite behavior."""
-        from tests.integration.conftest import create_test_video
         from core.video.converter import batch_convert_directory
+        from tests.integration.conftest import create_test_video
 
         input_dir = tmp_path / "overwrite_test"
         input_dir.mkdir()
@@ -273,8 +262,8 @@ class TestBatchConversion:
 
     def test_batch_convert_recursive(self, tmp_path, ffmpeg_available):
         """Test recursive batch conversion."""
-        from tests.integration.conftest import create_test_video
         from core.video.converter import batch_convert_directory
+        from tests.integration.conftest import create_test_video
 
         # Create nested directory structure
         input_dir = tmp_path / "input"

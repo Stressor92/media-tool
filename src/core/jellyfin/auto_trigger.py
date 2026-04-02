@@ -3,11 +3,11 @@
 Hook that automatically updates Jellyfin after a workflow pipeline completes.
 Attach to s06_organize.py or WorkflowRunner.
 """
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from core.jellyfin.client import JellyfinClient
 from core.jellyfin.library_manager import LibraryManager
@@ -35,7 +35,7 @@ class JellyfinAutoTrigger:
         self._scan_timeout = scan_timeout
 
     @classmethod
-    def from_config(cls) -> Optional["JellyfinAutoTrigger"]:
+    def from_config(cls) -> JellyfinAutoTrigger | None:
         """
         Creates an instance from media-tool.toml.
         Returns None if Jellyfin is not configured.
@@ -69,9 +69,7 @@ class JellyfinAutoTrigger:
         result = self._manager.refresh_path(output_path)
 
         if result.triggered and self._wait:
-            logger.info(
-                "Waiting for scan to complete (max. %ds) …", self._scan_timeout
-            )
+            logger.info("Waiting for scan to complete (max. %ds) …", self._scan_timeout)
             self._manager.wait_for_scan(self._scan_timeout)
 
         return result

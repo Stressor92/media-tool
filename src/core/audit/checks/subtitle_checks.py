@@ -23,9 +23,7 @@ class MissingDeSubtitleCheck(BaseCheck):
     check_id = "A01"
     check_name = "Fehlende deutsche Untertitel"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             langs = _subtitle_langs(probes.get(f, {}))
@@ -35,13 +33,8 @@ class MissingDeSubtitleCheck(BaseCheck):
                         kind=FindingKind.MISSING_DE_SUBTITLE,
                         severity=CheckSeverity.HIGH,
                         path=f,
-                        message=(
-                            f"Keine deutsche Untertitelspur. "
-                            f"Vorhandene: {langs or 'keine'}"
-                        ),
-                        suggested_command=(
-                            f'media-tool subtitle download "{f}" --languages de'
-                        ),
+                        message=(f"Keine deutsche Untertitelspur. " f"Vorhandene: {langs or 'keine'}"),
+                        suggested_command=(f'media-tool subtitle download "{f}" --languages de'),
                     )
                 )
         return findings
@@ -51,9 +44,7 @@ class MissingEnSubtitleCheck(BaseCheck):
     check_id = "A02"
     check_name = "Fehlende englische Untertitel"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             langs = _subtitle_langs(probes.get(f, {}))
@@ -63,13 +54,8 @@ class MissingEnSubtitleCheck(BaseCheck):
                         kind=FindingKind.MISSING_EN_SUBTITLE,
                         severity=CheckSeverity.MEDIUM,
                         path=f,
-                        message=(
-                            f"Keine englische Untertitelspur. "
-                            f"Vorhandene: {langs or 'keine'}"
-                        ),
-                        suggested_command=(
-                            f'media-tool subtitle download "{f}" --languages en'
-                        ),
+                        message=(f"Keine englische Untertitelspur. " f"Vorhandene: {langs or 'keine'}"),
+                        suggested_command=(f'media-tool subtitle download "{f}" --languages en'),
                     )
                 )
         return findings
@@ -79,16 +65,10 @@ class NoSubtitlesAtAllCheck(BaseCheck):
     check_id = "A03"
     check_name = "Keine Untertitel vorhanden"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
-            subs = [
-                s
-                for s in probes.get(f, {}).get("streams", [])
-                if s.get("codec_type") == "subtitle"
-            ]
+            subs = [s for s in probes.get(f, {}).get("streams", []) if s.get("codec_type") == "subtitle"]
             if not subs:
                 findings.append(
                     AuditFinding(

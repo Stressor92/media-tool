@@ -5,15 +5,15 @@ Integration tests for subtitle download workflow.
 Tests the complete pipeline from video file to embedded subtitles.
 """
 
-import pytest
-from pathlib import Path
 from unittest.mock import Mock, patch
+
+import pytest
 
 from core.subtitles.opensubtitles_provider import OpenSubtitlesProvider
 from core.subtitles.subtitle_downloader import SubtitleDownloadManager
 from core.subtitles.subtitle_provider import SubtitleMatch
-from utils.ffmpeg_runner import FFmpegMuxer
 from tests.integration.conftest import create_test_video
+from utils.ffmpeg_runner import FFmpegMuxer
 
 
 class TestSubtitleDownloadWorkflow:
@@ -36,7 +36,7 @@ class TestSubtitleDownloadWorkflow:
             uploader="TestUploader",
             hearing_impaired=False,
             format="srt",
-            provider="opensubtitles"
+            provider="opensubtitles",
         )
         provider.search.return_value = [match]
         provider.get_best_match.return_value = match
@@ -58,11 +58,7 @@ class TestSubtitleDownloadWorkflow:
         """Test complete workflow: search → download → embed."""
 
         # Create test video
-        video_file = create_test_video(
-            tmp_path / "test_movie.mkv",
-            resolution="1920x1080",
-            duration=60
-        )
+        video_file = create_test_video(tmp_path / "test_movie.mkv", resolution="1920x1080", duration=60)
 
         # Mock download to create a subtitle file
         subtitle_content = """1
@@ -84,16 +80,11 @@ More subtitle text
         mock_provider.download.side_effect = mock_download
 
         # Mock embedding to succeed
-        with patch.object(manager.ffmpeg, 'add_subtitle_to_mkv') as mock_embed:
+        with patch.object(manager.ffmpeg, "add_subtitle_to_mkv") as mock_embed:
             mock_embed.return_value = Mock(success=True)
 
             # Run workflow
-            result = manager.process(
-                video_file,
-                languages=["en"],
-                auto_select=True,
-                embed=True
-            )
+            result = manager.process(video_file, languages=["en"], auto_select=True, embed=True)
 
             # Verify success
             assert result.success
@@ -111,11 +102,7 @@ More subtitle text
         """Test downloading subtitle without embedding."""
 
         # Create test video
-        video_file = create_test_video(
-            tmp_path / "test_movie.mkv",
-            resolution="1920x1080",
-            duration=30
-        )
+        video_file = create_test_video(tmp_path / "test_movie.mkv", resolution="1920x1080", duration=30)
 
         # Mock download
         subtitle_content = "1\n00:00:01,000 --> 00:00:04,000\nTest subtitle\n"
@@ -128,12 +115,7 @@ More subtitle text
         mock_provider.download.side_effect = mock_download
 
         # Run workflow without embedding
-        result = manager.process(
-            video_file,
-            languages=["en"],
-            auto_select=True,
-            embed=False
-        )
+        result = manager.process(video_file, languages=["en"], auto_select=True, embed=False)
 
         # Verify success
         assert result.success
@@ -145,11 +127,7 @@ More subtitle text
         """Test handling when no subtitles are found."""
 
         # Create test video
-        video_file = create_test_video(
-            tmp_path / "test_movie.mkv",
-            resolution="1920x1080",
-            duration=30
-        )
+        video_file = create_test_video(tmp_path / "test_movie.mkv", resolution="1920x1080", duration=30)
 
         # Mock no results
         mock_provider.search.return_value = []
@@ -166,19 +144,15 @@ More subtitle text
         """Test skipping files that already have subtitles."""
 
         # Create test video
-        video_file = create_test_video(
-            tmp_path / "test_movie.mkv",
-            resolution="1920x1080",
-            duration=30
-        )
+        video_file = create_test_video(tmp_path / "test_movie.mkv", resolution="1920x1080", duration=30)
 
         # Mock ffprobe to show existing subtitle track
-        with patch('core.subtitles.subtitle_downloader.probe_file') as mock_probe:
+        with patch("core.subtitles.subtitle_downloader.probe_file") as mock_probe:
             mock_probe_result = Mock()
             mock_probe_result.streams = [
                 {"codec_type": "video"},
                 {"codec_type": "audio"},
-                {"codec_type": "subtitle"}  # Existing subtitle
+                {"codec_type": "subtitle"},  # Existing subtitle
             ]
             mock_probe.return_value = mock_probe_result
 
@@ -196,20 +170,12 @@ More subtitle text
         """Test overwriting existing subtitles."""
 
         # Create test video
-        video_file = create_test_video(
-            tmp_path / "test_movie.mkv",
-            resolution="1920x1080",
-            duration=30
-        )
+        video_file = create_test_video(tmp_path / "test_movie.mkv", resolution="1920x1080", duration=30)
 
         # Mock ffprobe existing subtitle track but allow overwrite
-        with patch('core.subtitles.subtitle_downloader.probe_file') as mock_probe:
+        with patch("core.subtitles.subtitle_downloader.probe_file") as mock_probe:
             mock_probe_result = Mock()
-            mock_probe_result.streams = [
-                {"codec_type": "video"},
-                {"codec_type": "audio"},
-                {"codec_type": "subtitle"}
-            ]
+            mock_probe_result.streams = [{"codec_type": "video"}, {"codec_type": "audio"}, {"codec_type": "subtitle"}]
             mock_probe.return_value = mock_probe_result
 
             # Mock download
@@ -225,11 +191,7 @@ More subtitle text
 
     def test_process_non_mkv_file(self, tmp_path, manager):
         """Test process rejects non-MKV files."""
-        video_file = create_test_video(
-            tmp_path / "test_movie.mp4",
-            resolution="1920x1080",
-            duration=30
-        )
+        video_file = create_test_video(tmp_path / "test_movie.mp4", resolution="1920x1080", duration=30)
 
         with pytest.raises(ValueError, match="Not an MKV file"):
             manager.process(video_file, languages=["en"])

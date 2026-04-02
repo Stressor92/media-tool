@@ -1,5 +1,6 @@
 # src/core/translation/formats/ttml.py
 """TTML / DFXP (Timed Text Markup Language) format reader and writer."""
+
 from __future__ import annotations
 
 import re
@@ -14,9 +15,9 @@ from core.translation.models import (
     SubtitleSegment,
 )
 
-_NS_TTML    = "http://www.w3.org/ns/ttml"
-_NS_TTS     = "http://www.w3.org/ns/ttml#styling"
-_TIME_RE    = re.compile(r"(\d+):(\d{2}):(\d{2})(?:[.,](\d+))?")
+_NS_TTML = "http://www.w3.org/ns/ttml"
+_NS_TTS = "http://www.w3.org/ns/ttml#styling"
+_TIME_RE = re.compile(r"(\d+):(\d{2}):(\d{2})(?:[.,](\d+))?")
 
 
 def _ttml_time_to_srt(t: str) -> str:
@@ -57,8 +58,6 @@ def read(path: Path) -> SubtitleDocument:
     if root.tag.startswith("{"):
         ns_tt = root.tag.split("}")[0][1:]
 
-    ns_map = {"tt": ns_tt, "tts": _NS_TTS}
-
     segments: list[SubtitleSegment] = []
     styles: list[StyleInfo] = []
     metadata: dict[str, str] = {}
@@ -69,12 +68,14 @@ def read(path: Path) -> SubtitleDocument:
     for style_el in root.findall(f".//{{{ns_tt}}}style"):
         attrib = style_el.attrib
         sid = attrib.get("{http://www.w3.org/XML/1998/namespace}id", attrib.get("id", "Default"))
-        styles.append(StyleInfo(
-            name=sid,
-            font_name=attrib.get(f"{{{_NS_TTS}}}fontFamily", "Arial"),
-            bold=attrib.get(f"{{{_NS_TTS}}}fontWeight", "") == "bold",
-            italic=attrib.get(f"{{{_NS_TTS}}}fontStyle", "") == "italic",
-        ))
+        styles.append(
+            StyleInfo(
+                name=sid,
+                font_name=attrib.get(f"{{{_NS_TTS}}}fontFamily", "Arial"),
+                bold=attrib.get(f"{{{_NS_TTS}}}fontWeight", "") == "bold",
+                italic=attrib.get(f"{{{_NS_TTS}}}fontStyle", "") == "italic",
+            )
+        )
 
     body = root.find(f".//{{{ns_tt}}}body")
     if body is None:
@@ -82,20 +83,22 @@ def read(path: Path) -> SubtitleDocument:
 
     for i, p in enumerate(body.iter(f"{{{ns_tt}}}p"), start=1):
         begin = p.attrib.get("begin", "")
-        end   = p.attrib.get("end", "")
-        text  = _collect_text(p)
+        end = p.attrib.get("end", "")
+        text = _collect_text(p)
         if not text or not begin:
             continue
         region = p.attrib.get("region")
         pos = PositionInfo(region=region) if region else None
-        segments.append(SubtitleSegment(
-            index=i,
-            start=_ttml_time_to_srt(begin),
-            end=_ttml_time_to_srt(end),
-            text=text,
-            style_name=p.attrib.get("style", "Default"),
-            position=pos,
-        ))
+        segments.append(
+            SubtitleSegment(
+                index=i,
+                start=_ttml_time_to_srt(begin),
+                end=_ttml_time_to_srt(end),
+                text=text,
+                style_name=p.attrib.get("style", "Default"),
+                position=pos,
+            )
+        )
 
     return SubtitleDocument(
         segments=segments,
@@ -108,34 +111,41 @@ def read(path: Path) -> SubtitleDocument:
 
 
 def write(doc: SubtitleDocument, path: Path) -> None:
-    ET.register_namespace("",    _NS_TTML)
+    ET.register_namespace("", _NS_TTML)
     ET.register_namespace("tts", _NS_TTS)
 
-    tt = ET.Element("tt", {
-        "xmlns":     _NS_TTML,
-        "xmlns:tts": _NS_TTS,
-        "xml:lang":  doc.language if doc.language != "unknown" else "",
-    })
-    head    = ET.SubElement(tt, "head")
+    tt = ET.Element(
+        "tt",
+        {
+            "xmlns": _NS_TTML,
+            "xmlns:tts": _NS_TTS,
+            "xml:lang": doc.language if doc.language != "unknown" else "",
+        },
+    )
+    head = ET.SubElement(tt, "head")
     styling = ET.SubElement(head, "styling")
 
-    for s in (doc.styles or [StyleInfo()]):
-        ET.SubElement(styling, "style", {
-            "xml:id":          s.name,
-            "tts:fontFamily":  s.font_name,
-            "tts:fontSize":    f"{s.font_size}px",
-            "tts:fontWeight":  "bold" if s.bold else "normal",
-            "tts:fontStyle":   "italic" if s.italic else "normal",
-            "tts:color":       s.primary_color,
-        })
+    for s in doc.styles or [StyleInfo()]:
+        ET.SubElement(
+            styling,
+            "style",
+            {
+                "xml:id": s.name,
+                "tts:fontFamily": s.font_name,
+                "tts:fontSize": f"{s.font_size}px",
+                "tts:fontWeight": "bold" if s.bold else "normal",
+                "tts:fontStyle": "italic" if s.italic else "normal",
+                "tts:color": s.primary_color,
+            },
+        )
 
     body = ET.SubElement(tt, "body")
-    div  = ET.SubElement(body, "div")
+    div = ET.SubElement(body, "div")
 
     for seg in doc.segments:
         p_attrib: dict[str, str] = {
             "begin": _srt_time_to_ttml(seg.start),
-            "end":   _srt_time_to_ttml(seg.end),
+            "end": _srt_time_to_ttml(seg.end),
         }
         if seg.style_name and seg.style_name != "Default":
             p_attrib["style"] = seg.style_name

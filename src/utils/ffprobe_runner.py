@@ -14,8 +14,8 @@ Rules:
 from __future__ import annotations
 
 import json
-import subprocess
 import logging
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,7 +31,7 @@ class ProbeResult:
 
     success: bool
     return_code: int
-    data: dict[str, Any]          # parsed JSON (empty dict on failure)
+    data: dict[str, Any]  # parsed JSON (empty dict on failure)
     stderr: str
 
     @property
@@ -89,8 +89,10 @@ def probe_file(path: Path) -> ProbeResult:
     """
     command = [
         get_config().tools.ffprobe,
-        "-v", "quiet",
-        "-print_format", "json",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
         "-show_format",
         "-show_streams",
         str(path),
@@ -101,18 +103,15 @@ def probe_file(path: Path) -> ProbeResult:
     try:
         result = subprocess.run(
             command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             # ✅ NO text=True - capture as bytes
         )
     except FileNotFoundError as exc:
-        raise FileNotFoundError(
-            f"ffprobe executable not found: {command[0]}"
-        ) from exc
+        raise FileNotFoundError(f"ffprobe executable not found: {command[0]}") from exc
 
     # Decode stderr safely for error reporting
     stderr_str = result.stderr.decode("utf-8", errors="replace")
-    
+
     if result.returncode != 0:
         logger.warning(
             "ffprobe failed (exit %d) on %s:\n%s",
@@ -165,11 +164,17 @@ def probe_cropdetect(path: Path, skip_seconds: int = 5, sample_seconds: int = 10
     """
     command = [
         get_config().tools.ffmpeg,
-        "-ss", str(skip_seconds),
-        "-t",  str(sample_seconds),
-        "-i", str(path),
-        "-vf", "cropdetect=24:16:1",
-        "-f", "null", "-",
+        "-ss",
+        str(skip_seconds),
+        "-t",
+        str(sample_seconds),
+        "-i",
+        str(path),
+        "-vf",
+        "cropdetect=24:16:1",
+        "-f",
+        "null",
+        "-",
     ]
 
     logger.debug("Running cropdetect: %s", " ".join(command))
@@ -177,21 +182,15 @@ def probe_cropdetect(path: Path, skip_seconds: int = 5, sample_seconds: int = 10
     try:
         result = subprocess.run(
             command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             # ✅ NO text=True - capture as bytes
         )
     except FileNotFoundError as exc:
-        raise FileNotFoundError(
-            f"ffmpeg executable not found: {command[0]}"
-        ) from exc
+        raise FileNotFoundError(f"ffmpeg executable not found: {command[0]}") from exc
 
     # Decode stderr safely for crop detection output
     stderr_str = result.stderr.decode("utf-8", errors="replace")
-    crop_lines = [
-        line for line in stderr_str.splitlines()
-        if "crop=" in line
-    ]
+    crop_lines = [line for line in stderr_str.splitlines() if "crop=" in line]
 
     if not crop_lines:
         return None
@@ -200,5 +199,6 @@ def probe_cropdetect(path: Path, skip_seconds: int = 5, sample_seconds: int = 10
     last = crop_lines[-1]
     # Extract crop=W:H:X:Y
     import re
+
     match = re.search(r"crop=\d+:\d+:\d+:\d+", last)
     return match.group(0) if match else None

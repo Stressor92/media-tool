@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeout
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import typer
-from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn, TaskID
-from rich.table import Table
 from rich import box
+from rich.console import Console
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TaskID, TextColumn
+from rich.table import Table
 
 from core.video import VIDEO_EXTENSIONS, export_to_csv
 
@@ -32,23 +33,34 @@ logger = logging.getLogger(__name__)
 @app.command("scan")
 def scan_command(
     directory: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Root directory to scan for video files.",
     ),
-    output: Optional[Path] = typer.Option(
-        None, "--output", "-o",
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
         help="Output CSV file path. Defaults to <directory>/media_list.csv",
     ),
     recursive: bool = typer.Option(
-        True, "--recursive/--no-recursive", "-r",
+        True,
+        "--recursive/--no-recursive",
+        "-r",
         help="Scan subdirectories (default: on).",
     ),
     delimiter: str = typer.Option(
-        ";", "--delimiter",
+        ";",
+        "--delimiter",
         help="CSV field delimiter. Default ';' is compatible with European Excel.",
     ),
     preview: bool = typer.Option(
-        False, "--preview", "-p",
+        False,
+        "--preview",
+        "-p",
         help="Print a Rich table preview of the first 20 results in the terminal.",
     ),
 ) -> None:
@@ -101,9 +113,7 @@ def scan_command(
 
         if recursive:
             subdirs = [Path(e.path) for e in root_entries if e.is_dir(follow_symlinks=False)]
-            enum_task: TaskID = enum_progress.add_task(
-                "Scanning subdirectories…", total=len(subdirs)
-            )
+            enum_task: TaskID = enum_progress.add_task("Scanning subdirectories…", total=len(subdirs))
             # Step 2: scan each subdirectory concurrently (16 threads, 5 min total timeout)
             # On NAS volumes with high latency, more workers overlap I/O waits efficiently.
             _ENUM_TIMEOUT = 300.0  # seconds for the entire enumeration batch
@@ -135,7 +145,8 @@ def scan_command(
     console.print(f"[dim]Files found:[/dim] {len(files)}\n")
 
     # Inspect with progress bar
-    from core.video import inspect_file, VideoInfo
+    from core.video import inspect_file
+
     results: list[VideoInfo] = []
 
     with Progress(
@@ -200,18 +211,18 @@ def _print_preview(results: list[VideoInfo]) -> None:
         show_lines=False,
         expand=True,
     )
-    table.add_column("File",         style="cyan",  no_wrap=True, max_width=40)
-    table.add_column("Size",         justify="right")
-    table.add_column("Duration",     justify="center")
-    table.add_column("Codec",        justify="center")
-    table.add_column("Resolution",   justify="center")
-    table.add_column("FPS",          justify="right")
-    table.add_column("Audio",        justify="center")
-    table.add_column("Subtitles",    justify="center")
+    table.add_column("File", style="cyan", no_wrap=True, max_width=40)
+    table.add_column("Size", justify="right")
+    table.add_column("Duration", justify="center")
+    table.add_column("Codec", justify="center")
+    table.add_column("Resolution", justify="center")
+    table.add_column("FPS", justify="right")
+    table.add_column("Audio", justify="center")
+    table.add_column("Subtitles", justify="center")
 
     for r in results:
         audio_info = f"{r.audio_track_count} ({r.audio_languages})" if r.audio_track_count else "-"
-        sub_info   = f"{r.subtitle_track_count} ({r.subtitle_languages})" if r.subtitle_track_count else "-"
+        sub_info = f"{r.subtitle_track_count} ({r.subtitle_languages})" if r.subtitle_track_count else "-"
         table.add_row(
             r.file_name,
             f"{r.size_gb:.2f} GB",

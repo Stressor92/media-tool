@@ -7,10 +7,6 @@ CLI interface for video processing.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
-
-from utils.ffprobe_runner import ProbeResult
-from core.video.movie_folder_scanner import MovieFolderScanner
 
 import typer
 from rich import box
@@ -19,15 +15,17 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from core.video import (
-    convert_mp4_to_mkv,
-    merge_directory,
-    scan_directory,
     TrailerDownloadResult,
     TrailerDownloadService,
     TrailerSearchService,
+    convert_mp4_to_mkv,
+    merge_directory,
+    scan_directory,
     upscale_dvd,
 )
+from core.video.movie_folder_scanner import MovieFolderScanner
 from utils.config import get_config
+from utils.ffprobe_runner import ProbeResult
 from utils.ytdlp_runner import YtDlpNotFoundError, YtDlpRunner
 
 app = typer.Typer(help="Process video files.")
@@ -38,35 +36,53 @@ err_console = Console(stderr=True, style="bold red")
 @app.command("convert")
 def convert_command(
     input_file: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
         help="Input video file to convert.",
     ),
     output_file: Path = typer.Argument(
-        ..., file_okay=True, dir_okay=False,
+        ...,
+        file_okay=True,
+        dir_okay=False,
         help="Output video file path.",
     ),
-    language: Optional[str] = typer.Option(
-        None, "--language", "-l",
+    language: str | None = typer.Option(
+        None,
+        "--language",
+        "-l",
         help="Set language metadata for audio/subtitle tracks (e.g., 'de', 'en').",
     ),
-    audio_title: Optional[str] = typer.Option(
-        None, "--audio-title", "-a",
+    audio_title: str | None = typer.Option(
+        None,
+        "--audio-title",
+        "-a",
         help="Set title for audio tracks.",
     ),
-    subtitle_title: Optional[str] = typer.Option(
-        None, "--subtitle-title", "-s",
+    subtitle_title: str | None = typer.Option(
+        None,
+        "--subtitle-title",
+        "-s",
         help="Set title for subtitle tracks.",
     ),
-    default_audio: Optional[int] = typer.Option(
-        None, "--default-audio", "-d",
+    default_audio: int | None = typer.Option(
+        None,
+        "--default-audio",
+        "-d",
         help="Set default audio track (1-based index).",
     ),
-    remove_tracks: Optional[str] = typer.Option(
-        None, "--remove-tracks", "-r",
+    remove_tracks: str | None = typer.Option(
+        None,
+        "--remove-tracks",
+        "-r",
         help="Remove specific tracks (e.g., 'a:2,s:1' for audio track 2 and subtitle track 1).",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite", "-y",
+        False,
+        "--overwrite",
+        "-y",
         help="Overwrite output file if it exists.",
     ),
 ) -> None:
@@ -117,19 +133,29 @@ def convert_command(
 @app.command("inspect")
 def inspect_command(
     directory: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Directory to scan for video files.",
     ),
-    output: Optional[Path] = typer.Option(
-        None, "--output", "-o",
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
         help="Output CSV file path. Defaults to <directory>/video_list.csv",
     ),
     recursive: bool = typer.Option(
-        True, "--recursive/--no-recursive", "-r",
+        True,
+        "--recursive/--no-recursive",
+        "-r",
         help="Scan subdirectories (default: on).",
     ),
     preview: bool = typer.Option(
-        False, "--preview", "-p",
+        False,
+        "--preview",
+        "-p",
         help="Print a Rich table preview of the first 20 results in the terminal.",
     ),
 ) -> None:
@@ -139,18 +165,12 @@ def inspect_command(
     progress_state = {"last_reported": 0}
 
     def report_progress(current: int, total: int, current_file: Path) -> None:
-        should_report = (
-            current == 1
-            or current == total
-            or current - progress_state["last_reported"] >= 25
-        )
+        should_report = current == 1 or current == total or current - progress_state["last_reported"] >= 25
         if not should_report:
             return
 
         progress_state["last_reported"] = current
-        console.print(
-            f"[dim]Progress:[/dim] {current}/{total} · {current_file.name}"
-        )
+        console.print(f"[dim]Progress:[/dim] {current}/{total} · {current_file.name}")
 
     console.rule("[bold cyan]media-tool · video inspect[/bold cyan]")
     console.print(f"[dim]Directory:[/dim] {directory}")
@@ -174,7 +194,7 @@ def inspect_command(
     console.print(f"\n[green]✓[/green] Found {len(videos)} video files")
 
     # Count by type
-    movies = sum(1 for v in videos if not any(x in v.file_name.lower() for x in ['s01', 's02', 'season']))
+    movies = sum(1 for v in videos if not any(x in v.file_name.lower() for x in ["s01", "s02", "season"]))
     tv_shows = len(videos) - movies
     other = 0  # Could be refined
 
@@ -186,6 +206,7 @@ def inspect_command(
     csv_output = output or (directory / "video_list.csv")
     try:
         from core.video import export_to_csv
+
         export_to_csv(videos, csv_output)
         console.print(f"[dim]Exported to:[/dim] {csv_output}")
     except Exception as e:
@@ -195,6 +216,7 @@ def inspect_command(
     # Preview if requested
     if preview:
         from rich.table import Table
+
         table = Table(title="Video Library Preview", box=box.ROUNDED)
         table.add_column("File", style="dim", no_wrap=True, max_width=30)
         table.add_column("Size (GB)", justify="right")
@@ -219,23 +241,35 @@ def inspect_command(
 @app.command("merge")
 def merge_command(
     input_dir: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Directory containing video files to merge.",
     ),
     output_file: Path = typer.Argument(
-        ..., file_okay=True, dir_okay=False,
+        ...,
+        file_okay=True,
+        dir_okay=False,
         help="Output merged video file path.",
     ),
-    pattern: Optional[str] = typer.Option(
-        None, "--pattern", "-p",
+    pattern: str | None = typer.Option(
+        None,
+        "--pattern",
+        "-p",
         help="File pattern to match (default: auto-detect German/English pairs).",
     ),
-    language: Optional[str] = typer.Option(
-        None, "--language", "-l",
+    language: str | None = typer.Option(
+        None,
+        "--language",
+        "-l",
         help="Set language metadata for merged tracks.",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite", "-y",
+        False,
+        "--overwrite",
+        "-y",
         help="Overwrite output file if it exists.",
     ),
 ) -> None:
@@ -279,31 +313,46 @@ def merge_command(
 @app.command("subtitle")
 def subtitle_command(
     input_path: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=True,
+        readable=True,
         help="Input video file or directory of MKV files to generate subtitles for.",
     ),
     language: str = typer.Option(
-        "en", "--language", "-l",
+        "en",
+        "--language",
+        "-l",
         help="Language code for transcription (e.g., 'en', 'de').",
     ),
     model: str = typer.Option(
-        "large-v3", "--model", "-m",
+        "large-v3",
+        "--model",
+        "-m",
         help="Whisper model to use (tiny, base, small, medium, large-v3).",
     ),
-    output_file: Optional[Path] = typer.Option(
-        None, "--output", "-o",
+    output_file: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
         help="Output MKV file path (single-file mode only; default: input with _subtitled suffix).",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite", "-y",
+        False,
+        "--overwrite",
+        "-y",
         help="Overwrite output file if it exists.",
     ),
     recursive: bool = typer.Option(
-        False, "--recursive", "-r",
+        False,
+        "--recursive",
+        "-r",
         help="Process subdirectories recursively (directory mode only).",
     ),
     skip_hallucination_check: bool = typer.Option(
-        False, "--skip-hallucination-check",
+        False,
+        "--skip-hallucination-check",
         help="Skip hallucination detection (not recommended).",
     ),
 ) -> None:
@@ -342,7 +391,7 @@ def _subtitle_single(
     input_file: Path,
     language: str,
     model: str,
-    output_file: Optional[Path],
+    output_file: Path | None,
     overwrite: bool,
     skip_hallucination_check: bool,
 ) -> bool:
@@ -359,7 +408,7 @@ def _subtitle_single(
         console.print(f"[dim]Output (auto):[/dim] {output_file}")
 
     try:
-        from core.video import SubtitleGenerator, WhisperModel, WhisperConfig
+        from core.video import SubtitleGenerator, WhisperConfig, WhisperModel
 
         config = WhisperConfig(model=WhisperModel(model), language=language)
         generator = SubtitleGenerator(config=config)
@@ -457,7 +506,7 @@ def _subtitle_batch(
     console.print(f"\n[bold]Batch complete:[/bold] {len(succeeded)}/{len(files)} succeeded")
     if failed:
         console.print(f"[red]Failed ({len(failed)}):[/red]")
-        for path, reason in failed:
+        for path, _reason in failed:
             console.print(f"  ✘ {path.name}")
         raise typer.Exit(code=1)
 
@@ -465,6 +514,7 @@ def _subtitle_batch(
 # ---------------------------------------------------------------------------
 # subtitle-auto — check & generate only when needed
 # ---------------------------------------------------------------------------
+
 
 def _has_english_audio(probe: ProbeResult) -> bool:
     """Return True if the file has at least one English audio stream."""
@@ -489,27 +539,39 @@ def _has_english_subtitles(probe: ProbeResult) -> bool:
 @app.command("subtitle-auto")
 def subtitle_auto_command(
     input_path: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=True,
+        readable=True,
         help="MKV file or directory to process.",
     ),
     model: str = typer.Option(
-        "large-v3", "--model", "-m",
+        "large-v3",
+        "--model",
+        "-m",
         help="Whisper model to use (tiny, base, small, medium, large-v3).",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite", "-y",
+        False,
+        "--overwrite",
+        "-y",
         help="Re-generate even if English subtitles already exist.",
     ),
     recursive: bool = typer.Option(
-        False, "--recursive", "-r",
+        False,
+        "--recursive",
+        "-r",
         help="Process subdirectories recursively (directory mode only).",
     ),
     skip_hallucination_check: bool = typer.Option(
-        False, "--skip-hallucination-check",
+        False,
+        "--skip-hallucination-check",
         help="Skip hallucination detection (not recommended).",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run",
+        False,
+        "--dry-run",
         help="Only show what would be done, without actually transcribing.",
     ),
 ) -> None:
@@ -648,23 +710,33 @@ def _render_trailer_results(results: list[TrailerDownloadResult]) -> None:
 @app.command("download-trailers")
 def download_trailers_command(
     library_path: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Jellyfin movie library root path.",
     ),
     languages: str = typer.Option(
-        "en,de", "--languages", "-l",
+        "en,de",
+        "--languages",
+        "-l",
         help="Comma-separated language preference order (e.g., en,de).",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run",
+        False,
+        "--dry-run",
         help="Preview trailer matches without downloading files.",
     ),
     skip_existing: bool = typer.Option(
-        True, "--skip-existing/--include-existing",
+        True,
+        "--skip-existing/--include-existing",
         help="Skip movie folders that already contain trailer files.",
     ),
     max_downloads: int = typer.Option(
-        0, "--max-downloads", "-m",
+        0,
+        "--max-downloads",
+        "-m",
         help="Maximum number of movie folders to process (0 means no limit).",
     ),
 ) -> None:
@@ -742,10 +814,7 @@ def download_trailers_command(
 
     success_count = sum(1 for result in results if result.success)
     failure_count = len(results) - success_count
-    console.print(
-        f"\n[bold]Summary:[/bold] {success_count}/{len(results)} successful"
-        f" · {failure_count} failed"
-    )
+    console.print(f"\n[bold]Summary:[/bold] {success_count}/{len(results)} successful" f" · {failure_count} failed")
 
     if failure_count > 0 and not dry_run:
         raise typer.Exit(code=1)
@@ -754,31 +823,46 @@ def download_trailers_command(
 @app.command("upscale")
 def upscale_command(
     input_file: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
         help="Input video file to upscale.",
     ),
     output_file: Path = typer.Argument(
-        ..., file_okay=True, dir_okay=False,
+        ...,
+        file_okay=True,
+        dir_okay=False,
         help="Output upscaled video file path.",
     ),
     target_height: int = typer.Option(
-        720, "--height", "-h",
+        720,
+        "--height",
+        "-h",
         help="Target height in pixels (default: 720 for 720p).",
     ),
     video_codec: str = typer.Option(
-        "libx264", "--codec", "-c",
+        "libx264",
+        "--codec",
+        "-c",
         help="Video codec to use (default: libx264).",
     ),
     preset: str = typer.Option(
-        "medium", "--preset", "-p",
+        "medium",
+        "--preset",
+        "-p",
         help="Encoding preset (ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow).",
     ),
     crf: int = typer.Option(
-        20, "--crf",
+        20,
+        "--crf",
         help="Constant Rate Factor (0-51, lower = higher quality, default: 20).",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite", "-y",
+        False,
+        "--overwrite",
+        "-y",
         help="Overwrite output file if it exists.",
     ),
 ) -> None:
@@ -797,6 +881,7 @@ def upscale_command(
 
     try:
         from core.video import UpscaleOptions
+
         opts = UpscaleOptions(
             target_height=target_height,
             codec=video_codec,
@@ -816,7 +901,9 @@ def upscale_command(
     if result.status.name == "SUCCESS":
         console.print(f"\n[green]✓[/green] Successfully upscaled to {result.target}")
         console.print(f"[dim]Duration:[/dim] {result.duration_seconds:.1f}s")
-        console.print(f"[dim]Size change:[/dim] {result.size_before_gb:.2f}GB → {result.size_after_gb:.2f}GB ({result.size_delta_gb:+.2f}GB)")
+        console.print(
+            f"[dim]Size change:[/dim] {result.size_before_gb:.2f}GB → {result.size_after_gb:.2f}GB ({result.size_delta_gb:+.2f}GB)"
+        )
     elif result.status.name == "SKIPPED":
         console.print(f"\n[yellow]⏭️[/yellow] Skipped: {result.message}")
     else:
@@ -830,35 +917,50 @@ def upscale_command(
 @app.command("subtitle-translate")
 def subtitle_translate_command(
     path: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=True,
+        readable=True,
         help="SRT/ASS/VTT file or directory to translate.",
     ),
     source_lang: str = typer.Option(
-        "en", "--from", "-s",
+        "en",
+        "--from",
+        "-s",
         help="Source language code (en, de).",
     ),
     target_lang: str = typer.Option(
-        "de", "--to", "-t",
+        "de",
+        "--to",
+        "-t",
         help="Target language code (en, de).",
     ),
     backend: str = typer.Option(
-        "opus-mt", "--backend",
+        "opus-mt",
+        "--backend",
         help="Translation backend: opus-mt (GPU, recommended) | argos (CPU fallback).",
     ),
     model_size: str = typer.Option(
-        "big", "--model-size",
+        "big",
+        "--model-size",
         help="Model size: standard (~300 MB) | big (~900 MB, higher quality).",
     ),
     recursive: bool = typer.Option(
-        False, "--recursive", "-r",
+        False,
+        "--recursive",
+        "-r",
         help="Process subdirectories recursively (directory mode only).",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite", "-y",
+        False,
+        "--overwrite",
+        "-y",
         help="Overwrite existing output files.",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run",
+        False,
+        "--dry-run",
         help="Show what would be done without writing files.",
     ),
 ) -> None:
@@ -875,9 +977,6 @@ def subtitle_translate_command(
         media-tool video subtitle-translate movie.en.srt --from en --to de --dry-run
     """
     # Delegate to the shared implementation in subtitle_cmd
-    from cli.subtitle_cmd import translate_subtitle
-    from click import Context
-    import typer as _typer
 
     # Invoke by re-using the core logic directly
     from core.translation.models import LanguagePair, TranslationStatus
@@ -935,47 +1034,65 @@ def subtitle_translate_command(
 @app.command("subtitle-translate-mkv")
 def subtitle_translate_mkv_command(
     path: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=True,
+        readable=True,
         help="MKV file or directory containing MKV files.",
     ),
     source_lang: str = typer.Option(
-        "en", "--from", "-s",
+        "en",
+        "--from",
+        "-s",
         help="Source subtitle language code to extract (en, de).",
     ),
     target_lang: str = typer.Option(
-        "de", "--to", "-t",
+        "de",
+        "--to",
+        "-t",
         help="Target translation language code (en, de).",
     ),
     backend: str = typer.Option(
-        "opus-mt", "--backend",
+        "opus-mt",
+        "--backend",
         help="Translation backend: opus-mt (GPU) | argos (CPU fallback).",
     ),
     model_size: str = typer.Option(
-        "big", "--model-size",
+        "big",
+        "--model-size",
         help="Model size: standard (~300 MB) | big (~900 MB).",
     ),
     recursive: bool = typer.Option(
-        False, "--recursive", "-r",
+        False,
+        "--recursive",
+        "-r",
         help="Process subdirectories recursively.",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite", "-y",
+        False,
+        "--overwrite",
+        "-y",
         help="Overwrite existing output files.",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run",
+        False,
+        "--dry-run",
         help="Show what would be done without writing files.",
     ),
     chunk_size: int = typer.Option(
-        4, "--chunk-size",
+        4,
+        "--chunk-size",
         help="Segments per context chunk (improves grammar/pronouns).",
     ),
     no_line_wrap: bool = typer.Option(
-        False, "--no-line-wrap",
+        False,
+        "--no-line-wrap",
         help="Disable post-translation line wrapping.",
     ),
     max_line_length: int = typer.Option(
-        40, "--max-line-length",
+        40,
+        "--max-line-length",
         help="Max characters per subtitle line.",
     ),
 ) -> None:

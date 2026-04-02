@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol
 
 from .metadata_extractor import AudioFileMetadata
 
@@ -15,15 +16,25 @@ ProgressCallback = Callable[[int, int], None]
 
 
 class MetadataExtractorLike(Protocol):
-    def extract(self, file_path: Path) -> AudioFileMetadata:
-        ...
+    def extract(self, file_path: Path) -> AudioFileMetadata: ...
 
 
 class LibraryScanner:
     """Scan a music library recursively and extract metadata in parallel."""
 
     SUPPORTED_EXTENSIONS = {
-        ".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma", ".ape", ".wv", ".aiff", ".aif",
+        ".mp3",
+        ".flac",
+        ".m4a",
+        ".aac",
+        ".ogg",
+        ".opus",
+        ".wav",
+        ".wma",
+        ".ape",
+        ".wv",
+        ".aiff",
+        ".aif",
     }
 
     def __init__(self, metadata_extractor: MetadataExtractorLike, max_workers: int = 4):
@@ -46,8 +57,7 @@ class LibraryScanner:
         results: list[AudioFileMetadata] = []
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_file = {
-                executor.submit(self.extractor.extract, file_path): file_path
-                for file_path in audio_files
+                executor.submit(self.extractor.extract, file_path): file_path for file_path in audio_files
             }
 
             for index, future in enumerate(as_completed(future_to_file), start=1):
@@ -79,8 +89,5 @@ class LibraryScanner:
             return []
 
         iterator = root_path.rglob("*") if recursive else root_path.glob("*")
-        files = [
-            path for path in iterator
-            if path.is_file() and path.suffix.lower() in self.SUPPORTED_EXTENSIONS
-        ]
+        files = [path for path in iterator if path.is_file() and path.suffix.lower() in self.SUPPORTED_EXTENSIONS]
         return sorted(files, key=lambda path: str(path).lower())

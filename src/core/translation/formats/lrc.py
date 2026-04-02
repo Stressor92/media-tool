@@ -4,6 +4,7 @@ LRC (Lyric) format reader and writer.
 
 Format: [mm:ss.xx]Lyric text
 """
+
 from __future__ import annotations
 
 import re
@@ -50,21 +51,25 @@ def read(path: Path) -> SubtitleDocument:
 
         m = _LRC_LINE.match(line)
         if m:
-            lines_with_time.append((
-                _lrc_time_to_srt(int(m.group(1)), int(m.group(2)), int(m.group(3))),
-                m.group(4).strip(),
-            ))
+            lines_with_time.append(
+                (
+                    _lrc_time_to_srt(int(m.group(1)), int(m.group(2)), int(m.group(3))),
+                    m.group(4).strip(),
+                )
+            )
 
     segments: list[SubtitleSegment] = []
     for i, (start, content) in enumerate(lines_with_time):
         end = lines_with_time[i + 1][0] if i + 1 < len(lines_with_time) else _add_ms(start, 3000)
         if content:
-            segments.append(SubtitleSegment(
-                index=i + 1,
-                start=start,
-                end=end,
-                text=content,
-            ))
+            segments.append(
+                SubtitleSegment(
+                    index=i + 1,
+                    start=start,
+                    end=end,
+                    text=content,
+                )
+            )
 
     return SubtitleDocument(
         segments=segments,

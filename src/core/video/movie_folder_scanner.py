@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from utils.jellyfin_naming import JellyfinNaming
@@ -62,7 +62,11 @@ class MovieFolderScanner:
 
     @staticmethod
     def _has_existing_trailer(folder_path: Path) -> bool:
-        return any(file.suffix.lower() == ".mp4" and "-trailer" in file.stem.lower() for file in folder_path.iterdir() if file.is_file())
+        return any(
+            file.suffix.lower() == ".mp4" and "-trailer" in file.stem.lower()
+            for file in folder_path.iterdir()
+            if file.is_file()
+        )
 
     @staticmethod
     def _contains_primary_movie_file(folder_path: Path) -> bool:

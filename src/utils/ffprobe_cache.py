@@ -6,14 +6,16 @@ bei jedem Audit-Lauf neu analysiert wird.
 Cache-Key: SHA1(Dateipfad + Dateigröße + Änderungsdatum)
 Cache-Speicherort: .media-tool-cache/ im Audit-Verzeichnis
 """
+
 from __future__ import annotations
 
 import concurrent.futures
 import hashlib
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +43,9 @@ class FfprobeCache:
 
     def __init__(
         self,
-        cache_dir: Optional[Path] = None,
+        cache_dir: Path | None = None,
         max_workers: int = 8,
-        probe_fn: Optional[Callable[[Path], dict[str, Any]]] = None,
+        probe_fn: Callable[[Path], dict[str, Any]] | None = None,
     ) -> None:
         self._cache_dir = cache_dir
         self._max_workers = max_workers
@@ -52,7 +54,7 @@ class FfprobeCache:
     def probe_all(
         self,
         files: list[Path],
-        root_dir: Optional[Path] = None,
+        root_dir: Path | None = None,
     ) -> dict[Path, dict[str, Any]]:
         """
         Probiert alle Dateien parallel.  Cache wird automatisch genutzt.
@@ -94,9 +96,7 @@ class FfprobeCache:
                     probe = future.result()
                     results[f] = probe
                     if cache_dir:
-                        _cache_file(f, cache_dir).write_text(
-                            json.dumps(probe), encoding="utf-8"
-                        )
+                        _cache_file(f, cache_dir).write_text(json.dumps(probe), encoding="utf-8")
                 except Exception as exc:
                     logger.warning("ffprobe fehlgeschlagen für %s: %s", f.name, exc)
                     results[f] = {}

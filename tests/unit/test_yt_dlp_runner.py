@@ -4,9 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from core.download.models import DownloadRequest, MediaType
-from core.download.yt_dlp_runner import YtDlpRunner
-from core.download.yt_dlp_runner import parse_track_info
-
+from core.download.yt_dlp_runner import YtDlpRunner, parse_track_info
 
 RAW_VIDEO: dict[str, Any] = {
     "title": "Awesome Video",

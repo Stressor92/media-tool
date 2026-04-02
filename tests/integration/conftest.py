@@ -21,15 +21,12 @@ def run_ffmpeg(args: list[str], cwd: Path | None = None) -> subprocess.Completed
 def run_ffprobe(file_path: Path) -> ProbeResult:
     """Run ffprobe on a file and return a ProbeResult object."""
     from utils.ffprobe_runner import probe_file
+
     return probe_file(file_path)
 
 
 def create_test_video(
-    output_path: Path,
-    duration: int = 2,
-    resolution: str = "320x240",
-    language: str = "und",
-    audio_freq: int = 44100
+    output_path: Path, duration: int = 2, resolution: str = "320x240", language: str = "und", audio_freq: int = 44100
 ) -> Path:
     """
     Create a small test video file using ffmpeg test sources.
@@ -45,15 +42,22 @@ def create_test_video(
         Path to created file
     """
     cmd = [
-        "-f", "lavfi",
-        "-i", f"testsrc=duration={duration}:size={resolution}:rate=10",
-        "-f", "lavfi",
-        "-i", f"sine=frequency=1000:duration={duration}:sample_rate={audio_freq}",
-        "-c:v", "libx264",
-        "-c:a", "aac",
+        "-f",
+        "lavfi",
+        "-i",
+        f"testsrc=duration={duration}:size={resolution}:rate=10",
+        "-f",
+        "lavfi",
+        "-i",
+        f"sine=frequency=1000:duration={duration}:sample_rate={audio_freq}",
+        "-c:v",
+        "libx264",
+        "-c:a",
+        "aac",
         "-shortest",
-        "-metadata:s:a:0", f"language={language}",
-        str(output_path)
+        "-metadata:s:a:0",
+        f"language={language}",
+        str(output_path),
     ]
 
     result = run_ffmpeg(cmd)
@@ -64,11 +68,7 @@ def create_test_video(
 
 
 def create_test_audio(
-    output_path: Path,
-    duration: int = 2,
-    language: str = "und",
-    freq: int = 1000,
-    sample_rate: int = 44100
+    output_path: Path, duration: int = 2, language: str = "und", freq: int = 1000, sample_rate: int = 44100
 ) -> Path:
     """
     Create a small test audio file.
@@ -93,11 +93,15 @@ def create_test_audio(
         codec = "aac"  # default
 
     cmd = [
-        "-f", "lavfi",
-        "-i", f"sine=frequency={freq}:duration={duration}:sample_rate={sample_rate}",
-        "-c:a", codec,
-        "-metadata:s:a:0", f"language={language}",
-        str(output_path)
+        "-f",
+        "lavfi",
+        "-i",
+        f"sine=frequency={freq}:duration={duration}:sample_rate={sample_rate}",
+        "-c:a",
+        codec,
+        "-metadata:s:a:0",
+        f"language={language}",
+        str(output_path),
     ]
 
     result = run_ffmpeg(cmd)

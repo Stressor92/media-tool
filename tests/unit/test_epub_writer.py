@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 from tests.ebook_test_support import create_image_bytes, create_minimal_epub
 from utils.epub_reader import EpubReader

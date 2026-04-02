@@ -4,7 +4,6 @@ tests/unit/test_video_hasher.py
 Unit tests for video hasher functionality.
 """
 
-from pathlib import Path
 import pytest
 
 from utils.video_hasher import VideoHasher

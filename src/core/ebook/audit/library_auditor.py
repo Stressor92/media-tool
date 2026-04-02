@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import logging
+import zipfile
 from collections import Counter
 from pathlib import Path
-import logging
 from typing import Protocol
-import zipfile
 
 from core.ebook.audit.quality_checker import QualityChecker
 from core.ebook.audit.series_analyzer import SeriesAnalyzer
-from core.ebook.models import BookIdentity, BookMetadata
-from core.ebook.models import AuditReport
+from core.ebook.models import AuditReport, BookIdentity, BookMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +101,9 @@ class LibraryAuditor:
                 report.missing_cover.append(ebook_path)
 
         report.format_distribution = dict(format_counts)
-        report.metadata_completeness = (sum(completeness_scores) / len(completeness_scores)) if completeness_scores else 0.0
+        report.metadata_completeness = (
+            (sum(completeness_scores) / len(completeness_scores)) if completeness_scores else 0.0
+        )
 
         if check_series:
             grouped = self.series_analyzer.group(series_entries)
@@ -116,7 +117,9 @@ class LibraryAuditor:
             return []
         pattern = "**/*" if recursive else "*"
         extensions = {".epub", ".mobi", ".azw3", ".pdf", ".azw"}
-        return sorted([path for path in root_path.glob(pattern) if path.is_file() and path.suffix.lower() in extensions])
+        return sorted(
+            [path for path in root_path.glob(pattern) if path.is_file() and path.suffix.lower() in extensions]
+        )
 
     def _has_cover(self, ebook_path: Path) -> bool:
         external = [

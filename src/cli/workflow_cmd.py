@@ -24,7 +24,7 @@ err_console = Console(stderr=True, style="bold red")
 _STATUS_ICONS = {
     "SUCCESS": "[bold green]✔  OK[/bold green]",
     "SKIPPED": "[yellow]⏭  Skipped[/yellow]",
-    "FAILED":  "[bold red]✘  Failed[/bold red]",
+    "FAILED": "[bold red]✘  Failed[/bold red]",
     "PARTIAL": "[yellow]⚠  Partial[/yellow]",
 }
 
@@ -44,7 +44,8 @@ def run_movie_workflow(
     output: Annotated[
         Path,
         typer.Option(
-            "--output", "-o",
+            "--output",
+            "-o",
             help="Zielordner (Jellyfin-Bibliothek, z. B. Y:\\Filme).",
         ),
     ],

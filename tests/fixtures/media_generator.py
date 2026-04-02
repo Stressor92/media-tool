@@ -13,7 +13,6 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
-from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ class TestMediaGenerator:
     def create_test_video(
         output_path: Path,
         duration: float = 5.0,
-        resolution: Tuple[int, int] = (1280, 720),
+        resolution: tuple[int, int] = (1280, 720),
         with_audio: bool = True,
         with_subtitles: bool = False,
         preset: str = "ultrafast",
@@ -66,9 +65,7 @@ class TestMediaGenerator:
         # Add subtitle input if requested
         if with_subtitles:
             srt_path = output_path.with_stem(output_path.stem + "_subs").with_suffix(".srt")
-            srt_path.write_text(
-                "1\n00:00:00,000 --> 00:00:05,000\nTest subtitle\n"
-            )
+            srt_path.write_text("1\n00:00:00,000 --> 00:00:05,000\nTest subtitle\n")
             cmd.extend(["-i", str(srt_path)])
 
         # Video codec options
@@ -106,9 +103,7 @@ class TestMediaGenerator:
         return output_path
 
     @staticmethod
-    def create_test_audio(
-        output_path: Path, duration: float = 10.0, sample_rate: int = 16000
-    ) -> Path:
+    def create_test_audio(output_path: Path, duration: float = 10.0, sample_rate: int = 16000) -> Path:
         """
         Generate valid audio file (MP3 or WAV).
 
@@ -173,8 +168,7 @@ class TestMediaGenerator:
         actual_size = output_path.stat().st_size
         if actual_size < size_bytes:
             raise RuntimeError(
-                f"Failed to create file with required size. "
-                f"Expected {size_bytes}, got {actual_size}"
+                f"Failed to create file with required size. " f"Expected {size_bytes}, got {actual_size}"
             )
 
         logger.debug(f"Created binary file: {output_path} ({actual_size} bytes)")
@@ -229,9 +223,7 @@ class TestMediaGenerator:
             start_time = (i - 1) * 5
             end_time = i * 5
             lines.append(f"{i}")
-            lines.append(
-                f"00:00:{start_time:02d},000 --> 00:00:{end_time:02d},000"
-            )
+            lines.append(f"00:00:{start_time:02d},000 --> 00:00:{end_time:02d},000")
             lines.append(f"Subtitle line {i}")
             lines.append("")
 

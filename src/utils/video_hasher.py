@@ -42,7 +42,7 @@ class VideoHasher:
 
         Example output: "8e245d9679d31e12"
         """
-        longlongformat = '<q'  # little-endian long long
+        longlongformat = "<q"  # little-endian long long
         bytesize = struct.calcsize(longlongformat)
 
         file_size = file_path.stat().st_size
@@ -51,7 +51,7 @@ class VideoHasher:
         if file_size < 65536 * 2:
             raise ValueError(f"File too small for hash calculation: {file_size} bytes < 128KB")
 
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             # First 64KB
             for _ in range(65536 // bytesize):
                 buffer = f.read(bytesize)

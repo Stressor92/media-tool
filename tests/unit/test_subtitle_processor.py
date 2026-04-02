@@ -7,7 +7,6 @@ Unit tests for SubtitleTimingProcessor.
 import tempfile
 from pathlib import Path
 
-
 from core.video import SubtitleTimingProcessor
 
 
@@ -29,7 +28,7 @@ First subtitle
 Second subtitle
 """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt_content)
             input_srt = Path(f.name)
 
@@ -60,7 +59,7 @@ Very short subtitle
 Another short one
 """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt_content)
             input_srt = Path(f.name)
 
@@ -71,7 +70,7 @@ Another short one
             assert output_srt.exists()
 
             # Read optimized content
-            with open(output_srt, 'r', encoding='utf-8') as f:
+            with open(output_srt, encoding="utf-8") as f:
                 optimized_content = f.read()
 
             # Should still have subtitles
@@ -95,7 +94,7 @@ Valid subtitle
 Another valid subtitle
 """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt_content)
             srt_path = Path(f.name)
 
@@ -120,7 +119,7 @@ Invalid: end before start
 Valid subtitle
 """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt_content)
             srt_path = Path(f.name)
 
@@ -146,7 +145,7 @@ First subtitle
 Overlapping subtitle
 """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt_content)
             srt_path = Path(f.name)
 

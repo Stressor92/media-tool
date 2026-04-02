@@ -3,6 +3,7 @@
 Integration tests: all conversion paths through real files.
 Requires: MEDIA_TOOL_INTEGRATION_TESTS=1
 """
+
 from pathlib import Path
 
 import pytest
@@ -23,15 +24,18 @@ Hello World
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("target", [
-    SubtitleFormat.VTT,
-    SubtitleFormat.TTML,
-    SubtitleFormat.ASS,
-    SubtitleFormat.SBV,
-    SubtitleFormat.LRC,
-    SubtitleFormat.SCC,
-    SubtitleFormat.STL,
-])
+@pytest.mark.parametrize(
+    "target",
+    [
+        SubtitleFormat.VTT,
+        SubtitleFormat.TTML,
+        SubtitleFormat.ASS,
+        SubtitleFormat.SBV,
+        SubtitleFormat.LRC,
+        SubtitleFormat.SCC,
+        SubtitleFormat.STL,
+    ],
+)
 def test_srt_to_all_formats(target: SubtitleFormat, tmp_path: Path) -> None:
     src = tmp_path / "test.srt"
     src.write_text(_SRT)

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Protocol, cast
+from typing import Protocol, cast
 
 from core.video.movie_folder_scanner import MovieFolder, MovieFolderScanner
 from core.video.trailer_search import SearchRunner, TrailerSearchResult, TrailerSearchService

@@ -14,12 +14,12 @@ Usage
     cache.put("en", "de", "Hello", translation)
     cache.save()       # persist to disk (optional)
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class TranslationCache:
         If None (default), data is in-memory only.
     """
 
-    def __init__(self, cache_file: Optional[Path] = None) -> None:
+    def __init__(self, cache_file: Path | None = None) -> None:
         self._cache_file = cache_file
         self._store: _CacheStore = {}
         self._hits = 0
@@ -51,7 +51,7 @@ class TranslationCache:
     # Public interface
     # ------------------------------------------------------------------
 
-    def get(self, source_lang: str, target_lang: str, text: str) -> Optional[str]:
+    def get(self, source_lang: str, target_lang: str, text: str) -> str | None:
         """Return cached translation or None."""
         bucket = self._store.get(self._key(source_lang, target_lang))
         if bucket:
@@ -62,9 +62,7 @@ class TranslationCache:
         self._misses += 1
         return None
 
-    def put(
-        self, source_lang: str, target_lang: str, text: str, translation: str
-    ) -> None:
+    def put(self, source_lang: str, target_lang: str, text: str, translation: str) -> None:
         """Store a translation in the cache."""
         k = self._key(source_lang, target_lang)
         if k not in self._store:

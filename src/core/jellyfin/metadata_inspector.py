@@ -45,9 +45,7 @@ class MetadataInspector:
         """Checks all series and episodes."""
         series_list = self._manager.get_all_items(ItemType.SERIES, library_id)
         episodes = self._manager.get_all_items(ItemType.EPISODE, library_id)
-        logger.info(
-            "Checking %d series, %d episodes …", len(series_list), len(episodes)
-        )
+        logger.info("Checking %d series, %d episodes …", len(series_list), len(episodes))
         issues: list[MetadataIssue] = []
         for s in series_list:
             issues.extend(self._check_series(s))
@@ -111,10 +109,7 @@ class MetadataInspector:
                 MetadataIssue(
                     item=item,
                     kind=MetadataIssueKind.UNMATCHED,
-                    description=(
-                        f"'{item.name}': No provider IDs (TMDB/IMDB). "
-                        "Item was not matched by Jellyfin."
-                    ),
+                    description=(f"'{item.name}': No provider IDs (TMDB/IMDB). " "Item was not matched by Jellyfin."),
                     auto_fixable=False,
                 )
             )
@@ -143,9 +138,7 @@ class MetadataInspector:
             )
         return issues
 
-    def _check_episode(
-        self, ep: JellyfinItem, series_list: list[JellyfinItem]
-    ) -> list[MetadataIssue]:
+    def _check_episode(self, ep: JellyfinItem, series_list: list[JellyfinItem]) -> list[MetadataIssue]:
         issues: list[MetadataIssue] = []
 
         if ep.index_number is None:
@@ -162,14 +155,8 @@ class MetadataInspector:
 
         if ep.path and ep.series_id:
             path_series_name = self._extract_series_from_path(ep.path)
-            assigned_series = next(
-                (s for s in series_list if s.id == ep.series_id), None
-            )
-            if (
-                path_series_name
-                and assigned_series
-                and path_series_name.lower() not in assigned_series.name.lower()
-            ):
+            assigned_series = next((s for s in series_list if s.id == ep.series_id), None)
+            if path_series_name and assigned_series and path_series_name.lower() not in assigned_series.name.lower():
                 issues.append(
                     MetadataIssue(
                         item=ep,
@@ -199,9 +186,7 @@ class MetadataInspector:
                         MetadataIssue(
                             item=item,
                             kind=MetadataIssueKind.DUPLICATE_ITEM,
-                            description=(
-                                f"'{item.name}' appears {len(dupes)}× in the library."
-                            ),
+                            description=(f"'{item.name}' appears {len(dupes)}× in the library."),
                             auto_fixable=False,
                         )
                     )

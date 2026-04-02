@@ -5,10 +5,11 @@ Unit tests for OpenSubtitles provider.
 Uses mocked API responses to avoid real network calls.
 """
 
+from pathlib import Path
+from unittest.mock import Mock, patch
+
 import pytest
 import requests
-from unittest.mock import Mock, patch
-from pathlib import Path
 
 from core.subtitles.opensubtitles_provider import OpenSubtitlesProvider
 from core.subtitles.subtitle_provider import MovieInfo, SubtitleMatch
@@ -26,10 +27,7 @@ class TestOpenSubtitlesProvider:
     def movie_info(self):
         """Create test movie info."""
         return MovieInfo(
-            file_path=Path("/test/movie.mkv"),
-            file_hash="8e245d9679d31e12",
-            file_size=1000000,
-            duration=3600.0
+            file_path=Path("/test/movie.mkv"), file_hash="8e245d9679d31e12", file_size=1000000, duration=3600.0
         )
 
     def test_init(self, provider):
@@ -38,7 +36,7 @@ class TestOpenSubtitlesProvider:
         assert provider.user_agent == "media-tool v1.0"
         assert "Api-Key" in provider.headers
 
-    @patch.object(OpenSubtitlesProvider, '_make_request')
+    @patch.object(OpenSubtitlesProvider, "_make_request")
     def test_search_success(self, mock_make_request, provider, movie_info):
         """Test successful subtitle search."""
         # Mock API response
@@ -54,12 +52,7 @@ class TestOpenSubtitlesProvider:
                         "download_count": 1500,
                         "uploader": {"name": "TestUploader"},
                         "hearing_impaired": False,
-                        "files": [
-                            {
-                                "file_id": 12345,
-                                "file_name": "test.srt"
-                            }
-                        ]
+                        "files": [{"file_id": 12345, "file_name": "test.srt"}],
                     }
                 }
             ]
@@ -77,7 +70,7 @@ class TestOpenSubtitlesProvider:
         assert match.download_count == 1500
         assert match.provider == "opensubtitles"
 
-    @patch.object(OpenSubtitlesProvider, '_make_request')
+    @patch.object(OpenSubtitlesProvider, "_make_request")
     def test_search_no_results(self, mock_make_request, provider, movie_info):
         """Test search with no results."""
         mock_response = Mock()
@@ -88,16 +81,13 @@ class TestOpenSubtitlesProvider:
 
         assert len(matches) == 0
 
-    @patch.object(OpenSubtitlesProvider, '_make_request')
-    @patch('requests.get')
+    @patch.object(OpenSubtitlesProvider, "_make_request")
+    @patch("requests.get")
     def test_download_success(self, mock_get, mock_make_request, provider, tmp_path):
         """Test successful subtitle download."""
         # Mock download endpoint response
         mock_post_response = Mock()
-        mock_post_response.json.return_value = {
-            "link": "https://example.com/download/test.srt",
-            "remaining": 195
-        }
+        mock_post_response.json.return_value = {"link": "https://example.com/download/test.srt", "remaining": 195}
         mock_make_request.return_value = mock_post_response
 
         # Mock actual file download
@@ -117,7 +107,7 @@ class TestOpenSubtitlesProvider:
             uploader="Test",
             hearing_impaired=False,
             format="srt",
-            provider="opensubtitles"
+            provider="opensubtitles",
         )
 
         output_path = tmp_path / "test.srt"
@@ -130,14 +120,30 @@ class TestOpenSubtitlesProvider:
         """Test best match selection."""
         matches = [
             SubtitleMatch(
-                id="1", language="en", movie_name="Test", release_name="BluRay.1080p",
-                download_url="", rating=7.0, download_count=1000, uploader="A",
-                hearing_impaired=False, format="srt", provider="opensubtitles"
+                id="1",
+                language="en",
+                movie_name="Test",
+                release_name="BluRay.1080p",
+                download_url="",
+                rating=7.0,
+                download_count=1000,
+                uploader="A",
+                hearing_impaired=False,
+                format="srt",
+                provider="opensubtitles",
             ),
             SubtitleMatch(
-                id="2", language="en", movie_name="Test", release_name="WEB-DL.720p",
-                download_url="", rating=8.5, download_count=500, uploader="B",
-                hearing_impaired=False, format="srt", provider="opensubtitles"
+                id="2",
+                language="en",
+                movie_name="Test",
+                release_name="WEB-DL.720p",
+                download_url="",
+                rating=8.5,
+                download_count=500,
+                uploader="B",
+                hearing_impaired=False,
+                format="srt",
+                provider="opensubtitles",
             ),
         ]
 
@@ -148,14 +154,30 @@ class TestOpenSubtitlesProvider:
         """Test best match with release name hint."""
         matches = [
             SubtitleMatch(
-                id="1", language="en", movie_name="Test", release_name="WEB-DL.720p",
-                download_url="", rating=8.5, download_count=1000, uploader="A",
-                hearing_impaired=False, format="srt", provider="opensubtitles"
+                id="1",
+                language="en",
+                movie_name="Test",
+                release_name="WEB-DL.720p",
+                download_url="",
+                rating=8.5,
+                download_count=1000,
+                uploader="A",
+                hearing_impaired=False,
+                format="srt",
+                provider="opensubtitles",
             ),
             SubtitleMatch(
-                id="2", language="en", movie_name="Test", release_name="BluRay.1080p",
-                download_url="", rating=7.0, download_count=500, uploader="B",
-                hearing_impaired=False, format="srt", provider="opensubtitles"
+                id="2",
+                language="en",
+                movie_name="Test",
+                release_name="BluRay.1080p",
+                download_url="",
+                rating=7.0,
+                download_count=500,
+                uploader="B",
+                hearing_impaired=False,
+                format="srt",
+                provider="opensubtitles",
             ),
         ]
 
@@ -166,21 +188,37 @@ class TestOpenSubtitlesProvider:
         """Test selection when all matches are hearing impaired."""
         matches = [
             SubtitleMatch(
-                id="1", language="en", movie_name="Test", release_name="HearingImpaired",
-                download_url="", rating=5.0, download_count=50, uploader="A",
-                hearing_impaired=True, format="srt", provider="opensubtitles"
+                id="1",
+                language="en",
+                movie_name="Test",
+                release_name="HearingImpaired",
+                download_url="",
+                rating=5.0,
+                download_count=50,
+                uploader="A",
+                hearing_impaired=True,
+                format="srt",
+                provider="opensubtitles",
             ),
             SubtitleMatch(
-                id="2", language="en", movie_name="Test", release_name="HearingImpaired",
-                download_url="", rating=6.0, download_count=30, uploader="B",
-                hearing_impaired=True, format="srt", provider="opensubtitles"
+                id="2",
+                language="en",
+                movie_name="Test",
+                release_name="HearingImpaired",
+                download_url="",
+                rating=6.0,
+                download_count=30,
+                uploader="B",
+                hearing_impaired=True,
+                format="srt",
+                provider="opensubtitles",
             ),
         ]
 
         best = provider.get_best_match(matches)
         assert best.id == "2"  # Highest rating among HI set
 
-    @patch.object(OpenSubtitlesProvider, '_make_request')
+    @patch.object(OpenSubtitlesProvider, "_make_request")
     def test_download_missing_link(self, mock_make_request, provider, tmp_path):
         """Test download raises if API response misses link."""
         mock_post_response = Mock()
@@ -188,16 +226,24 @@ class TestOpenSubtitlesProvider:
         mock_make_request.return_value = mock_post_response
 
         match = SubtitleMatch(
-            id="12345", language="en", movie_name="Test", release_name="Test",
-            download_url="12345", rating=8.0, download_count=100, uploader="Test",
-            hearing_impaired=False, format="srt", provider="opensubtitles"
+            id="12345",
+            language="en",
+            movie_name="Test",
+            release_name="Test",
+            download_url="12345",
+            rating=8.0,
+            download_count=100,
+            uploader="Test",
+            hearing_impaired=False,
+            format="srt",
+            provider="opensubtitles",
         )
 
         with pytest.raises(RuntimeError, match="No download link"):
             provider.download(match, tmp_path / "test.srt")
 
-    @patch.object(OpenSubtitlesProvider, '_make_request')
-    @patch('requests.get')
+    @patch.object(OpenSubtitlesProvider, "_make_request")
+    @patch("requests.get")
     def test_download_http_error(self, mock_get, mock_make_request, provider, tmp_path):
         """Test download raises when content fetch fails."""
         mock_post_response = Mock()
@@ -210,21 +256,36 @@ class TestOpenSubtitlesProvider:
         mock_get.return_value = mock_file_response
 
         match = SubtitleMatch(
-            id="12345", language="en", movie_name="Test", release_name="Test",
-            download_url="12345", rating=8.0, download_count=100, uploader="Test",
-            hearing_impaired=False, format="srt", provider="opensubtitles"
+            id="12345",
+            language="en",
+            movie_name="Test",
+            release_name="Test",
+            download_url="12345",
+            rating=8.0,
+            download_count=100,
+            uploader="Test",
+            hearing_impaired=False,
+            format="srt",
+            provider="opensubtitles",
         )
 
         with pytest.raises(requests.exceptions.HTTPError):
             provider.download(match, tmp_path / "test.srt")
 
-    @patch('requests.Session.get')
+    @patch("requests.Session.get")
     def test_search_missing_file_entry(self, mock_get, provider, movie_info):
         """Test search skips items with missing files."""
         mock_response = Mock()
         mock_response.json.return_value = {
             "data": [
-                {"attributes": {"language": "en", "feature_details": {"movie_name": "Test"}, "release": "Test", "files": []}}
+                {
+                    "attributes": {
+                        "language": "en",
+                        "feature_details": {"movie_name": "Test"},
+                        "release": "Test",
+                        "files": [],
+                    }
+                }
             ]
         }
         mock_response.raise_for_status.return_value = None

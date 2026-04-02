@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -13,7 +13,7 @@ app = typer.Typer(help="Medien-Bibliothek auf Probleme prüfen.")
 def run_audit(
     directory: Annotated[Path, typer.Argument(help="Zu prüfendes Verzeichnis")],
     checks: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--checks",
             help="Kommagetrennte Check-IDs (z. B. A01,B01) oder 'all'",
@@ -30,18 +30,10 @@ def run_audit(
         bool,
         typer.Option("--details", "-d", help="Detaillierte Ausgabe"),
     ] = False,
-    export_csv: Annotated[
-        Optional[Path], typer.Option("--csv", help="CSV-Report ausgeben")
-    ] = None,
-    export_json: Annotated[
-        Optional[Path], typer.Option("--json", help="JSON-Report ausgeben")
-    ] = None,
-    workers: Annotated[
-        int, typer.Option("--workers", help="ffprobe-Threads")
-    ] = 8,
-    no_cache: Annotated[
-        bool, typer.Option("--no-cache", help="ffprobe-Cache deaktivieren")
-    ] = False,
+    export_csv: Annotated[Path | None, typer.Option("--csv", help="CSV-Report ausgeben")] = None,
+    export_json: Annotated[Path | None, typer.Option("--json", help="JSON-Report ausgeben")] = None,
+    workers: Annotated[int, typer.Option("--workers", help="ffprobe-Threads")] = 8,
+    no_cache: Annotated[bool, typer.Option("--no-cache", help="ffprobe-Cache deaktivieren")] = False,
 ) -> None:
     """
     Führt einen vollständigen Bibliotheks-Audit durch.

@@ -2,11 +2,12 @@
 """
 CLI commands for managing and syncing the Jellyfin media library.
 """
+
 from __future__ import annotations
 
 import csv
 import time
-from typing import TYPE_CHECKING, Annotated, Optional
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
@@ -17,11 +18,11 @@ if TYPE_CHECKING:
 app = typer.Typer(help="Manage and sync the Jellyfin media library.")
 
 
-def _get_manager() -> "LibraryManager":
+def _get_manager() -> LibraryManager:
     """Creates a LibraryManager from configuration."""
-    from utils.config import get_config
     from core.jellyfin.client import JellyfinClient
     from core.jellyfin.library_manager import LibraryManager
+    from utils.config import get_config
 
     jf = get_config().jellyfin
     if not jf.api_key:
@@ -56,16 +57,14 @@ def ping() -> None:
 @app.command("refresh")
 def refresh(
     library: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--library", "-l", help="Library name or ID"),
     ] = None,
     item_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--item", help="Refresh a single item by ID"),
     ] = None,
-    wait: Annotated[
-        bool, typer.Option("--wait", help="Block until the scan finishes")
-    ] = False,
+    wait: Annotated[bool, typer.Option("--wait", help="Block until the scan finishes")] = False,
     timeout: Annotated[int, typer.Option(help="Timeout in seconds")] = 300,
 ) -> None:
     """
@@ -89,9 +88,7 @@ def refresh(
     elif library:
         libs = {lib.name: lib for lib in manager.get_libraries()}
         if library not in libs:
-            typer.echo(
-                f"Library '{library}' not found. Available: {list(libs)}", err=True
-            )
+            typer.echo(f"Library '{library}' not found. Available: {list(libs)}", err=True)
             raise typer.Exit(1)
         result = manager.refresh_library(libs[library].id)
         prefix = f"Library '{library}'"
@@ -177,17 +174,13 @@ def libraries() -> None:
 
 @app.command("inspect")
 def inspect(
-    library: Annotated[Optional[str], typer.Option("-l", help="Library name")] = None,
-    kind: Annotated[
-        str, typer.Option(help="What to check: movies | series | all")
-    ] = "all",
+    library: Annotated[str | None, typer.Option("-l", help="Library name")] = None,
+    kind: Annotated[str, typer.Option(help="What to check: movies | series | all")] = "all",
     auto_fix: Annotated[
         bool,
         typer.Option("--fix", help="Automatically repair fixable issues"),
     ] = False,
-    export: Annotated[
-        Optional[str], typer.Option("--export", help="Save results as CSV")
-    ] = None,
+    export: Annotated[str | None, typer.Option("--export", help="Save results as CSV")] = None,
 ) -> None:
     """
     Analyse the library for metadata problems.
@@ -201,15 +194,16 @@ def inspect(
       media-tool jellyfin inspect -l Movies --export issues.csv
     """
     from collections import defaultdict
-    from core.jellyfin.metadata_inspector import MetadataInspector
-    from core.jellyfin.metadata_fixer import MetadataFixer
+
     from core.jellyfin.client import JellyfinClient
+    from core.jellyfin.metadata_fixer import MetadataFixer
+    from core.jellyfin.metadata_inspector import MetadataInspector
     from utils.config import get_config
 
     manager = _get_manager()
     inspector = MetadataInspector(manager)
 
-    lib_id: Optional[str] = None
+    lib_id: str | None = None
     if library:
         libs = {lib.name: lib for lib in manager.get_libraries()}
         if library in libs:
@@ -262,12 +256,8 @@ def inspect(
 
 @app.command("fix-series")
 def fix_series(
-    episode_id: Annotated[
-        str, typer.Argument(help="Jellyfin item ID of the episode")
-    ],
-    series_id: Annotated[
-        str, typer.Argument(help="Jellyfin item ID of the correct series")
-    ],
+    episode_id: Annotated[str, typer.Argument(help="Jellyfin item ID of the episode")],
+    series_id: Annotated[str, typer.Argument(help="Jellyfin item ID of the correct series")],
 ) -> None:
     """
     Reassign a mismatched episode to the correct series.
@@ -276,8 +266,8 @@ def fix_series(
 
       media-tool jellyfin search "Series Name"
     """
-    from core.jellyfin.metadata_fixer import MetadataFixer
     from core.jellyfin.client import JellyfinClient
+    from core.jellyfin.metadata_fixer import MetadataFixer
     from utils.config import get_config
 
     manager = _get_manager()
@@ -299,9 +289,7 @@ def fix_series(
 @app.command("search")
 def search(
     query: Annotated[str, typer.Argument(help="Search term")],
-    item_type: Annotated[
-        str, typer.Option("--type", help="movie | series | episode | all")
-    ] = "all",
+    item_type: Annotated[str, typer.Option("--type", help="movie | series | episode | all")] = "all",
     limit: Annotated[int, typer.Option()] = 10,
 ) -> None:
     """
@@ -330,9 +318,7 @@ def search(
     typer.echo("-" * 75)
     for item in items:
         year = str(item.year) if item.year else "-"
-        typer.echo(
-            f"{item.name:<35} {item.item_type.value:<10} {year:>5}  {item.id}"
-        )
+        typer.echo(f"{item.name:<35} {item.item_type.value:<10} {year:>5}  {item.id}")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────

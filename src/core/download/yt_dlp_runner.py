@@ -74,7 +74,7 @@ def parse_track_info(raw: dict[str, Any]) -> TrackInfo:
     return TrackInfo(
         title=str(raw.get("title", "unknown")),
         uploader=str(raw.get("uploader", "unknown")),
-        duration=float(raw["duration"]) if isinstance(raw.get("duration"), (int, float)) else None,
+        duration=float(raw["duration"]) if isinstance(raw.get("duration"), int | float) else None,
         url=str(raw.get("webpage_url", "")),
         playlist_index=int(raw["playlist_index"]) if isinstance(raw.get("playlist_index"), int) else None,
         series=str(raw["series"]) if isinstance(raw.get("series"), str) else None,

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import logging
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +12,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FingerprintResult:
     """Result of fingerprint calculation."""
+
     fingerprint: str
     duration: float
     success: bool
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class ChromaprintError(Exception):

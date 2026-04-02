@@ -1,7 +1,6 @@
 # tests/unit/test_subtitle_formatter.py
 from __future__ import annotations
 
-import pytest
 from core.translation.subtitle_formatter import format_subtitle
 
 
@@ -24,7 +23,7 @@ class TestFormatSubtitle:
     def test_each_line_within_limit_when_possible(self) -> None:
         text = "Das ist ein sehr langer Satz der nicht gut lesbar ist"
         result = format_subtitle(text, max_chars=30, max_lines=2)
-        for line in result.split("\n")[:-1]:   # last line may overflow
+        for line in result.split("\n")[:-1]:  # last line may overflow
             assert len(line) <= 30
 
     def test_existing_newline_handled(self) -> None:

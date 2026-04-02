@@ -10,7 +10,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,35 +17,36 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ValidationResult:
     """Result of SRT file validation.
-    
+
     Attributes:
         is_valid: Whether the SRT file is valid
         errors: List of validation errors (file not found, invalid format, etc.)
         warnings: List of validation warnings (non-critical issues)
     """
+
     is_valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
 class TimingSyncResult:
     """Result of subtitle timing synchronization.
-    
+
     Attributes:
         success: Whether timing sync succeeded
         srt_path: Path to the synchronized SRT file
         scale_factor: Time scale factor applied (duration ratio)
         error_message: Error message if sync failed
     """
+
     success: bool
-    srt_path: Optional[Path] = None
+    srt_path: Path | None = None
     scale_factor: float = 1.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class SubtitleTimingProcessor:
-
     SRT_TIMESTAMP_RE = re.compile(r"^(\d{2}):(\d{2}):(\d{2}),(\d{3}) --> (\d{2}):(\d{2}):(\d{2}),(\d{3})$")
 
     def sync_to_video(self, srt_path: Path, video_duration: float, wav_duration: float) -> TimingSyncResult:
@@ -57,7 +57,7 @@ class SubtitleTimingProcessor:
             return TimingSyncResult(success=False, error_message="Invalid wav_duration")
 
         scale_factor = video_duration / wav_duration
-        
+
         if scale_factor <= 0:
             return TimingSyncResult(success=False, error_message="Invalid scale factor")
 
@@ -209,9 +209,7 @@ class SubtitleTimingProcessor:
                 end = self._to_seconds(match.group(5), match.group(6), match.group(7), match.group(8))
 
                 if start < last_end:
-                    result.warnings.append(
-                        f"Overlapping timestamps at {lines[1]!r} (start before previous end)"
-                    )
+                    result.warnings.append(f"Overlapping timestamps at {lines[1]!r} (start before previous end)")
                 if end < start:
                     result.is_valid = False
                     result.errors.append("End time is before start time")

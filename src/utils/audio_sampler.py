@@ -3,6 +3,7 @@
 Extrahiert ein kurzes Audio-Sample aus einer Videodatei.
 Ausgabe: temporäre WAV-Datei (16kHz, Mono) — Whisper-optimiert.
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -37,21 +38,25 @@ def extract_audio_sample(
     # 16kHz Mono WAV — optimales Format für Whisper und AcoustID
     args = [
         "-y",
-        "-ss", str(offset),
-        "-i", str(video_path),
-        "-t", str(duration),
-        "-map", f"0:a:{stream_index}",
-        "-ar", "16000",           # 16kHz Sample-Rate
-        "-ac", "1",               # Mono
-        "-acodec", "pcm_s16le",   # Unkomprimiertes PCM
-        "-vn",                    # Kein Video
+        "-ss",
+        str(offset),
+        "-i",
+        str(video_path),
+        "-t",
+        str(duration),
+        "-map",
+        f"0:a:{stream_index}",
+        "-ar",
+        "16000",  # 16kHz Sample-Rate
+        "-ac",
+        "1",  # Mono
+        "-acodec",
+        "pcm_s16le",  # Unkomprimiertes PCM
+        "-vn",  # Kein Video
         str(out_path),
     ]
     result = run_ffmpeg(args)
     if not result.success or not out_path.exists():
         out_path.unlink(missing_ok=True)
-        raise RuntimeError(
-            f"Audio-Extraktion fehlgeschlagen für {video_path.name}: "
-            f"{result.stderr[:200]}"
-        )
+        raise RuntimeError(f"Audio-Extraktion fehlgeschlagen für {video_path.name}: " f"{result.stderr[:200]}")
     return out_path

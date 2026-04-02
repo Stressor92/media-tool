@@ -14,10 +14,10 @@ from typing import Any
 
 
 class StepStatus(Enum):
-    SUCCESS = auto()   # Step erfolgreich abgeschlossen
-    SKIPPED = auto()   # Precondition nicht erfüllt → kein Fehler
-    FAILED  = auto()   # Fehler – Runner bricht ab oder fährt fort je nach Config
-    PARTIAL = auto()   # Teilweise erfolgreich (z. B. ein Film von drei)
+    SUCCESS = auto()  # Step erfolgreich abgeschlossen
+    SKIPPED = auto()  # Precondition nicht erfüllt → kein Fehler
+    FAILED = auto()  # Fehler – Runner bricht ab oder fährt fort je nach Config
+    PARTIAL = auto()  # Teilweise erfolgreich (z. B. ein Film von drei)
 
 
 @dataclass
@@ -38,10 +38,10 @@ class WorkflowContext:
     nachfolgende Steps können darauf aufbauen.
     """
 
-    source_dir: Path                # Eingangsordner (z. B. E:\Downloads\Movies)
-    output_dir: Path                # Zielordner     (z. B. Y:\Movies)
+    source_dir: Path  # Eingangsordner (z. B. E:\Downloads\Movies)
+    output_dir: Path  # Zielordner     (z. B. Y:\Movies)
     dry_run: bool = False
-    stop_on_failure: bool = True    # Pipeline abbrechen bei erstem Fehler
+    stop_on_failure: bool = True  # Pipeline abbrechen bei erstem Fehler
 
     # Wird während des Laufs befüllt
     working_files: list[Path] = field(default_factory=list)

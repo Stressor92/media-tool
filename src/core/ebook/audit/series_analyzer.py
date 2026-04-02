@@ -21,10 +21,14 @@ class SeriesAnalyzer:
             whole_numbers = sorted({int(i) for i in raw_indices if i >= 1 and float(i).is_integer()})
             if len(whole_numbers) < 2:
                 continue
-            for left, right in zip(whole_numbers, whole_numbers[1:]):
+            for left, right in zip(whole_numbers, whole_numbers[1:], strict=False):
                 if right - left > 1:
                     gaps.append(f"{series_name}: Missing #{left + 1} to #{right - 1}")
         return gaps
 
     def find_incomplete(self, grouped_indices: dict[str, list[float]]) -> list[str]:
-        return [f"{series_name} ({len(indices)} books)" for series_name, indices in grouped_indices.items() if 1 <= len(indices) <= 2]
+        return [
+            f"{series_name} ({len(indices)} books)"
+            for series_name, indices in grouped_indices.items()
+            if 1 <= len(indices) <= 2
+        ]

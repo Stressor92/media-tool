@@ -4,12 +4,13 @@ Central registry of all known subtitle formats.
 Maps SubtitleFormat enum values to their reader/writer functions.
 Uses lazy imports: format modules are loaded on first access.
 """
+
 from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from core.translation.models import SubtitleDocument, SubtitleFormat
 
@@ -30,26 +31,26 @@ class FormatRegistry:
         from core.translation.formats import ass, lrc, sbv, scc, srt, stl, ttml, vtt
 
         cls._readers = {
-            SubtitleFormat.SRT:  srt.read,
-            SubtitleFormat.ASS:  ass.read,
-            SubtitleFormat.SSA:  ass.read,
-            SubtitleFormat.VTT:  vtt.read,
+            SubtitleFormat.SRT: srt.read,
+            SubtitleFormat.ASS: ass.read,
+            SubtitleFormat.SSA: ass.read,
+            SubtitleFormat.VTT: vtt.read,
             SubtitleFormat.TTML: ttml.read,
             SubtitleFormat.DFXP: ttml.read,
-            SubtitleFormat.SCC:  scc.read,
-            SubtitleFormat.STL:  stl.read,
-            SubtitleFormat.LRC:  lrc.read,
-            SubtitleFormat.SBV:  sbv.read,
+            SubtitleFormat.SCC: scc.read,
+            SubtitleFormat.STL: stl.read,
+            SubtitleFormat.LRC: lrc.read,
+            SubtitleFormat.SBV: sbv.read,
         }
         cls._writers = {
-            SubtitleFormat.SRT:  srt.write,
-            SubtitleFormat.ASS:  ass.write,
-            SubtitleFormat.VTT:  vtt.write,
+            SubtitleFormat.SRT: srt.write,
+            SubtitleFormat.ASS: ass.write,
+            SubtitleFormat.VTT: vtt.write,
             SubtitleFormat.TTML: ttml.write,
-            SubtitleFormat.SCC:  scc.write,
-            SubtitleFormat.STL:  stl.write,
-            SubtitleFormat.LRC:  lrc.write,
-            SubtitleFormat.SBV:  sbv.write,
+            SubtitleFormat.SCC: scc.write,
+            SubtitleFormat.STL: stl.write,
+            SubtitleFormat.LRC: lrc.write,
+            SubtitleFormat.SBV: sbv.write,
         }
 
     @classmethod
@@ -100,10 +101,7 @@ class FormatRegistry:
     def get_writer(cls, fmt: SubtitleFormat) -> WriterFn:
         cls._ensure_loaded()
         if fmt not in cls._writers:
-            raise ValueError(
-                f"No writer for format: {fmt.value}. "
-                f"Available: {[f.value for f in cls._writers]}"
-            )
+            raise ValueError(f"No writer for format: {fmt.value}. " f"Available: {[f.value for f in cls._writers]}")
         return cls._writers[fmt]
 
     @classmethod

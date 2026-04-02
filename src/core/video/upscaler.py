@@ -22,10 +22,10 @@ Rules:
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
@@ -43,8 +43,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 ANIME_KEYWORDS = re.compile(
-    r"anime|ova|episode|ep\d{1,3}|crunchyroll|funimation|"
-    r"subbed|simulcast|dubbed",
+    r"anime|ova|episode|ep\d{1,3}|crunchyroll|funimation|" r"subbed|simulcast|dubbed",
     re.IGNORECASE,
 )
 
@@ -75,7 +74,7 @@ class UpscaleOptions:
     eq_contrast: float = 1.02
     eq_brightness: float = 0.0
     eq_saturation: float = 1.02
-    unsharp_luma: float = 0.15       # luma amount (5x5 matrix) — gentler default, DVD edges can't support more
+    unsharp_luma: float = 0.15  # luma amount (5x5 matrix) — gentler default, DVD edges can't support more
 
     # Deinterlacing — enable for PAL TV recordings and interlaced DVD sources
     # yadif: fast field-aware deinterlace; bwdif: slower but higher quality
@@ -263,9 +262,7 @@ def _build_filter_chain(
 
     # Colour correction
     filters.append(
-        f"eq=contrast={opts.eq_contrast}:"
-        f"brightness={opts.eq_brightness}:"
-        f"saturation={opts.eq_saturation}"
+        f"eq=contrast={opts.eq_contrast}:" f"brightness={opts.eq_brightness}:" f"saturation={opts.eq_saturation}"
     )
 
     # Very light sharpening (luma only) — keep low to avoid ringing on soft DVD edges.
@@ -364,8 +361,8 @@ def upscale_dvd(
         )
 
     height = int(video.get("height", 0))
-    width  = int(video.get("width",  0))
-    codec  = video.get("codec_name", "unknown")
+    width = int(video.get("width", 0))
+    codec = video.get("codec_name", "unknown")
 
     logger.info("%s — %dx%d %s", source.name, width, height, codec)
 
@@ -423,22 +420,36 @@ def upscale_dvd(
 
     ffmpeg_args = [
         "-y",
-        "-i", str(source),
-        "-map", "0",
-        "-vf", vf,
-        "-c:v", opts.codec,
-        "-crf", str(opts.crf),
-        "-preset", opts.preset,
-        "-c:a", "copy",
-        "-c:s", "copy",
-        "-map_metadata", "0",
-        "-map_chapters", "0",
+        "-i",
+        str(source),
+        "-map",
+        "0",
+        "-vf",
+        vf,
+        "-c:v",
+        opts.codec,
+        "-crf",
+        str(opts.crf),
+        "-preset",
+        opts.preset,
+        "-c:a",
+        "copy",
+        "-c:s",
+        "copy",
+        "-map_metadata",
+        "0",
+        "-map_chapters",
+        "0",
         str(resolved_target),
     ]
 
     logger.info(
         "Starting upscale: %s → %s  [CRF=%d, %s, preset=%s]",
-        source.name, resolved_target.name, opts.crf, opts.codec, opts.preset,
+        source.name,
+        resolved_target.name,
+        opts.crf,
+        opts.codec,
+        opts.preset,
     )
 
     start = time.monotonic()
@@ -449,7 +460,10 @@ def upscale_dvd(
         size_after = round(resolved_target.stat().st_size / 1_073_741_824, 3)
         logger.info(
             "%s — Done in %.1fs. %.3fGB → %.3fGB (Δ %.3fGB)",
-            source.name, elapsed, size_before, size_after,
+            source.name,
+            elapsed,
+            size_before,
+            size_after,
             size_before - size_after,
         )
         return UpscaleResult(
@@ -470,10 +484,7 @@ def upscale_dvd(
         status=UpscaleStatus.FAILED,
         source=source,
         target=resolved_target,
-        message=(
-            f"ffmpeg failed (exit {ffmpeg_result.return_code}) "
-            f"after {elapsed:.1f}s."
-        ),
+        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}) " f"after {elapsed:.1f}s."),
         duration_seconds=elapsed,
         size_before_gb=size_before,
         ffmpeg_result=ffmpeg_result,

@@ -6,6 +6,7 @@ Requirements:
     MEDIA_TOOL_LIVE_INTEGRATION_TESTS=1
   Jellyfin running and [jellyfin] configured in media-tool.toml.
 """
+
 from __future__ import annotations
 
 import os
@@ -72,9 +73,7 @@ class TestJellyfinLive:
         results = live_manager.search_items("a", limit=5)
         assert isinstance(results, list)
 
-    def test_refresh_all_triggers_without_error(
-        self, live_manager: LibraryManager
-    ) -> None:
+    def test_refresh_all_triggers_without_error(self, live_manager: LibraryManager) -> None:
         result = live_manager.refresh_all()
         assert result.triggered is True
         assert result.error is None

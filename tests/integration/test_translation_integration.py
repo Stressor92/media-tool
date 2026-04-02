@@ -6,6 +6,7 @@ Requires: MEDIA_TOOL_LIVE_INTEGRATION_TESTS=1
           pip install ctranslate2 transformers sentencepiece
           (Model is downloaded automatically on first run)
 """
+
 from __future__ import annotations
 
 import os
@@ -67,7 +68,7 @@ class TestOpusMtIntegration:
             source_path=src,
             language_pair=LanguagePair.en_to_de(),
             backend="opus-mt",
-            model_size="standard",   # Standard for faster test
+            model_size="standard",  # Standard for faster test
         )
 
         assert result.status == TranslationStatus.SUCCESS

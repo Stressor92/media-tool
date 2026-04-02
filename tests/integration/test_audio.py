@@ -12,13 +12,14 @@ Tests validate the complete audio processing workflow including:
 """
 
 from core.audio import (
-    extract_audio_metadata_enhanced,
+    AudioEnhancementResult,
     convert_audio,
-    organize_music,
+    extract_audio_metadata_enhanced,
     improve_audio_file,
     improve_audio_library,
-    AudioEnhancementResult,
+    organize_music,
 )
+
 from .conftest import create_test_audio
 
 
@@ -28,16 +29,8 @@ class TestAudioScanIntegration:
     def test_scan_audio_directory(self, tmp_path):
         """Test scanning a directory with multiple audio files."""
         # Create test audio files
-        audio1 = create_test_audio(
-            tmp_path / "song1.mp3",
-            duration=30,
-            language="und"
-        )
-        audio2 = create_test_audio(
-            tmp_path / "song2.flac",
-            duration=45,
-            language="und"
-        )
+        audio1 = create_test_audio(tmp_path / "song1.mp3", duration=30, language="und")
+        audio2 = create_test_audio(tmp_path / "song2.flac", duration=45, language="und")
 
         # Scan directory
         metadata_list = []
@@ -91,11 +84,7 @@ class TestAudioConvertIntegration:
     def test_convert_mp3_to_flac(self, tmp_path):
         """Test converting MP3 to FLAC format."""
         # Create test MP3 file
-        input_file = create_test_audio(
-            tmp_path / "input.mp3",
-            duration=10,
-            language="und"
-        )
+        input_file = create_test_audio(tmp_path / "input.mp3", duration=10, language="und")
 
         output_file = tmp_path / "output.flac"
 
@@ -117,10 +106,7 @@ class TestAudioConvertIntegration:
         # Create multiple test files
         files = []
         for i in range(3):
-            audio_file = create_test_audio(
-                tmp_path / f"input_{i}.mp3",
-                duration=5
-            )
+            audio_file = create_test_audio(tmp_path / f"input_{i}.mp3", duration=5)
             files.append(audio_file)
 
         # Convert all to FLAC
@@ -198,10 +184,7 @@ class TestAudioImproveIntegration:
     def test_improve_single_audio_file(self, tmp_path):
         """Test improving a single audio file."""
         # Create test audio file
-        input_file = create_test_audio(
-            tmp_path / "input.mp3",
-            duration=10
-        )
+        input_file = create_test_audio(tmp_path / "input.mp3", duration=10)
 
         output_file = tmp_path / "improved.mp3"
 

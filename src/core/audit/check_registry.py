@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from core.audit.check import BaseCheck
 from core.audit.checks.audio_checks import MissingDeAudioCheck, UnlabeledAudioCheck
@@ -29,7 +28,7 @@ from core.audit.checks.subtitle_checks import (
 )
 
 
-def _build_defaults(root_dir: Optional[Path] = None) -> list[BaseCheck]:
+def _build_defaults(root_dir: Path | None = None) -> list[BaseCheck]:
     checks: list[BaseCheck] = [
         MissingDeSubtitleCheck(),
         MissingEnSubtitleCheck(),
@@ -57,19 +56,19 @@ def _build_defaults(root_dir: Optional[Path] = None) -> list[BaseCheck]:
 
 class CheckRegistry:
     @staticmethod
-    def all_checks(root_dir: Optional[Path] = None) -> list[BaseCheck]:
+    def all_checks(root_dir: Path | None = None) -> list[BaseCheck]:
         """Return every registered check instance."""
         return _build_defaults(root_dir)
 
     @staticmethod
-    def default_checks(root_dir: Optional[Path] = None) -> list[BaseCheck]:
+    def default_checks(root_dir: Path | None = None) -> list[BaseCheck]:
         """Return the default set of checks (all checks)."""
         return _build_defaults(root_dir)
 
     @staticmethod
     def get_checks(
-        ids: Optional[list[str]] = None,
-        root_dir: Optional[Path] = None,
+        ids: list[str] | None = None,
+        root_dir: Path | None = None,
     ) -> list[BaseCheck]:
         """Return checks filtered by their check_id.  ``None`` returns all."""
         all_c = _build_defaults(root_dir)

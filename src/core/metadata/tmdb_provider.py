@@ -60,11 +60,7 @@ class TmdbProvider:
         keywords_data = data.get("keywords", {})
         if not isinstance(keywords_data, dict):
             keywords_data = {}
-        keywords = [
-            str(k.get("name", ""))
-            for k in keywords_data.get("keywords", [])
-            if isinstance(k, dict)
-        ]
+        keywords = [str(k.get("name", "")) for k in keywords_data.get("keywords", []) if isinstance(k, dict)]
 
         release = str(data.get("release_date", "") or "")
         year = int(release[:4]) if len(release) >= 4 and release[:4].isdigit() else None

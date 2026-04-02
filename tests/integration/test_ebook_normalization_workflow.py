@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 from core.ebook.cover.cover_selector import CoverSelector
 from core.ebook.cover.cover_service import CoverService
 from core.ebook.cover.providers.provider import CoverImage
 from core.ebook.models import BookMetadata
-from core.ebook.normalization import EpubValidator, EbookNormalizer, MetadataEmbedder, TocGenerator
+from core.ebook.normalization import EbookNormalizer, EpubValidator, MetadataEmbedder, TocGenerator
 from tests.ebook_test_support import create_image_bytes, create_minimal_epub
 from utils.epub_reader import EpubReader
 from utils.epub_writer import EpubWriter

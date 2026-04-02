@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import MutableMapping
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, MutableMapping
+from typing import Any
 
 from rich.logging import RichHandler
 
@@ -26,10 +27,7 @@ class JsonFormatter(logging.Formatter):
         }
         context = getattr(record, "context", None)
         if isinstance(context, dict) and context:
-            payload["context"] = {
-                str(key): context[key]
-                for key in sorted(context.keys(), key=str)
-            }
+            payload["context"] = {str(key): context[key] for key in sorted(context.keys(), key=str)}
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=True)
@@ -51,9 +49,7 @@ class ContextFormatter(logging.Formatter):
 class ContextAdapter(logging.LoggerAdapter):
     """Logger adapter that merges base context with per-call context."""
 
-    def process(
-        self, msg: object, kwargs: MutableMapping[str, Any]
-    ) -> tuple[object, MutableMapping[str, Any]]:
+    def process(self, msg: object, kwargs: MutableMapping[str, Any]) -> tuple[object, MutableMapping[str, Any]]:
         extra = kwargs.get("extra")
         merged: dict[str, Any] = {}
 

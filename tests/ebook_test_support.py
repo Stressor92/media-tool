@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import zipfile
 from io import BytesIO
 from pathlib import Path
-import zipfile
 
 from PIL import Image
 

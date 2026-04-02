@@ -24,7 +24,10 @@ class MetadataService:
             for provider in self.providers:
                 metadata = provider.search_by_isbn(book_identity.isbn)
                 if metadata is not None:
-                    logger.info("Book metadata found via ISBN", extra={"provider": provider.get_provider_name(), "isbn": book_identity.isbn})
+                    logger.info(
+                        "Book metadata found via ISBN",
+                        extra={"provider": provider.get_provider_name(), "isbn": book_identity.isbn},
+                    )
                     return metadata.with_calculated_completeness()
 
         all_results: list[BookMetadata] = []
@@ -37,7 +40,9 @@ class MetadataService:
                 all_results.extend(provider.search_by_title(book_identity.title, author=None, limit=3))
 
         if not all_results:
-            logger.warning("No ebook metadata found", extra={"title": book_identity.title, "author": book_identity.author})
+            logger.warning(
+                "No ebook metadata found", extra={"title": book_identity.title, "author": book_identity.author}
+            )
             return None
 
         return self._select_best_match(book_identity, all_results)
@@ -57,5 +62,8 @@ class MetadataService:
 
         scored_candidates.sort(key=lambda item: item[0], reverse=True)
         best_score, best_candidate = scored_candidates[0]
-        logger.info("Best ebook metadata match selected", extra={"title": best_candidate.title, "provider": best_candidate.source, "score": round(best_score, 2)})
+        logger.info(
+            "Best ebook metadata match selected",
+            extra={"title": best_candidate.title, "provider": best_candidate.source, "score": round(best_score, 2)},
+        )
         return best_candidate

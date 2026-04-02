@@ -47,8 +47,7 @@ class AuditReporter:
     def render_summary(report: AuditReport) -> str:
         lines = [
             f"\n── Audit-Report: {report.root_dir} ──────────────────────",
-            f"   Dateien geprüft: {report.total_files}  |  "
-            f"Dauer: {report.duration_seconds:.1f}s",
+            f"   Dateien geprüft: {report.total_files}  |  " f"Dauer: {report.duration_seconds:.1f}s",
             "",
         ]
 
@@ -57,9 +56,7 @@ class AuditReporter:
             return "\n".join(lines)
 
         by_kind = report.by_kind
-        for kind, findings in sorted(
-            by_kind.items(), key=lambda x: x[1][0].severity.value
-        ):
+        for kind, findings in sorted(by_kind.items(), key=lambda x: x[1][0].severity.value):
             icon = _SEVERITY_ICONS.get(findings[0].severity, "?")
             label = _KIND_LABELS.get(kind, kind.value)
             lines.append(f"  {icon}  {len(findings):>4}×  {label}")
@@ -86,10 +83,7 @@ class AuditReporter:
                 if f.suggested_command:
                     lines.append(f"       → {f.suggested_command}")
             if len(findings) > max_per_kind:
-                lines.append(
-                    f"  … und {len(findings) - max_per_kind} weitere "
-                    "(--export für vollständige Liste)"
-                )
+                lines.append(f"  … und {len(findings) - max_per_kind} weitere " "(--export für vollständige Liste)")
         return "\n".join(lines)
 
     # ── CSV ─────────────────────────────────────────────────────────────
@@ -130,10 +124,7 @@ class AuditReporter:
             "root_dir": str(report.root_dir),
             "total_files": report.total_files,
             "duration_seconds": report.duration_seconds,
-            "summary": {
-                kind.value: len(findings)
-                for kind, findings in report.by_kind.items()
-            },
+            "summary": {kind.value: len(findings) for kind, findings in report.by_kind.items()},
             "findings": [
                 {
                     "severity": f.severity.name,
@@ -146,6 +137,4 @@ class AuditReporter:
                 for f in report.all_findings
             ],
         }
-        output_path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        output_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

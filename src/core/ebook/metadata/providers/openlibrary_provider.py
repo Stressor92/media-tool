@@ -6,8 +6,8 @@ from typing import Any
 
 import requests
 
-from core.ebook.models import BookMetadata
 from core.ebook.metadata.providers.provider import MetadataProvider
+from core.ebook.models import BookMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,9 @@ class OpenLibraryProvider(MetadataProvider):
                     authors.append(author_name)
 
         subjects = data.get("subjects", [])
-        genres = [str(subject) for subject in subjects[:5] if isinstance(subject, str)] if isinstance(subjects, list) else []
+        genres = (
+            [str(subject) for subject in subjects[:5] if isinstance(subject, str)] if isinstance(subjects, list) else []
+        )
         publisher = self._first_string(data.get("publishers"))
         metadata = BookMetadata(
             title=str(data.get("title", "Unknown") or "Unknown"),
@@ -104,7 +106,11 @@ class OpenLibraryProvider(MetadataProvider):
             return None
 
         author_names = doc.get("author_name", [])
-        authors = [str(author_name) for author_name in author_names if isinstance(author_name, str)] if isinstance(author_names, list) else []
+        authors = (
+            [str(author_name) for author_name in author_names if isinstance(author_name, str)]
+            if isinstance(author_names, list)
+            else []
+        )
         language_codes = doc.get("language", [])
         language = "en"
         if isinstance(language_codes, list):

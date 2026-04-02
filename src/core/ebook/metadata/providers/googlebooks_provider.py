@@ -5,8 +5,8 @@ from typing import Any
 
 import requests
 
-from core.ebook.models import BookMetadata
 from core.ebook.metadata.providers.provider import MetadataProvider
+from core.ebook.models import BookMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,9 @@ class GoogleBooksProvider(MetadataProvider):
                     isbn13 = value
 
         categories = volume.get("categories", [])
-        genres = [category for category in categories if isinstance(category, str)] if isinstance(categories, list) else []
+        genres = (
+            [category for category in categories if isinstance(category, str)] if isinstance(categories, list) else []
+        )
 
         language = volume.get("language")
         normalized_language = language if isinstance(language, str) and language else "en"

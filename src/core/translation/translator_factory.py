@@ -28,6 +28,7 @@ def create_translator(
 
     if backend_enum == TranslatorBackend.OPUS_MT:
         from core.translation.opus_mt_translator import OpusMtTranslator
+
         return OpusMtTranslator(
             model_cache_dir=model_cache_dir,
             device=device,
@@ -36,6 +37,7 @@ def create_translator(
 
     if backend_enum == TranslatorBackend.ARGOS:
         from core.translation.argos_translator import ArgosTranslator
+
         return ArgosTranslator()
 
     raise ValueError(f"Unknown backend: {backend!r}")

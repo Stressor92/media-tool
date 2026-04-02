@@ -5,6 +5,7 @@ SCC (Scenarist Closed Captions) – CEA-608 decoder/encoder.
 SCC encodes subtitles as 2-byte hex pairs per frame.
 This implementation decodes the basic character set (Channel 1, Pop-On mode).
 """
+
 from __future__ import annotations
 
 import re
@@ -15,8 +16,8 @@ from core.translation.models import SubtitleDocument, SubtitleFormat, SubtitleSe
 _TIMESTAMP_RE = re.compile(r"(\d{2}):(\d{2}):(\d{2});(\d{2})")
 
 # Pop-On mode control codes (channel 1)
-_CTRL_ERASE_NON_DISPLAYED    = 0x142C
-_CTRL_END_OF_CAPTION         = 0x142F
+_CTRL_ERASE_NON_DISPLAYED = 0x142C
+_CTRL_END_OF_CAPTION = 0x142F
 _CTRL_RESUME_CAPTION_LOADING = 0x1420
 
 
@@ -26,8 +27,8 @@ def _frames_to_ms(h: int, m: int, s: int, f: int, fps: float = 29.97) -> int:
 
 
 def _ms_to_srt_time(ms: int) -> str:
-    h, rem  = divmod(ms, 3_600_000)
-    m, rem  = divmod(rem, 60_000)
+    h, rem = divmod(ms, 3_600_000)
+    m, rem = divmod(rem, 60_000)
     s, ms_r = divmod(rem, 1_000)
     return f"{h:02d}:{m:02d}:{s:02d},{ms_r:03d}"
 
@@ -84,12 +85,14 @@ def read(path: Path) -> SubtitleDocument:
             if word == _CTRL_END_OF_CAPTION:
                 if pending_text.strip() and pending_start_ms is not None:
                     index += 1
-                    segments.append(SubtitleSegment(
-                        index=index,
-                        start=_ms_to_srt_time(pending_start_ms),
-                        end=_ms_to_srt_time(current_ms),
-                        text=pending_text.strip(),
-                    ))
+                    segments.append(
+                        SubtitleSegment(
+                            index=index,
+                            start=_ms_to_srt_time(pending_start_ms),
+                            end=_ms_to_srt_time(current_ms),
+                            text=pending_text.strip(),
+                        )
+                    )
                 pending_text = ""
                 pending_start_ms = None
                 continue
@@ -115,7 +118,7 @@ def write(doc: SubtitleDocument, path: Path) -> None:
     def ms_to_scc_ts(ms: int) -> str:
         total_s, ms_r = divmod(ms, 1000)
         h, rem = divmod(total_s, 3600)
-        m, s   = divmod(rem, 60)
+        m, s = divmod(rem, 60)
         f = int(ms_r / 1000 * fps)
         return f"{h:02d}:{m:02d}:{s:02d};{f:02d}"
 
@@ -125,7 +128,7 @@ def write(doc: SubtitleDocument, path: Path) -> None:
 
         pairs: list[str] = []
         for i in range(0, len(text), 2):
-            chunk = text[i:i + 2].ljust(2)
+            chunk = text[i : i + 2].ljust(2)
             b1 = ord(chunk[0]) & 0x7F
             b2 = ord(chunk[1]) & 0x7F
             pairs.append(f"{b1:02x}{b2:02x}")

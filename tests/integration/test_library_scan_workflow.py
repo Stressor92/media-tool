@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import pytest
+from mutagen.easyid3 import EasyID3
 from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
-from mutagen.easyid3 import EasyID3
 
 from core.audio.csv_exporter import CSVExporter
 from core.audio.library_scanner import LibraryScanner

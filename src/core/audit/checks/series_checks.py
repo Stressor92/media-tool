@@ -19,13 +19,9 @@ class EpisodeGapCheck(BaseCheck):
     check_id = "A06"
     check_name = "Fehlende Episoden (Lücken in Staffeln)"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         # Dateien nach Serie/Staffel gruppieren
-        series_map: dict[str, dict[int, list[int]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
+        series_map: dict[str, dict[int, list[int]]] = defaultdict(lambda: defaultdict(list))
 
         for f in files:
             m = _EPISODE_RE.search(f.name)
@@ -33,9 +29,7 @@ class EpisodeGapCheck(BaseCheck):
                 continue
             season = int(m.group(1))
             episode = int(m.group(2))
-            series_name = (
-                f.parents[1].name if len(f.parents) >= 2 else f.parent.name
-            )
+            series_name = f.parents[1].name if len(f.parents) >= 2 else f.parent.name
             series_map[series_name][season].append(episode)
 
         findings = []
@@ -48,12 +42,7 @@ class EpisodeGapCheck(BaseCheck):
                 missing = [e for e in expected if e not in sorted_eps]
                 if missing:
                     series_path = next(
-                        (
-                            f.parents[1]
-                            for f in files
-                            if len(f.parents) >= 2
-                            and f.parents[1].name == series_name
-                        ),
+                        (f.parents[1] for f in files if len(f.parents) >= 2 and f.parents[1].name == series_name),
                         Path(series_name),
                     )
                     findings.append(
@@ -82,9 +71,7 @@ class BadEpisodeNamingCheck(BaseCheck):
     check_id = "A07"
     check_name = "Episoden ohne S##E##-Benennung"
 
-    def run(
-        self, files: list[Path], probes: dict[Path, dict[str, Any]]
-    ) -> list[AuditFinding]:
+    def run(self, files: list[Path], probes: dict[Path, dict[str, Any]]) -> list[AuditFinding]:
         findings = []
         for f in files:
             is_in_series = any(_SEASON_DIR.search(p.name) for p in f.parents)
@@ -94,10 +81,7 @@ class BadEpisodeNamingCheck(BaseCheck):
                         kind=FindingKind.BAD_EPISODE_NAMING,
                         severity=CheckSeverity.HIGH,
                         path=f,
-                        message=(
-                            f"Datei liegt in Serien-Ordner, "
-                            f"enthält aber kein S##E##-Muster: '{f.name}'"
-                        ),
+                        message=(f"Datei liegt in Serien-Ordner, " f"enthält aber kein S##E##-Muster: '{f.name}'"),
                     )
                 )
         return findings

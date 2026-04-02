@@ -7,13 +7,13 @@ Orchestrates the full translation pipeline:
 
 Single public entry point for the rest of the project.
 """
+
 from __future__ import annotations
 
 import logging
 import re
 import time
 from pathlib import Path
-from typing import Optional
 
 from core.translation.chunking import SubtitleChunk, build_chunks, split_translated_chunk
 from core.translation.models import (
@@ -109,9 +109,7 @@ class SubtitleTranslator:
                 error_message=f"File not found: {source_path}",
             )
 
-        resolved_output = output_path or self._default_output_path(
-            source_path, language_pair
-        )
+        resolved_output = output_path or self._default_output_path(source_path, language_pair)
 
         if resolved_output.exists() and not overwrite:
             return TranslationResult(
@@ -132,7 +130,8 @@ class SubtitleTranslator:
             if detected and detected != language_pair.source:
                 logger.warning(
                     "Auto-detected language '%s' differs from '--from %s'; using detected.",
-                    detected, language_pair.source,
+                    detected,
+                    language_pair.source,
                 )
                 effective_pair = LanguagePair(source=detected, target=language_pair.target)
 
@@ -175,14 +174,15 @@ class SubtitleTranslator:
         )
         logger.info(
             "Translating %d segments in %d chunks [%s] via %s ...",
-            len(doc.segments), len(chunks), pair, request.backend,
+            len(doc.segments),
+            len(chunks),
+            pair,
+            request.backend,
         )
 
         translated_by_index: dict[int, str] = {}
         for chunk in chunks:
-            translated_by_index.update(
-                self._translate_chunk(chunk, pair, translator)
-            )
+            translated_by_index.update(self._translate_chunk(chunk, pair, translator))
 
         new_segments: list[SubtitleSegment] = []
         for idx, seg in enumerate(doc.segments):
@@ -193,13 +193,15 @@ class SubtitleTranslator:
                     max_chars=self._max_line_length,
                     max_lines=self._max_lines,
                 )
-            new_segments.append(SubtitleSegment(
-                index=seg.index,
-                start=seg.start,
-                end=seg.end,
-                text=translated,
-                raw_tags=seg.raw_tags,
-            ))
+            new_segments.append(
+                SubtitleSegment(
+                    index=seg.index,
+                    start=seg.start,
+                    end=seg.end,
+                    text=translated,
+                    raw_tags=seg.raw_tags,
+                )
+            )
 
         translated_doc = SubtitleDocument(
             segments=new_segments,
@@ -214,7 +216,9 @@ class SubtitleTranslator:
 
         logger.info(
             "Translation complete: %d segments in %.1fs -> %s",
-            len(new_segments), elapsed, output_path.name,
+            len(new_segments),
+            elapsed,
+            output_path.name,
         )
 
         return TranslationResult(
@@ -257,9 +261,7 @@ class SubtitleTranslator:
                 clean_texts.append(orig_text)
                 tag_mappings_per_seg.append([])
 
-        translated_clean: list[Optional[str]] = [
-            self._cache.get(pair.source, pair.target, t) for t in clean_texts
-        ]
+        translated_clean: list[str | None] = [self._cache.get(pair.source, pair.target, t) for t in clean_texts]
 
         uncached_indices = [i for i, v in enumerate(translated_clean) if v is None]
         uncached_texts = [clean_texts[i] for i in uncached_indices]
@@ -278,7 +280,7 @@ class SubtitleTranslator:
             )
             per_segment = split_translated_chunk(mock_chunk, combined_translated)
 
-            for local_i, seg_translation in zip(uncached_indices, per_segment):
+            for local_i, seg_translation in zip(uncached_indices, per_segment, strict=False):
                 translated_clean[local_i] = seg_translation
                 self._cache.put(pair.source, pair.target, clean_texts[local_i], seg_translation)
 
@@ -304,7 +306,7 @@ class SubtitleTranslator:
         )
 
     @staticmethod
-    def _detect_language(segments: list[SubtitleSegment]) -> Optional[str]:
+    def _detect_language(segments: list[SubtitleSegment]) -> str | None:
         """
         Use langdetect to detect the language of the first N segments.
         Returns an ISO 639-1 code, or None if detection fails / langdetect not installed.

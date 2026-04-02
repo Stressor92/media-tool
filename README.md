@@ -462,6 +462,19 @@ Type checking:
 python -m mypy .
 ```
 
+Formatting and linting:
+
+```bash
+python -m ruff format .
+python -m ruff check . --fix
+```
+
+Pre-commit hooks (includes Ruff + mypy):
+
+```bash
+python -m pre_commit run --all-files
+```
+
 ## Project Structure
 
 ```

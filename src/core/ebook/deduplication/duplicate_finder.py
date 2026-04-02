@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from pathlib import Path
-import logging
 from typing import Protocol
 
-from core.ebook.models import BookIdentity, DuplicateGroup
 from core.ebook.deduplication.version_comparator import VersionComparator
+from core.ebook.models import BookIdentity, DuplicateGroup
 from utils.fuzzy_matcher import FuzzyMatcher
 
 logger = logging.getLogger(__name__)

@@ -47,8 +47,8 @@ class UpscaleDvdStep(BaseStep):
         return len(candidates) > 0
 
     def run(self, ctx: WorkflowContext) -> StepResult:
-        from core.video.upscaler import UpscaleStatus, upscale_dvd
         from core.video.upscale_profiles import resolve_upscale_options
+        from core.video.upscaler import UpscaleStatus, upscale_dvd
 
         opts = resolve_upscale_options("dvd-hq", overwrite=False)
         candidates: list[Path] = ctx.metadata["dvd_candidates"]
@@ -71,9 +71,7 @@ class UpscaleDvdStep(BaseStep):
                     upscale_result.message,
                 )
 
-        ctx.working_files = [
-            f for f in ctx.working_files if f not in originals
-        ] + outputs
+        ctx.working_files = [f for f in ctx.working_files if f not in originals] + outputs
 
         return StepResult(
             step_name=self.name,

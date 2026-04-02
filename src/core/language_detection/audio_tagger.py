@@ -3,6 +3,7 @@
 Schreibt das erkannte Sprachkürzel in die MKV-Metadaten
 via FFmpeg (lossless remux — kein Re-Encoding).
 """
+
 from __future__ import annotations
 
 import logging
@@ -11,9 +12,7 @@ import tempfile
 from pathlib import Path
 
 from core.language_detection.models import (
-    DetectionMethod,
     DetectionRequest,
-    LanguageDetectionResult,
     TaggingResult,
     TaggingStatus,
 )
@@ -43,52 +42,50 @@ class AudioTagger:
         min_confidence: float = 0.85,
         create_backup: bool = False,
     ) -> None:
-        self._pipeline       = pipeline or LanguageDetectionPipeline()
+        self._pipeline = pipeline or LanguageDetectionPipeline()
         self._min_confidence = min_confidence
-        self._create_backup  = create_backup
+        self._create_backup = create_backup
 
     def tag_file(
         self,
         path: Path,
         dry_run: bool = False,
-        force: bool = False,   # Auch bereits gelabelte Spuren überschreiben
+        force: bool = False,  # Auch bereits gelabelte Spuren überschreiben
     ) -> list[TaggingResult]:
         """
         Verarbeitet alle unlabeled Audio-Spuren einer Datei.
         Gibt eine Liste von TaggingResult (eine pro Spur) zurück.
         """
         if not path.exists():
-            return [TaggingResult(
-                status=TaggingStatus.FAILED,
-                path=path,
-                stream_index=0,
-                error="Datei nicht gefunden.",
-            )]
+            return [
+                TaggingResult(
+                    status=TaggingStatus.FAILED,
+                    path=path,
+                    stream_index=0,
+                    error="Datei nicht gefunden.",
+                )
+            ]
 
         probe = probe_file(path)
-        audio_streams = [
-            (i, s) for i, s in enumerate(
-                s for s in probe.streams if s.get("codec_type") == "audio"
-            )
-        ]
+        audio_streams = [(i, s) for i, s in enumerate(s for s in probe.streams if s.get("codec_type") == "audio")]
 
         results: list[TaggingResult] = []
         language_assignments: dict[int, str] = {}  # stream_index → language
 
         for audio_idx, stream in audio_streams:
-            existing_lang = (
-                (stream.get("tags", {}) or {}).get("language", "und").lower()
-            )
+            existing_lang = (stream.get("tags", {}) or {}).get("language", "und").lower()
 
             if existing_lang not in _UNDEFINED_LANGS and not force:
-                results.append(TaggingResult(
-                    status=TaggingStatus.SKIPPED,
-                    path=path,
-                    stream_index=audio_idx,
-                    detected_language=existing_lang,
-                    previous_language=existing_lang,
-                    error="Sprache bereits gesetzt.",
-                ))
+                results.append(
+                    TaggingResult(
+                        status=TaggingStatus.SKIPPED,
+                        path=path,
+                        stream_index=audio_idx,
+                        detected_language=existing_lang,
+                        previous_language=existing_lang,
+                        error="Sprache bereits gesetzt.",
+                    )
+                )
                 continue
 
             request = DetectionRequest(
@@ -96,35 +93,37 @@ class AudioTagger:
                 stream_index=audio_idx,
                 dry_run=dry_run,
             )
-            detection = self._pipeline.detect(
-                request, probe={"streams": probe.streams}
-            )
+            detection = self._pipeline.detect(request, probe={"streams": probe.streams})
 
             if detection.language == "und" or detection.confidence < self._min_confidence:
-                results.append(TaggingResult(
-                    status=TaggingStatus.FAILED,
-                    path=path,
-                    stream_index=audio_idx,
-                    detected_language=detection.language,
-                    confidence=detection.confidence,
-                    method=detection.method,
-                    error=(
-                        f"Konfidenz zu niedrig: {detection.confidence:.0%} "
-                        f"(Minimum: {self._min_confidence:.0%})"
-                    ),
-                ))
+                results.append(
+                    TaggingResult(
+                        status=TaggingStatus.FAILED,
+                        path=path,
+                        stream_index=audio_idx,
+                        detected_language=detection.language,
+                        confidence=detection.confidence,
+                        method=detection.method,
+                        error=(
+                            f"Konfidenz zu niedrig: {detection.confidence:.0%} "
+                            f"(Minimum: {self._min_confidence:.0%})"
+                        ),
+                    )
+                )
                 continue
 
             language_assignments[audio_idx] = detection.language
-            results.append(TaggingResult(
-                status=TaggingStatus.SUCCESS if not dry_run else TaggingStatus.SKIPPED,
-                path=path,
-                stream_index=audio_idx,
-                detected_language=detection.language,
-                previous_language=existing_lang,
-                confidence=detection.confidence,
-                method=detection.method,
-            ))
+            results.append(
+                TaggingResult(
+                    status=TaggingStatus.SUCCESS if not dry_run else TaggingStatus.SKIPPED,
+                    path=path,
+                    stream_index=audio_idx,
+                    detected_language=detection.language,
+                    previous_language=existing_lang,
+                    confidence=detection.confidence,
+                    method=detection.method,
+                )
+            )
 
         # Alle Sprachzuweisungen in einem einzigen FFmpeg-Aufruf schreiben
         if language_assignments and not dry_run:
@@ -162,9 +161,7 @@ class AudioTagger:
             shutil.copy2(path, backup)
             logger.info("Backup erstellt: %s", backup.name)
 
-        tmp = tempfile.NamedTemporaryFile(
-            suffix=path.suffix, dir=path.parent, delete=False
-        )
+        tmp = tempfile.NamedTemporaryFile(suffix=path.suffix, dir=path.parent, delete=False)
         tmp.close()
         tmp_path = Path(tmp.name)
 
@@ -179,11 +176,10 @@ class AudioTagger:
             shutil.move(str(tmp_path), str(path))
             logger.info(
                 "Sprach-Tags geschrieben: %s → %s",
-                path.name, assignments,
+                path.name,
+                assignments,
             )
             return path
         else:
             tmp_path.unlink(missing_ok=True)
-            raise RuntimeError(
-                f"FFmpeg Remux fehlgeschlagen: {result.stderr[:200]}"
-            )
+            raise RuntimeError(f"FFmpeg Remux fehlgeschlagen: {result.stderr[:200]}")

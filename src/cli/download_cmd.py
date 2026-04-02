@@ -40,13 +40,11 @@ def _validate_cookie_inputs(cookies_from_browser: str | None, cookies_file: Path
 def download_video(
     url: _URL,
     output: Annotated[Path | None, typer.Option("--output", "-o", help="Output directory.")] = None,
-    resolution: Annotated[int | None, typer.Option(help="Max resolution (480/720/1080/2160).")]=None,
+    resolution: Annotated[int | None, typer.Option(help="Max resolution (480/720/1080/2160).")] = None,
     lang: Annotated[str | None, typer.Option(help="Preferred language.")] = None,
     subtitles: Annotated[bool | None, typer.Option(help="Embed subtitles.")] = None,
     thumbnail: Annotated[bool | None, typer.Option(help="Embed thumbnail.")] = None,
-    subtitle_languages: Annotated[
-        str | None, typer.Option(help="Comma-separated subtitle languages (de,en).")
-    ] = None,
+    subtitle_languages: Annotated[str | None, typer.Option(help="Comma-separated subtitle languages (de,en).")] = None,
     sponsorblock: Annotated[bool, typer.Option(help="Remove sponsor segments.")] = True,
     cookies_from_browser: Annotated[
         str | None,
@@ -90,7 +88,7 @@ def download_music(
     url: _URL,
     output: Annotated[Path | None, typer.Option("--output", "-o", help="Output directory.")] = None,
     fmt: Annotated[str | None, typer.Option("--format", help="Audio format: mp3/flac/m4a/opus.")] = None,
-    quality: Annotated[str | None, typer.Option(help="Audio quality (e.g. 320k).")]=None,
+    quality: Annotated[str | None, typer.Option(help="Audio quality (e.g. 320k).")] = None,
     cookies_from_browser: Annotated[
         str | None,
         typer.Option("--cookies-from-browser", help="Browser cookie source (chrome/firefox)."),
@@ -129,9 +127,7 @@ def download_series(
     resolution: Annotated[int | None, typer.Option(help="Max resolution.")] = None,
     lang: Annotated[str | None, typer.Option(help="Preferred language.")] = None,
     subtitles: Annotated[bool | None, typer.Option(help="Embed subtitles.")] = None,
-    subtitle_languages: Annotated[
-        str | None, typer.Option(help="Comma-separated subtitle languages (de,en).")
-    ] = None,
+    subtitle_languages: Annotated[str | None, typer.Option(help="Comma-separated subtitle languages (de,en).")] = None,
     cookies_from_browser: Annotated[
         str | None,
         typer.Option("--cookies-from-browser", help="Browser cookie source (chrome/firefox)."),

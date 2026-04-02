@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Optional
 
-from .subtitle_provider import SubtitleProvider, SubtitleMatch, MovieInfo, DownloadResult
-from utils.video_hasher import VideoHasher
 from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
+from utils.video_hasher import VideoHasher
+
+from .subtitle_provider import DownloadResult, MovieInfo, SubtitleMatch, SubtitleProvider
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,7 @@ class SubtitleDownloadManager:
     - MKV embedding
     """
 
-    def __init__(
-        self,
-        provider: SubtitleProvider,
-        ffmpeg_runner: FFmpegMuxer
-    ):
+    def __init__(self, provider: SubtitleProvider, ffmpeg_runner: FFmpegMuxer):
         """
         Initialize download manager.
 
@@ -50,11 +47,11 @@ class SubtitleDownloadManager:
     def process(
         self,
         video_path: Path,
-        languages: Optional[List[str]] = None,
+        languages: list[str] | None = None,
         auto_select: bool = True,
         embed: bool = True,
         overwrite: bool = False,
-        selection_callback: Optional[Callable[[List[SubtitleMatch]], Optional[SubtitleMatch]]] = None,
+        selection_callback: Callable[[list[SubtitleMatch]], SubtitleMatch | None] | None = None,
     ) -> DownloadResult:
         """
         Complete subtitle download workflow:
@@ -83,55 +80,36 @@ class SubtitleDownloadManager:
 
         # Step 1: Pre-checks
         if not self._should_process_file(video_path, overwrite):
-            return DownloadResult(
-                success=False,
-                message="Subtitles already exist (use --overwrite to replace)"
-            )
+            return DownloadResult(success=False, message="Subtitles already exist (use --overwrite to replace)")
 
         # Step 2: Extract movie info
         try:
             movie_info = self._extract_movie_info(video_path)
         except Exception as e:
-            return DownloadResult(
-                success=False,
-                message=f"Failed to analyze video file: {e}"
-            )
+            return DownloadResult(success=False, message=f"Failed to analyze video file: {e}")
 
         # Step 3: Search for subtitles
         matches = self.provider.search(movie_info, languages)
 
         if not matches:
-            return DownloadResult(
-                success=False,
-                message="No subtitles found",
-                fallback_suggestion="whisper"
-            )
+            return DownloadResult(success=False, message="No subtitles found", fallback_suggestion="whisper")
 
         # Step 4: Select best match
         if auto_select:
             best_match = self.provider.get_best_match(matches)
         else:
             if selection_callback is None:
-                return DownloadResult(
-                    success=False,
-                    message="Interactive selection requires a CLI selection callback"
-                )
+                return DownloadResult(success=False, message="Interactive selection requires a CLI selection callback")
             best_match = selection_callback(matches)
 
         if not best_match:
-            return DownloadResult(
-                success=False,
-                message="No match selected"
-            )
+            return DownloadResult(success=False, message="No match selected")
 
         # Step 5: Download subtitle
         try:
             subtitle_path = self._download_subtitle(best_match, video_path)
         except Exception as e:
-            return DownloadResult(
-                success=False,
-                message=f"Download failed: {e}"
-            )
+            return DownloadResult(success=False, message=f"Download failed: {e}")
 
         # Step 6: Convert format if needed
         if best_match.format.lower() != "srt":
@@ -147,9 +125,7 @@ class SubtitleDownloadManager:
                 # Clean up external file after embedding
                 subtitle_path.unlink()
                 return DownloadResult(
-                    success=True,
-                    message=f"Embedded {best_match.language} subtitle",
-                    subtitle_info=best_match
+                    success=True, message=f"Embedded {best_match.language} subtitle", subtitle_info=best_match
                 )
             else:
                 logger.warning("Embedding failed, keeping external subtitle file")
@@ -158,7 +134,7 @@ class SubtitleDownloadManager:
             success=True,
             message=f"Downloaded to {subtitle_path}",
             subtitle_path=subtitle_path,
-            subtitle_info=best_match
+            subtitle_info=best_match,
         )
 
     def _should_process_file(self, video_path: Path, overwrite: bool) -> bool:
@@ -207,15 +183,10 @@ class SubtitleDownloadManager:
         title, year = self._parse_filename(video_path.stem)
 
         return MovieInfo(
-            file_path=video_path,
-            file_hash=file_hash,
-            file_size=file_size,
-            duration=duration,
-            title=title,
-            year=year
+            file_path=video_path, file_hash=file_hash, file_size=file_size, duration=duration, title=title, year=year
         )
 
-    def _parse_filename(self, filename: str) -> tuple[Optional[str], Optional[int]]:
+    def _parse_filename(self, filename: str) -> tuple[str | None, int | None]:
         """
         Extract title and year from filename.
 
@@ -223,10 +194,9 @@ class SubtitleDownloadManager:
         - "Movie.Name.2020.1080p.BluRay.mkv" → ("Movie Name", 2020)
         - "Movie Name (2020) [DVD].mkv" → ("Movie Name", 2020)
         """
-        import re
 
         # Pattern: (title) (year) [release info]
-        pattern = r'^(.+?)[\.\s]+\(?(\d{4})\)?'
+        pattern = r"^(.+?)[\.\s]+\(?(\d{4})\)?"
         match = re.search(pattern, filename)
 
         if match:
@@ -272,10 +242,7 @@ class SubtitleDownloadManager:
             # Use existing MKV muxing functionality
             # This assumes FFmpegMuxer has a method for this
             result = self.ffmpeg.add_subtitle_to_mkv(
-                video_path,
-                subtitle_path,
-                language=language,
-                title=f"{language.upper()} (OpenSubtitles)"
+                video_path, subtitle_path, language=language, title=f"{language.upper()} (OpenSubtitles)"
             )
 
             return result.success

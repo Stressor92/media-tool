@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional
 
 import acoustid
 import musicbrainzngs
@@ -17,7 +16,7 @@ class AcoustIDProvider(MetadataProvider):
         self.acoustid_api_key = acoustid_api_key
         musicbrainzngs.set_useragent("media-tool", "1.0", "https://example.com")
 
-    def lookup_by_fingerprint(self, fingerprint: str, duration: float) -> List[TrackMatch]:
+    def lookup_by_fingerprint(self, fingerprint: str, duration: float) -> list[TrackMatch]:
         if not self.acoustid_api_key:
             raise ValueError("AcoustID API key is required")
 
@@ -60,7 +59,7 @@ class AcoustIDProvider(MetadataProvider):
 
         return sorted(matches, key=lambda m: m.confidence, reverse=True)
 
-    def lookup_by_id(self, track_id: str) -> Optional[TrackMetadata]:
+    def lookup_by_id(self, track_id: str) -> TrackMetadata | None:
         if not track_id:
             return None
 
@@ -105,7 +104,7 @@ class AcoustIDProvider(MetadataProvider):
         )
 
     @classmethod
-    def from_audio_file(cls, file_path: str, acoustid_api_key: str) -> List[TrackMatch]:
+    def from_audio_file(cls, file_path: str, acoustid_api_key: str) -> list[TrackMatch]:
         if not acoustid_api_key:
             raise ValueError("AcoustID API key is required")
 

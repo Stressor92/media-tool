@@ -5,17 +5,15 @@ Tests for AcoustID/MusicBrainz metadata provider and audio tagger workflow.
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 import acoustid
 import musicbrainzngs
+import pytest
 
 from core.audio.audio_tagger import AudioTagger
 from core.audio.metadata_providers.acoustid_provider import AcoustIDProvider
-from core.audio.metadata_providers.provider import TrackMetadata, TrackMatch
+from core.audio.metadata_providers.provider import TrackMatch, TrackMetadata
 from utils.chromaprint_runner import ChromaprintRunner
 from utils.mutagen_tagger import MutagenTagger
 

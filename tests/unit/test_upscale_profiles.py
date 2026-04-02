@@ -16,7 +16,6 @@ from core.video.upscale_profiles import (
 )
 from core.video.upscaler import UpscaleOptions
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -40,9 +39,7 @@ def test_all_profiles_are_upscale_profile_instances() -> None:
 
 def test_all_profiles_have_upscale_options() -> None:
     for name, profile in BUILTIN_PROFILES.items():
-        assert isinstance(profile.options, UpscaleOptions), (
-            f"Profile {name!r} options is not UpscaleOptions"
-        )
+        assert isinstance(profile.options, UpscaleOptions), f"Profile {name!r} options is not UpscaleOptions"
 
 
 def test_all_profiles_have_non_empty_description() -> None:
@@ -52,9 +49,7 @@ def test_all_profiles_have_non_empty_description() -> None:
 
 def test_all_profiles_name_matches_key() -> None:
     for key, profile in BUILTIN_PROFILES.items():
-        assert profile.name == key, (
-            f"Profile key {key!r} doesn't match profile.name {profile.name!r}"
-        )
+        assert profile.name == key, f"Profile key {key!r} doesn't match profile.name {profile.name!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -142,9 +137,9 @@ class TestArchiveProfile:
         archive_crf = BUILTIN_PROFILES["archive"].options.crf
         for name, p in BUILTIN_PROFILES.items():
             if name != "archive":
-                assert archive_crf <= p.options.crf, (
-                    f"archive CRF ({archive_crf}) is not ≤ {name} CRF ({p.options.crf})"
-                )
+                assert (
+                    archive_crf <= p.options.crf
+                ), f"archive CRF ({archive_crf}) is not ≤ {name} CRF ({p.options.crf})"
 
     def test_veryslow_preset(self) -> None:
         assert BUILTIN_PROFILES["archive"].options.preset == "veryslow"

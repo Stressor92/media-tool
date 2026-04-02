@@ -16,9 +16,7 @@ from core.language_detection.pipeline import LanguageDetectionPipeline
 
 
 def _mock_detection(lang: str, conf: float = 0.95) -> LanguageDetectionResult:
-    return LanguageDetectionResult(
-        language=lang, confidence=conf, method=DetectionMethod.WHISPER
-    )
+    return LanguageDetectionResult(language=lang, confidence=conf, method=DetectionMethod.WHISPER)
 
 
 @pytest.fixture()
@@ -35,9 +33,7 @@ def _make_probe(lang: str) -> MagicMock:
 
 
 class TestAudioTagger:
-    def test_already_labeled_track_skipped(
-        self, mock_pipeline: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_already_labeled_track_skipped(self, mock_pipeline: MagicMock, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
         f.touch()
         tagger = AudioTagger(pipeline=mock_pipeline)
@@ -46,9 +42,7 @@ class TestAudioTagger:
         assert results[0].status == TaggingStatus.SKIPPED
         mock_pipeline.detect.assert_not_called()
 
-    def test_unlabeled_track_gets_tagged(
-        self, mock_pipeline: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_unlabeled_track_gets_tagged(self, mock_pipeline: MagicMock, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
         f.touch()
         tagger = AudioTagger(pipeline=mock_pipeline)
@@ -63,9 +57,7 @@ class TestAudioTagger:
         assert results[0].status == TaggingStatus.SUCCESS
         assert results[0].detected_language == "ger"
 
-    def test_dry_run_calls_detection_but_not_ffmpeg(
-        self, mock_pipeline: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_dry_run_calls_detection_but_not_ffmpeg(self, mock_pipeline: MagicMock, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
         f.touch()
         tagger = AudioTagger(pipeline=mock_pipeline)
@@ -75,7 +67,7 @@ class TestAudioTagger:
         ):
             results = tagger.tag_file(f, dry_run=True)
         mock_pipeline.detect.assert_called_once()
-        mock_ffmpeg.assert_not_called()   # Kein Schreiben im Dry-Run
+        mock_ffmpeg.assert_not_called()  # Kein Schreiben im Dry-Run
 
     def test_low_confidence_returns_failed(self, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
@@ -96,9 +88,7 @@ class TestAudioTagger:
         assert results[0].status == TaggingStatus.FAILED
         assert "nicht gefunden" in (results[0].error or "")
 
-    def test_force_relabels_existing_track(
-        self, mock_pipeline: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_force_relabels_existing_track(self, mock_pipeline: MagicMock, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
         f.touch()
         tagger = AudioTagger(pipeline=mock_pipeline)
@@ -113,9 +103,7 @@ class TestAudioTagger:
         mock_pipeline.detect.assert_called_once()
         assert results[0].status == TaggingStatus.SUCCESS
 
-    def test_empty_audio_language_treated_as_unlabeled(
-        self, mock_pipeline: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_empty_audio_language_treated_as_unlabeled(self, mock_pipeline: MagicMock, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
         f.touch()
         probe = MagicMock()
@@ -131,9 +119,7 @@ class TestAudioTagger:
         mock_pipeline.detect.assert_called_once()
         assert results[0].status == TaggingStatus.SUCCESS
 
-    def test_ffmpeg_failure_raises_runtime_error(
-        self, mock_pipeline: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_ffmpeg_failure_raises_runtime_error(self, mock_pipeline: MagicMock, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
         f.touch()
         tagger = AudioTagger(pipeline=mock_pipeline)
@@ -145,9 +131,7 @@ class TestAudioTagger:
             with pytest.raises(RuntimeError, match="FFmpeg Remux"):
                 tagger.tag_file(f, dry_run=False)
 
-    def test_tag_directory_processes_mkv_files(
-        self, mock_pipeline: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_tag_directory_processes_mkv_files(self, mock_pipeline: MagicMock, tmp_path: Path) -> None:
         mkv1 = tmp_path / "film1.mkv"
         mkv2 = tmp_path / "film2.mkv"
         mkv1.touch()
@@ -166,9 +150,7 @@ class TestAudioTagger:
         # Only the 2 MKV files should be processed
         assert len(results) == 2
 
-    def test_backup_created_when_enabled(
-        self, mock_pipeline: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_backup_created_when_enabled(self, mock_pipeline: MagicMock, tmp_path: Path) -> None:
         f = tmp_path / "film.mkv"
         f.write_bytes(b"fake mkv content")
         tagger = AudioTagger(pipeline=mock_pipeline, create_backup=True)
@@ -182,9 +164,7 @@ class TestAudioTagger:
 
         assert (tmp_path / "film.mkv.bak").exists()
 
-    def test_und_detection_result_returns_failed(
-        self, tmp_path: Path
-    ) -> None:
+    def test_und_detection_result_returns_failed(self, tmp_path: Path) -> None:
         """Even if confidence is high but language is 'und', result should be FAILED."""
         f = tmp_path / "film.mkv"
         f.touch()

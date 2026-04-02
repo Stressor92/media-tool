@@ -4,9 +4,7 @@ Integration tests for dual audio merging functionality.
 Tests merging German + English MP4 files into single MKV with real ffmpeg.
 """
 
-import pytest
-
-from core.video.merger import merge_dual_audio, merge_directory
+from core.video.merger import merge_directory, merge_dual_audio
 
 
 class TestDualAudioMerge:
@@ -31,7 +29,13 @@ class TestDualAudioMerge:
         assert output_mkv.exists()
 
         # Verify output has 2 audio streams
-        from tests.integration.conftest import assert_container_format, assert_video_streams, assert_audio_streams, assert_audio_languages
+        from tests.integration.conftest import (
+            assert_audio_languages,
+            assert_audio_streams,
+            assert_container_format,
+            assert_video_streams,
+        )
+
         assert_container_format(output_mkv, "matroska")
         assert_video_streams(output_mkv, 1)
         assert_audio_streams(output_mkv, 2)
@@ -39,7 +43,7 @@ class TestDualAudioMerge:
 
     def test_merge_preserves_video_from_german(self, tmp_path, ffmpeg_available):
         """Test that video stream comes from German file."""
-        from tests.integration.conftest import create_test_video, assert_resolution
+        from tests.integration.conftest import assert_resolution, create_test_video
 
         # Create files with different resolutions to verify source
         german_mp4 = tmp_path / "german.mp4"
@@ -109,6 +113,7 @@ class TestDualAudioMerge:
 
         assert result.succeeded
         from tests.integration.conftest import assert_audio_languages
+
         assert_audio_languages(output_mkv, ["deu", "eng"])
 
 
@@ -134,7 +139,8 @@ class TestDirectoryMerge:
         output_mkv = input_dir / "Movie.mkv"
         assert output_mkv.exists()
 
-        from tests.integration.conftest import assert_audio_streams, assert_audio_languages
+        from tests.integration.conftest import assert_audio_languages, assert_audio_streams
+
         assert_audio_streams(output_mkv, 2)
         assert_audio_languages(output_mkv, ["deu", "eng"])
 
@@ -171,6 +177,7 @@ class TestDirectoryMerge:
 
         assert result.succeeded
         from tests.integration.conftest import assert_audio_languages
+
         output_mkv = input_dir / "Movie.mkv"
         assert_audio_languages(output_mkv, ["deu", "eng"])
 
@@ -204,6 +211,7 @@ class TestDirectoryMerge:
             assert result.succeeded, f"Failed for {german_name}, {english_name}"
 
             from tests.integration.conftest import assert_audio_languages
+
             output_mkv = input_dir / "Movie.mkv"
             assert_audio_languages(output_mkv, ["deu", "eng"])
 
@@ -236,7 +244,7 @@ class TestAutoMerge:
 
     def test_auto_merge_multiple_pairs(self, tmp_path, ffmpeg_available):
         """Test auto merge picks a valid detectable pair when multiple pairs exist."""
-        from tests.integration.conftest import create_test_video, assert_audio_languages
+        from tests.integration.conftest import assert_audio_languages, create_test_video
 
         input_dir = tmp_path / "auto_merge_multiple"
         input_dir.mkdir()
@@ -270,7 +278,7 @@ class TestAutoMerge:
 
     def test_auto_merge_partial_pairs(self, tmp_path, ffmpeg_available):
         """Test auto merge still succeeds when one complete pair exists among incomplete files."""
-        from tests.integration.conftest import create_test_video, assert_audio_languages
+        from tests.integration.conftest import assert_audio_languages, create_test_video
 
         input_dir = tmp_path / "auto_merge_partial"
         input_dir.mkdir()
@@ -340,7 +348,8 @@ class TestMergeWorkflowIntegration:
             assert output_mkv.exists()
 
             # Verify MKV has correct streams
-            from tests.integration.conftest import assert_container_format, assert_video_streams, assert_audio_streams
+            from tests.integration.conftest import assert_audio_streams, assert_container_format, assert_video_streams
+
             assert_container_format(output_mkv, "matroska")
             assert_video_streams(output_mkv, 1)
             assert_audio_streams(output_mkv, 2)

@@ -6,6 +6,7 @@ Tests for SubtitleTranslator v2 features:
   - Line wrapping
   - Cache hits
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -51,6 +52,7 @@ def srt5(tmp_path: Path) -> Path:
 @pytest.fixture()
 def mock_trans() -> MagicMock:
     t = MagicMock()
+
     # Returns one translated line per newline-separated input line
     def _translate(texts: list[str], **_: object) -> list[str]:
         results = []
@@ -69,9 +71,7 @@ _SRT5_CONTENT = _SRT_5
 
 
 class TestChunkingIntegration:
-    def test_fewer_calls_than_segments_with_chunking(
-        self, tmp_path: Path, mock_trans: MagicMock
-    ) -> None:
+    def test_fewer_calls_than_segments_with_chunking(self, tmp_path: Path, mock_trans: MagicMock) -> None:
         f = tmp_path / "movie.en.srt"
         f.write_text(_SRT_5)
         st = SubtitleTranslator(translator=mock_trans, chunk_size=3)
@@ -80,9 +80,7 @@ class TestChunkingIntegration:
         # 5 segments in chunks of 3 → 2 translate_batch calls (not 5)
         assert mock_trans.translate_batch.call_count <= 3
 
-    def test_all_segments_present_in_output(
-        self, tmp_path: Path, mock_trans: MagicMock
-    ) -> None:
+    def test_all_segments_present_in_output(self, tmp_path: Path, mock_trans: MagicMock) -> None:
         f = tmp_path / "movie.en.srt"
         f.write_text(_SRT_5)
         st = SubtitleTranslator(translator=mock_trans, chunk_size=4)
@@ -93,9 +91,7 @@ class TestChunkingIntegration:
 
 
 class TestCacheIntegration:
-    def test_second_call_uses_cache(
-        self, tmp_path: Path, mock_trans: MagicMock
-    ) -> None:
+    def test_second_call_uses_cache(self, tmp_path: Path, mock_trans: MagicMock) -> None:
         f = tmp_path / "movie.en.srt"
         f.write_text("1\n00:00:01,000 --> 00:00:02,000\nHello.\n\n")
         cache = TranslationCache()
@@ -115,9 +111,7 @@ class TestCacheIntegration:
         # Cache hit: translator should not have been called again
         assert second_count == first_count
 
-    def test_cache_hit_rate_nonzero_after_repeat(
-        self, tmp_path: Path, mock_trans: MagicMock
-    ) -> None:
+    def test_cache_hit_rate_nonzero_after_repeat(self, tmp_path: Path, mock_trans: MagicMock) -> None:
         f = tmp_path / "movie.en.srt"
         f.write_text("1\n00:00:01,000 --> 00:00:02,000\nHello.\n\n")
         cache = TranslationCache()
@@ -132,9 +126,7 @@ class TestCacheIntegration:
 
 
 class TestTagPreservation:
-    def test_html_tags_survive_translation(
-        self, tmp_path: Path
-    ) -> None:
+    def test_html_tags_survive_translation(self, tmp_path: Path) -> None:
         f = tmp_path / "tagged.en.srt"
         f.write_text("1\n00:00:00,000 --> 00:00:01,000\n<i>Hello</i>\n\n")
         t = MagicMock()
@@ -147,16 +139,16 @@ class TestTagPreservation:
         content = result.output_path.read_text()  # type: ignore[union-attr]
         assert "<i>" in content
 
-    def test_tags_disabled_passes_raw_text(
-        self, tmp_path: Path
-    ) -> None:
+    def test_tags_disabled_passes_raw_text(self, tmp_path: Path) -> None:
         f = tmp_path / "tagged.en.srt"
         f.write_text("1\n00:00:00,000 --> 00:00:01,000\n<i>Hello</i>\n\n")
         t = MagicMock()
         received: list[str] = []
+
         def _capture(texts: list[str], **_: object) -> list[str]:
             received.extend(texts)
             return ["Hallo" for _ in texts]
+
         t.translate_batch.side_effect = _capture
         t.is_language_pair_supported.return_value = True
         st = SubtitleTranslator(translator=t, preserve_tags=False)
@@ -173,8 +165,7 @@ class TestLineWrapping:
         t = MagicMock()
         # Return a very long translated line
         t.translate_batch.side_effect = lambda texts, **_: [
-            "Das ist ein sehr langer übersetzter Satz der definitiv zu lang ist"
-            for _ in texts
+            "Das ist ein sehr langer übersetzter Satz der definitiv zu lang ist" for _ in texts
         ]
         t.is_language_pair_supported.return_value = True
         st = SubtitleTranslator(translator=t, line_wrap=True, max_line_length=30, max_lines=2)

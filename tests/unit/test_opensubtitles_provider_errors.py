@@ -48,9 +48,7 @@ class TestOpenSubtitlesProviderErrors:
             with pytest.raises(RuntimeError, match="Invalid OpenSubtitles API key"):
                 provider._make_request("GET", "https://example.com")
 
-    def test_search_invalid_json_bubbles_up(
-        self, provider: OpenSubtitlesProvider, movie_info: MovieInfo
-    ) -> None:
+    def test_search_invalid_json_bubbles_up(self, provider: OpenSubtitlesProvider, movie_info: MovieInfo) -> None:
         response = MagicMock()
         response.json.side_effect = ValueError("Invalid JSON")
         with patch.object(OpenSubtitlesProvider, "_make_request", return_value=response):
@@ -61,9 +59,7 @@ class TestOpenSubtitlesProviderErrors:
         self, provider: OpenSubtitlesProvider, movie_info: MovieInfo
     ) -> None:
         response = MagicMock()
-        response.json.return_value = {
-            "data": [{"attributes": {"language": "en", "files": []}}]
-        }
+        response.json.return_value = {"data": [{"attributes": {"language": "en", "files": []}}]}
         with patch.object(OpenSubtitlesProvider, "_make_request", return_value=response):
             matches = provider.search(movie_info, ["en"])
 

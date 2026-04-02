@@ -1,5 +1,6 @@
 # src/core/translation/formats/vtt.py
 """WebVTT format reader and writer."""
+
 from __future__ import annotations
 
 import re
@@ -8,8 +9,7 @@ from pathlib import Path
 from core.translation.models import SubtitleDocument, SubtitleFormat, SubtitleSegment
 
 _VTT_BLOCK = re.compile(
-    r"(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})[^\n]*\n"
-    r"([\s\S]*?)(?=\n\n|\Z)",
+    r"(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})[^\n]*\n" r"([\s\S]*?)(?=\n\n|\Z)",
     re.MULTILINE,
 )
 
@@ -29,12 +29,14 @@ def read(path: Path) -> SubtitleDocument:
     segments: list[SubtitleSegment] = []
     for i, m in enumerate(_VTT_BLOCK.finditer(body.strip() + "\n\n"), start=1):
         seg_text = m.group(3).strip()
-        segments.append(SubtitleSegment(
-            index=i,
-            start=_vtt_to_srt(m.group(1)),
-            end=_vtt_to_srt(m.group(2)),
-            text=seg_text,
-        ))
+        segments.append(
+            SubtitleSegment(
+                index=i,
+                start=_vtt_to_srt(m.group(1)),
+                end=_vtt_to_srt(m.group(2)),
+                text=seg_text,
+            )
+        )
     return SubtitleDocument(
         segments=segments,
         source_format=SubtitleFormat.VTT,

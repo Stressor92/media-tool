@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from utils.audio_analyzer import AudioTechnicalMetadata, extract_audio_technical_metadata
 from utils.ffprobe_runner import ProbeResult, probe_file
@@ -44,8 +45,8 @@ class AudioFileMetadata:
     is_lossless: bool = False
     is_tagged: bool = False
     has_cover_art: bool = False
-    date_modified: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    date_scanned: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    date_modified: datetime = field(default_factory=lambda: datetime.now(UTC))
+    date_scanned: datetime = field(default_factory=lambda: datetime.now(UTC))
     error_message: str | None = None
 
 
@@ -61,12 +62,12 @@ class MetadataExtractor:
     def extract(self, file_path: Path) -> AudioFileMetadata:
         """Extract all available metadata from an audio file."""
         resolved_path = file_path.resolve()
-        scanned_at = datetime.now(timezone.utc)
+        scanned_at = datetime.now(UTC)
 
         try:
             stat = resolved_path.stat()
             file_size_mb = round(stat.st_size / (1024 * 1024), 2)
-            date_modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+            date_modified = datetime.fromtimestamp(stat.st_mtime, tz=UTC)
 
             tag_data = self._extract_tags(resolved_path)
             technical = self._extract_technical_specs(resolved_path)
@@ -110,7 +111,7 @@ class MetadataExtractor:
             from importlib import import_module
 
             mutagen_module = import_module("mutagen")
-            mutagen_file = getattr(mutagen_module, "File")
+            mutagen_file = mutagen_module.File
             if not callable(mutagen_file):
                 return {}
             audio_easy = mutagen_file(file_path, easy=True)
@@ -145,7 +146,9 @@ class MetadataExtractor:
             "disc_number": self._safe_int(disc_number),
             "year": self._parse_year(date_value),
             "genre": self._get_tag(audio_easy, audio_raw, ["genre"], ["TCON", "\xa9gen", "GENRE"]),
-            "comment": self._get_tag(audio_easy, audio_raw, ["comment", "description"], ["COMM", "\xa9cmt", "COMMENT", "DESCRIPTION"]),
+            "comment": self._get_tag(
+                audio_easy, audio_raw, ["comment", "description"], ["COMM", "\xa9cmt", "COMMENT", "DESCRIPTION"]
+            ),
             "has_cover_art": has_cover_art,
         }
 
@@ -202,7 +205,7 @@ class MetadataExtractor:
     def _normalize_tag_value(self, value: Any) -> str | None:
         if value is None:
             return None
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             if not value:
                 return None
             first = value[0]
@@ -210,7 +213,7 @@ class MetadataExtractor:
                 return "/".join(str(item) for item in first if item not in (None, 0)) or None
             return self._normalize_tag_value(first)
         if hasattr(value, "text"):
-            text_value = getattr(value, "text")
+            text_value = value.text
             return self._normalize_tag_value(text_value)
         text = str(value).strip()
         return text or None
@@ -262,7 +265,7 @@ class MetadataExtractor:
         try:
             stat = file_path.stat()
             file_size_mb = round(stat.st_size / (1024 * 1024), 2)
-            date_modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+            date_modified = datetime.fromtimestamp(stat.st_mtime, tz=UTC)
         except OSError:
             file_size_mb = 0.0
             date_modified = scanned_at

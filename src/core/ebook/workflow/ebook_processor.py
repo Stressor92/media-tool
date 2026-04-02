@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
 import logging
+from pathlib import Path
 from typing import Protocol
 
 from core.ebook.cover.providers.provider import CoverImage
-from core.ebook.models import BookIdentity
-from core.ebook.models import BookMetadata, ProcessingResult
+from core.ebook.models import BookIdentity, BookMetadata, ProcessingResult
 from core.ebook.normalization import NormalizationResult
 from core.ebook.organization import LibraryOrganizer
 
@@ -100,7 +99,9 @@ class EbookProcessor:
                 )
                 result.normalized = normalized.success
 
-            result.success = result.identified and (result.metadata_fetched or result.cover_downloaded or result.normalized)
+            result.success = result.identified and (
+                result.metadata_fetched or result.cover_downloaded or result.normalized
+            )
             result.final_path = ebook_path
             return result
         except Exception as exc:
@@ -137,7 +138,9 @@ class EbookProcessor:
                 result.metadata_fetched = metadata is not None
 
                 if metadata is None:
-                    metadata = BookMetadata(title=identity.title, author=identity.author, isbn=identity.isbn, isbn13=identity.isbn13)
+                    metadata = BookMetadata(
+                        title=identity.title, author=identity.author, isbn=identity.isbn, isbn13=identity.isbn13
+                    )
 
                 org_result = effective_organizer.organize(
                     ebook_path,
@@ -167,4 +170,6 @@ class EbookProcessor:
             return [source_path]
 
         pattern = "**/*" if recursive else "*"
-        return sorted([path for path in source_path.glob(pattern) if path.is_file() and path.suffix.lower() in extensions])
+        return sorted(
+            [path for path in source_path.glob(pattern) if path.is_file() and path.suffix.lower() in extensions]
+        )

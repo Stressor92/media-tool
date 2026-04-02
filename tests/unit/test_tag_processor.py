@@ -1,7 +1,6 @@
 # tests/unit/test_tag_processor.py
 from __future__ import annotations
 
-import pytest
 from core.translation.tag_processor import TagProcessor
 
 

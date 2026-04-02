@@ -3,6 +3,7 @@
 Converts style/tag information between subtitle formats.
 Lossy conversions are logged.
 """
+
 from __future__ import annotations
 
 import copy
@@ -23,15 +24,17 @@ _ASS_TO_HTML: dict[str, str] = {
     r"{\u0}": "</u>",
 }
 
-_ASS_TAG_RE  = re.compile(r"\{[^}]*\}")
+_ASS_TAG_RE = re.compile(r"\{[^}]*\}")
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
-_FORMATS_WITHOUT_MARKUP = frozenset({
-    SubtitleFormat.SCC,
-    SubtitleFormat.STL,
-    SubtitleFormat.LRC,
-    SubtitleFormat.SBV,
-})
+_FORMATS_WITHOUT_MARKUP = frozenset(
+    {
+        SubtitleFormat.SCC,
+        SubtitleFormat.STL,
+        SubtitleFormat.LRC,
+        SubtitleFormat.SBV,
+    }
+)
 
 
 def ass_tags_to_html(text: str) -> str:
@@ -68,9 +71,7 @@ def adapt_styles_for_target(
     source_is_html = doc.source_format in (SubtitleFormat.SRT, SubtitleFormat.VTT, SubtitleFormat.TTML)
 
     for seg in adapted.segments:
-        if source_is_ass and target_format in (
-            SubtitleFormat.SRT, SubtitleFormat.VTT, SubtitleFormat.TTML
-        ):
+        if source_is_ass and target_format in (SubtitleFormat.SRT, SubtitleFormat.VTT, SubtitleFormat.TTML):
             seg.text = ass_tags_to_html(seg.text)
         elif source_is_html and target_format == SubtitleFormat.ASS:
             seg.text = html_to_ass_tags(seg.text)

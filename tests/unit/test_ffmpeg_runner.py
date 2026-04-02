@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 from utils.ffmpeg_runner import FFmpegMuxer
 
 
@@ -17,25 +16,26 @@ class TestFFmpegMuxer:
 
     def create_test_files(self):
         """Create test MKV and SRT files."""
-        with tempfile.NamedTemporaryFile(suffix='.mkv', delete=False) as mkv_file:
-            mkv_file.write(b'dummy mkv content')
+        with tempfile.NamedTemporaryFile(suffix=".mkv", delete=False) as mkv_file:
+            mkv_file.write(b"dummy mkv content")
             mkv_path = Path(mkv_file.name)
 
-        with tempfile.NamedTemporaryFile(suffix='.srt', delete=False) as srt_file:
-            srt_file.write(b'1\n00:00:00,000 --> 00:00:05,000\nTest subtitle\n')
+        with tempfile.NamedTemporaryFile(suffix=".srt", delete=False) as srt_file:
+            srt_file.write(b"1\n00:00:00,000 --> 00:00:05,000\nTest subtitle\n")
             srt_path = Path(srt_file.name)
 
         return mkv_path, srt_path
 
-    @patch('utils.ffmpeg_runner.run_ffmpeg')
+    @patch("utils.ffmpeg_runner.run_ffmpeg")
     def test_add_subtitle_to_mkv_success(self, mock_run_ffmpeg):
         """Test successful subtitle muxing."""
         muxer = FFmpegMuxer()
         mkv_path, srt_path = self.create_test_files()
 
         try:
+
             def side_effect(_args):
-                mkv_path.with_suffix('.tmp.mkv').write_bytes(b'dummy mkv content')
+                mkv_path.with_suffix(".tmp.mkv").write_bytes(b"dummy mkv content")
                 return MagicMock(success=True)
 
             mock_run_ffmpeg.side_effect = side_effect
@@ -76,7 +76,7 @@ class TestFFmpegMuxer:
         finally:
             mkv_path.unlink()
 
-    @patch('utils.ffmpeg_runner.run_ffmpeg')
+    @patch("utils.ffmpeg_runner.run_ffmpeg")
     def test_add_subtitle_to_mkv_ffmpeg_fail(self, mock_run_ffmpeg):
         """Test muxing when FFmpeg fails."""
         mock_run_ffmpeg.return_value = MagicMock(success=False, stderr="FFmpeg error")
@@ -93,18 +93,19 @@ class TestFFmpegMuxer:
             mkv_path.unlink(missing_ok=True)
             srt_path.unlink(missing_ok=True)
 
-    @patch('utils.ffmpeg_runner.run_ffmpeg')
+    @patch("utils.ffmpeg_runner.run_ffmpeg")
     def test_add_subtitle_to_mkv_size_check(self, mock_run_ffmpeg):
         """Test muxing with size validation."""
         muxer = FFmpegMuxer()
         mkv_path, srt_path = self.create_test_files()
 
         # Make original file very small to trigger size check
-        mkv_path.write_bytes(b'x' * 100)
+        mkv_path.write_bytes(b"x" * 100)
 
         try:
+
             def side_effect(_args):
-                mkv_path.with_suffix('.tmp.mkv').write_bytes(b'x' * 10)
+                mkv_path.with_suffix(".tmp.mkv").write_bytes(b"x" * 10)
                 return MagicMock(success=True)
 
             mock_run_ffmpeg.side_effect = side_effect

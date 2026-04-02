@@ -6,14 +6,14 @@ Audiobook library organization.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Optional
 
 from utils.progress import ProgressEvent, emit_progress
-from ..audio.metadata import AudioMetadataEnhanced, extract_audio_metadata_enhanced
+
 from ..audio.conversion import convert_audio
+from ..audio.metadata import AudioMetadataEnhanced, extract_audio_metadata_enhanced
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 def _sanitize_filename(name: str) -> str:
     """Sanitize filename by removing/replacing invalid characters."""
     import re
+
     # Replace invalid characters with underscores
-    return re.sub(r'[<>:"/\\|?*]', '_', name)
+    return re.sub(r'[<>:"/\\|?*]', "_", name)
 
 
 def _generate_audiobook_path(metadata: AudioMetadataEnhanced, base_dir: Path) -> Path:
@@ -49,7 +50,7 @@ def _generate_audiobook_path(metadata: AudioMetadataEnhanced, base_dir: Path) ->
 def organize_audiobooks(
     input_dir: Path,
     output_dir: Path,
-    convert_format: Optional[str] = "flac",
+    convert_format: str | None = "flac",
     overwrite: bool = False,
     progress_callback: Callable[[ProgressEvent], None] | None = None,
 ) -> dict[str, int]:
@@ -92,7 +93,9 @@ def organize_audiobooks(
                 counts["errors"] += 1
                 emit_progress(
                     progress_callback,
-                    ProgressEvent("organize-audiobook", index, total, input_file.name, "failed", "Could not extract metadata"),
+                    ProgressEvent(
+                        "organize-audiobook", index, total, input_file.name, "failed", "Could not extract metadata"
+                    ),
                 )
                 continue
 
@@ -105,7 +108,14 @@ def organize_audiobooks(
                 counts["skipped"] += 1
                 emit_progress(
                     progress_callback,
-                    ProgressEvent("organize-audiobook", index, total, input_file.name, "skipped", f"Target exists: {target_path.name}"),
+                    ProgressEvent(
+                        "organize-audiobook",
+                        index,
+                        total,
+                        input_file.name,
+                        "skipped",
+                        f"Target exists: {target_path.name}",
+                    ),
                 )
                 continue
 
@@ -123,25 +133,37 @@ def organize_audiobooks(
                     counts["converted"] += 1
                     emit_progress(
                         progress_callback,
-                        ProgressEvent("organize-audiobook", index, total, input_file.name, "success", f"Converted to {target_path.name}"),
+                        ProgressEvent(
+                            "organize-audiobook",
+                            index,
+                            total,
+                            input_file.name,
+                            "success",
+                            f"Converted to {target_path.name}",
+                        ),
                     )
                 else:
                     logger.error("Conversion failed: %s", input_file)
                     counts["errors"] += 1
                     emit_progress(
                         progress_callback,
-                        ProgressEvent("organize-audiobook", index, total, input_file.name, "failed", "Conversion failed"),
+                        ProgressEvent(
+                            "organize-audiobook", index, total, input_file.name, "failed", "Conversion failed"
+                        ),
                     )
             else:
                 # Just copy
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 import shutil
+
                 shutil.copy2(input_file, target_path)
                 logger.info("Organized: %s → %s", input_file, target_path)
                 counts["processed"] += 1
                 emit_progress(
                     progress_callback,
-                    ProgressEvent("organize-audiobook", index, total, input_file.name, "success", f"Copied to {target_path.name}"),
+                    ProgressEvent(
+                        "organize-audiobook", index, total, input_file.name, "success", f"Copied to {target_path.name}"
+                    ),
                 )
 
         except Exception as e:

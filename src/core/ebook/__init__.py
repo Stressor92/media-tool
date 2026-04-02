@@ -1,5 +1,16 @@
 """Core e-book processing package."""
 
+from .audit import LibraryAuditor, QualityChecker, SeriesAnalyzer
+from .conversion import CalibreConversionError, CalibreNotFoundError, CalibreRunner, ConversionProfiles, FormatConverter
+from .cover import (
+    CoverImage,
+    CoverProvider,
+    CoverSelector,
+    CoverService,
+    GoogleBooksCoverProvider,
+    OpenLibraryCoverProvider,
+)
+from .deduplication import DuplicateFinder, FingerprintService, VersionComparator
 from .models import (
     AuditReport,
     BookIdentity,
@@ -11,11 +22,14 @@ from .models import (
     LibraryStructure,
     ProcessingResult,
 )
-from .audit import LibraryAuditor, QualityChecker, SeriesAnalyzer
-from .cover import CoverImage, CoverProvider, CoverSelector, CoverService, GoogleBooksCoverProvider, OpenLibraryCoverProvider
-from .conversion import CalibreConversionError, CalibreNotFoundError, CalibreRunner, ConversionProfiles, FormatConverter
-from .deduplication import DuplicateFinder, FingerprintService, VersionComparator
-from .normalization import EpubValidator, EbookNormalizer, MetadataEmbedder, NormalizationResult, TocGenerator, ValidationResult
+from .normalization import (
+    EbookNormalizer,
+    EpubValidator,
+    MetadataEmbedder,
+    NormalizationResult,
+    TocGenerator,
+    ValidationResult,
+)
 from .organization import FolderStructureBuilder, LibraryOrganizer, NamingService, OrganizationResult
 from .workflow import BatchProcessor, EbookProcessor, WorkflowConfig
 

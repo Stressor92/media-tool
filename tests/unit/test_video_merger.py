@@ -10,7 +10,6 @@ Test video merging logic including:
 
 from __future__ import annotations
 
-
 import pytest
 
 from core.video.merger import (
@@ -18,11 +17,10 @@ from core.video.merger import (
     MergeStatus,
     derive_output_name,
     detect_language_files,
-    merge_dual_audio,
     merge_directory,
+    merge_dual_audio,
 )
 from utils.ffmpeg_runner import FFmpegResult
-
 
 # ---------------------------------------------------------------------------
 # Tests for detect_language_files()
@@ -38,7 +36,7 @@ class TestDetectLanguageFiles:
         english_file = tmp_media_dir / "input" / "Movie-en.mp4"
         german_file.touch()
         english_file.touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de == german_file
         assert en == english_file
@@ -49,7 +47,7 @@ class TestDetectLanguageFiles:
         english_file = tmp_media_dir / "input" / "Film_en.mp4"
         german_file.touch()
         english_file.touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de == german_file
         assert en == english_file
@@ -60,7 +58,7 @@ class TestDetectLanguageFiles:
         english_file = tmp_media_dir / "input" / "Movie(en).mp4"
         german_file.touch()
         english_file.touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de == german_file
         assert en == english_file
@@ -71,7 +69,7 @@ class TestDetectLanguageFiles:
         english_file = tmp_media_dir / "input" / "Film[en].mp4"
         german_file.touch()
         english_file.touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de == german_file
         assert en == english_file
@@ -82,7 +80,7 @@ class TestDetectLanguageFiles:
         english_file = tmp_media_dir / "input" / "Film-EN.mp4"
         german_file.touch()
         english_file.touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de == german_file
         assert en == english_file
@@ -91,7 +89,7 @@ class TestDetectLanguageFiles:
         """Should return None for missing English file."""
         german_file = tmp_media_dir / "input" / "Movie-de.mp4"
         german_file.touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de == german_file
         assert en is None
@@ -100,7 +98,7 @@ class TestDetectLanguageFiles:
         """Should return None for missing German file."""
         english_file = tmp_media_dir / "input" / "Movie-en.mp4"
         english_file.touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de is None
         assert en == english_file
@@ -115,7 +113,7 @@ class TestDetectLanguageFiles:
         """Should ignore non-MP4 files."""
         (tmp_media_dir / "input" / "file-de.mkv").touch()
         (tmp_media_dir / "input" / "file-en.avi").touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de is None
         assert en is None
@@ -128,7 +126,7 @@ class TestDetectLanguageFiles:
         (tmp_media_dir / "input" / "subtitle.srt").touch()
         german_file.touch()
         english_file.touch()
-        
+
         de, en = detect_language_files(tmp_media_dir / "input")
         assert de == german_file
         assert en == english_file
@@ -203,7 +201,7 @@ class TestMergeResult:
         german = tmp_media_dir / "a-de.mp4"
         english = tmp_media_dir / "a-en.mp4"
         target = tmp_media_dir / "a.mkv"
-        
+
         result = MergeResult(
             status=MergeStatus.SUCCESS,
             german_source=german,
@@ -211,7 +209,7 @@ class TestMergeResult:
             target=target,
             message="Success",
         )
-        
+
         assert result.succeeded is True
         assert result.failed is False
         assert result.skipped is False
@@ -219,7 +217,7 @@ class TestMergeResult:
     def test_merge_result_failed_property(self, tmp_media_dir):
         """Should correctly identify failed merge."""
         target = tmp_media_dir / "a.mkv"
-        
+
         result = MergeResult(
             status=MergeStatus.FAILED,
             german_source=None,
@@ -227,7 +225,7 @@ class TestMergeResult:
             target=target,
             message="Error",
         )
-        
+
         assert result.failed is True
         assert result.succeeded is False
         assert result.skipped is False
@@ -235,7 +233,7 @@ class TestMergeResult:
     def test_merge_result_skipped_property(self, tmp_media_dir):
         """Should correctly identify skipped merge."""
         target = tmp_media_dir / "a.mkv"
-        
+
         result = MergeResult(
             status=MergeStatus.SKIPPED,
             german_source=None,
@@ -243,7 +241,7 @@ class TestMergeResult:
             target=target,
             message="Already exists",
         )
-        
+
         assert result.skipped is True
         assert result.succeeded is False
         assert result.failed is False
@@ -257,7 +255,7 @@ class TestMergeResult:
             target=tmp_media_dir / "out.mkv",
             message="Test",
         )
-        
+
         with pytest.raises(Exception):  # FrozenInstanceError
             result.message = "Changed"
 
@@ -277,7 +275,7 @@ class TestMergeDualAudio:
         target = tmp_media_dir / "output" / "Movie.mkv"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -285,9 +283,9 @@ class TestMergeDualAudio:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = merge_dual_audio(german, english, target)
-        
+
         assert result.succeeded
         assert result.status == MergeStatus.SUCCESS
         assert result.target == target
@@ -299,7 +297,7 @@ class TestMergeDualAudio:
         target = tmp_media_dir / "output" / "Movie.mkv"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=False,
             return_code=1,
@@ -307,9 +305,9 @@ class TestMergeDualAudio:
             stderr_bytes=b"Error: codec not found",
             stdout_bytes=b"",
         )
-        
+
         result = merge_dual_audio(german, english, target)
-        
+
         assert result.failed
         assert result.status == MergeStatus.FAILED
 
@@ -321,9 +319,9 @@ class TestMergeDualAudio:
         german.touch()
         english.touch()
         target.touch()  # Target already exists
-        
+
         result = merge_dual_audio(german, english, target, overwrite=False)
-        
+
         assert result.skipped
         assert result.status == MergeStatus.SKIPPED
         # Should not have called ffmpeg
@@ -337,7 +335,7 @@ class TestMergeDualAudio:
         german.touch()
         english.touch()
         target.touch()  # Target already exists
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -345,9 +343,9 @@ class TestMergeDualAudio:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = merge_dual_audio(german, english, target, overwrite=True)
-        
+
         assert result.succeeded
         # Should have called ffmpeg with -y flag
         patch_merge_ffmpeg.assert_called_once()
@@ -361,7 +359,7 @@ class TestMergeDualAudio:
         target = tmp_media_dir / "output" / "Movie.mkv"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -369,13 +367,13 @@ class TestMergeDualAudio:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         merge_dual_audio(german, english, target)
-        
+
         # Check ffmpeg was called with language metadata
         patch_merge_ffmpeg.assert_called_once()
         call_args = patch_merge_ffmpeg.call_args[0][0]
-        
+
         # Should map audio tracks
         assert "-map" in call_args
         # Should set language metadata
@@ -389,7 +387,7 @@ class TestMergeDualAudio:
         target = tmp_media_dir / "output" / "Movie.mkv"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -397,9 +395,9 @@ class TestMergeDualAudio:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = merge_dual_audio(german, english, target)
-        
+
         assert result.message  # Should have a message
         assert len(result.message) > 0
 
@@ -419,7 +417,7 @@ class TestMergeIntegration:
         english = tmp_media_dir / "input" / "Movie(2020)-en.mp4"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -427,21 +425,21 @@ class TestMergeIntegration:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         # Detect
         detected_de, detected_en = detect_language_files(tmp_media_dir / "input")
         assert detected_de is not None
         assert detected_en is not None
-        
+
         # Derive output name
         output_name = derive_output_name(detected_de)
         assert "2020" in output_name
         assert "-de" not in output_name
-        
+
         # Merge
         target = tmp_media_dir / "output" / f"{output_name}.mkv"
         result = merge_dual_audio(detected_de, detected_en, target)
-        
+
         assert result.succeeded
         assert result.german_source == german
         assert result.english_source == english
@@ -461,7 +459,7 @@ class TestMergeDirectory:
         english = tmp_media_dir / "input" / "Movie-en.mp4"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -469,9 +467,9 @@ class TestMergeDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = merge_directory(tmp_media_dir / "input")
-        
+
         assert result.succeeded
         assert result.german_source == german
         assert result.english_source == english
@@ -482,9 +480,9 @@ class TestMergeDirectory:
         """Should fail when German file is missing."""
         english = tmp_media_dir / "input" / "Movie-en.mp4"
         english.touch()
-        
+
         result = merge_directory(tmp_media_dir / "input")
-        
+
         assert result.failed
         assert result.german_source is None
         assert result.english_source == english
@@ -494,9 +492,9 @@ class TestMergeDirectory:
         """Should fail when English file is missing."""
         german = tmp_media_dir / "input" / "Movie-de.mp4"
         german.touch()
-        
+
         result = merge_directory(tmp_media_dir / "input")
-        
+
         assert result.failed
         assert result.german_source == german
         assert result.english_source is None
@@ -505,7 +503,7 @@ class TestMergeDirectory:
     def test_merge_directory_no_mp4_files(self, tmp_media_dir):
         """Should fail when no MP4 files exist."""
         result = merge_directory(tmp_media_dir / "input")
-        
+
         assert result.failed
         assert result.german_source is None
         assert result.english_source is None
@@ -515,9 +513,9 @@ class TestMergeDirectory:
         """Should fail when only non-MP4 files exist."""
         avi_file = tmp_media_dir / "input" / "Movie.avi"
         avi_file.touch()
-        
+
         result = merge_directory(tmp_media_dir / "input")
-        
+
         assert result.failed
         assert "Found MP4 files: (none)" in result.message
 
@@ -527,7 +525,7 @@ class TestMergeDirectory:
         english = tmp_media_dir / "input" / "Film(2022)-en.mp4"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -535,9 +533,9 @@ class TestMergeDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = merge_directory(tmp_media_dir / "input")
-        
+
         assert result.succeeded
         assert result.target.name == "Film(2022).mkv"
 
@@ -547,7 +545,7 @@ class TestMergeDirectory:
         english = tmp_media_dir / "input" / "Movie-en.mp4"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -555,9 +553,9 @@ class TestMergeDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = merge_directory(tmp_media_dir / "input", overwrite=True)
-        
+
         assert result.succeeded
         # Check that ffmpeg was called with overwrite flag
         patch_merge_ffmpeg.assert_called_once()
@@ -568,7 +566,7 @@ class TestMergeDirectory:
         """Should raise NotADirectoryError for invalid path."""
         file_path = tmp_path / "not_a_dir.txt"
         file_path.touch()
-        
+
         with pytest.raises(NotADirectoryError, match="Not a directory"):
             merge_directory(file_path)
 
@@ -578,7 +576,7 @@ class TestMergeDirectory:
         english = tmp_media_dir / "input" / "Movie-EN.mp4"
         german.touch()
         english.touch()
-        
+
         patch_merge_ffmpeg.return_value = FFmpegResult(
             success=True,
             return_code=0,
@@ -586,9 +584,9 @@ class TestMergeDirectory:
             stderr_bytes=b"",
             stdout_bytes=b"",
         )
-        
+
         result = merge_directory(tmp_media_dir / "input")
-        
+
         assert result.succeeded
         assert result.german_source == german
         assert result.english_source == english

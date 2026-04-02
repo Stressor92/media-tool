@@ -180,20 +180,31 @@ def merge_dual_audio(
 
     ffmpeg_args = [
         "-y",
-        "-i", str(german_file),
-        "-i", str(english_file),
+        "-i",
+        str(german_file),
+        "-i",
+        str(english_file),
         # Video from German file; both audio tracks
-        "-map", "0:v:0",
-        "-map", "0:a:0",
-        "-map", "1:a:0",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0",
+        "-map",
+        "1:a:0",
         # Lossless copy — no re-encoding
-        "-c:v", "copy",
-        "-c:a", "copy",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "copy",
         # Language tags
-        "-metadata:s:a:0", "language=deu",
-        "-metadata:s:a:0", "title=Deutsch",
-        "-metadata:s:a:1", "language=eng",
-        "-metadata:s:a:1", "title=English",
+        "-metadata:s:a:0",
+        "language=deu",
+        "-metadata:s:a:0",
+        "title=Deutsch",
+        "-metadata:s:a:1",
+        "language=eng",
+        "-metadata:s:a:1",
+        "title=English",
         str(target),
     ]
 
@@ -223,10 +234,7 @@ def merge_dual_audio(
         german_source=german_file,
         english_source=english_file,
         target=target,
-        message=(
-            f"ffmpeg failed (exit {ffmpeg_result.return_code}). "
-            "See logs for details."
-        ),
+        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}). " "See logs for details."),
         ffmpeg_result=ffmpeg_result,
     )
 
@@ -269,10 +277,7 @@ def merge_directory(
             german_source=german,
             english_source=english,
             target=_dummy_target,
-            message=(
-                "Could not detect both language versions. "
-                f"Found MP4 files: {names}"
-            ),
+            message=("Could not detect both language versions. " f"Found MP4 files: {names}"),
         )
 
     if output is not None:

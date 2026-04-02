@@ -2,29 +2,30 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
 class TrackMetadata:
     """Standardized track metadata from any provider."""
+
     title: str
     artist: str
     album: str
-    musicbrainz_id: Optional[str] = None
-    acoustid_id: Optional[str] = None
-    album_artist: Optional[str] = None
-    year: Optional[int] = None
-    track_number: Optional[int] = None
-    total_tracks: Optional[int] = None
-    disc_number: Optional[int] = None
-    genre: Optional[str] = None
+    musicbrainz_id: str | None = None
+    acoustid_id: str | None = None
+    album_artist: str | None = None
+    year: int | None = None
+    track_number: int | None = None
+    total_tracks: int | None = None
+    disc_number: int | None = None
+    genre: str | None = None
     confidence_score: float = 0.0
 
 
 @dataclass
 class TrackMatch:
     """Potential metadata match from a provider."""
+
     metadata: TrackMetadata
     confidence: float
     source: str
@@ -38,7 +39,7 @@ class MetadataProvider(ABC):
         self,
         fingerprint: str,
         duration: float,
-    ) -> List[TrackMatch]:
+    ) -> list[TrackMatch]:
         """Search for tracks matching the fingerprint."""
         ...
 
@@ -46,6 +47,6 @@ class MetadataProvider(ABC):
     def lookup_by_id(
         self,
         track_id: str,
-    ) -> Optional[TrackMetadata]:
+    ) -> TrackMetadata | None:
         """Get metadata for a specific track ID."""
         ...

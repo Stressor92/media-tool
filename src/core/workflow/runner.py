@@ -41,9 +41,7 @@ class WorkflowRunner:
             result = step.execute(ctx)
 
             if result.status == StepStatus.FAILED and ctx.stop_on_failure:
-                logger.error(
-                    "Pipeline aborted at step [%s]: %s", step.name, result.message
-                )
+                logger.error("Pipeline aborted at step [%s]: %s", step.name, result.message)
                 return WorkflowResult(
                     context=ctx,
                     overall_status=StepStatus.FAILED,
@@ -51,9 +49,7 @@ class WorkflowRunner:
                 )
 
         overall = (
-            StepStatus.FAILED
-            if any(r.status == StepStatus.FAILED for r in ctx.completed_steps)
-            else StepStatus.SUCCESS
+            StepStatus.FAILED if any(r.status == StepStatus.FAILED for r in ctx.completed_steps) else StepStatus.SUCCESS
         )
 
         logger.info("=== Workflow finished: %s ===", overall.name)

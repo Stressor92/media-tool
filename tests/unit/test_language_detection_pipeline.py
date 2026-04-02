@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,9 +15,7 @@ from core.language_detection.pipeline import LanguageDetectionPipeline
 
 
 def _mock_result(lang: str, conf: float) -> LanguageDetectionResult:
-    return LanguageDetectionResult(
-        language=lang, confidence=conf, method=DetectionMethod.WHISPER
-    )
+    return LanguageDetectionResult(language=lang, confidence=conf, method=DetectionMethod.WHISPER)
 
 
 @pytest.fixture()
@@ -74,13 +71,9 @@ class TestPipeline:
             pipeline.detect(req)
         mock_whisper.detect.assert_called_once()
 
-    def test_low_confidence_result_returned_anyway(
-        self, mock_whisper: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_low_confidence_result_returned_anyway(self, mock_whisper: MagicMock, tmp_path: Path) -> None:
         mock_whisper.detect.return_value = _mock_result("fra", 0.45)
-        pl = LanguageDetectionPipeline(
-            min_confidence=0.85, whisper_detector=mock_whisper
-        )
+        pl = LanguageDetectionPipeline(min_confidence=0.85, whisper_detector=mock_whisper)
         f = tmp_path / "unknown.mkv"
         req = DetectionRequest(video_path=f)
         with patch("core.language_detection.pipeline.extract_audio_sample") as mock_sampler:
@@ -92,13 +85,9 @@ class TestPipeline:
         assert result.language == "fra"
         assert result.confidence < 0.85
 
-    def test_whisper_exception_returns_unknown(
-        self, mock_whisper: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_whisper_exception_returns_unknown(self, mock_whisper: MagicMock, tmp_path: Path) -> None:
         mock_whisper.detect.side_effect = RuntimeError("Whisper crashed")
-        pl = LanguageDetectionPipeline(
-            min_confidence=0.85, whisper_detector=mock_whisper
-        )
+        pl = LanguageDetectionPipeline(min_confidence=0.85, whisper_detector=mock_whisper)
         f = tmp_path / "unknown.mkv"
         req = DetectionRequest(video_path=f)
         with patch("core.language_detection.pipeline.extract_audio_sample") as mock_sampler:

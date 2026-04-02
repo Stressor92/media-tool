@@ -27,8 +27,7 @@ _QUALITY_TAGS = re.compile(
 def parse_title(path: Path) -> ParsedTitle:
     folder_result = _try_parse(path.parent.name)
     if folder_result is not None and (
-        folder_result.year is not None
-        or _clean_title(path.parent.name).lower() == _clean_title(path.stem).lower()
+        folder_result.year is not None or _clean_title(path.parent.name).lower() == _clean_title(path.stem).lower()
     ):
         return folder_result
 

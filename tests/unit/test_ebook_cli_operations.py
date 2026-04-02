@@ -8,7 +8,6 @@ from cli.main import app
 from core.ebook.models import AuditReport, DuplicateGroup
 from utils.config import reset_config_cache
 
-
 runner = CliRunner()
 
 
@@ -41,67 +40,69 @@ target_format = "epub"
 
 
 def test_ebook_audit_command_with_stubbed_auditor(tmp_path: Path, monkeypatch) -> None:
-    cfg = tmp_path / 'media-tool.toml'
+    cfg = tmp_path / "media-tool.toml"
     _write_config(cfg)
-    monkeypatch.setenv('MEDIA_TOOL_CONFIG', str(cfg))
+    monkeypatch.setenv("MEDIA_TOOL_CONFIG", str(cfg))
     reset_config_cache()
 
-    library = tmp_path / 'library'
+    library = tmp_path / "library"
     library.mkdir()
 
-    monkeypatch.setattr('cli.ebook_cmd._build_services', lambda: _Bundle())
+    monkeypatch.setattr("cli.ebook_cmd._build_services", lambda: _Bundle())
 
     class _Auditor:
         def __init__(self, **kwargs):
             pass
 
-        def audit(self, library_path: Path, recursive: bool = True, check_covers: bool = True, check_series: bool = True) -> AuditReport:
+        def audit(
+            self, library_path: Path, recursive: bool = True, check_covers: bool = True, check_series: bool = True
+        ) -> AuditReport:
             return AuditReport(total_books=1, total_size_gb=0.01)
 
-    monkeypatch.setattr('cli.ebook_cmd.LibraryAuditor', _Auditor)
+    monkeypatch.setattr("cli.ebook_cmd.LibraryAuditor", _Auditor)
 
-    result = runner.invoke(app, ['ebook', 'audit', str(library)])
+    result = runner.invoke(app, ["ebook", "audit", str(library)])
     assert result.exit_code == 0
-    assert 'Library Audit Report' in result.stdout
+    assert "Library Audit Report" in result.stdout
 
 
 def test_ebook_deduplicate_command_dry_run(tmp_path: Path, monkeypatch) -> None:
-    cfg = tmp_path / 'media-tool.toml'
+    cfg = tmp_path / "media-tool.toml"
     _write_config(cfg)
-    monkeypatch.setenv('MEDIA_TOOL_CONFIG', str(cfg))
+    monkeypatch.setenv("MEDIA_TOOL_CONFIG", str(cfg))
     reset_config_cache()
 
-    library = tmp_path / 'library'
+    library = tmp_path / "library"
     library.mkdir()
-    keep = library / 'book.epub'
-    remove = library / 'book.mobi'
-    keep.write_text('x', encoding='utf-8')
-    remove.write_text('y', encoding='utf-8')
+    keep = library / "book.epub"
+    remove = library / "book.mobi"
+    keep.write_text("x", encoding="utf-8")
+    remove.write_text("y", encoding="utf-8")
 
-    monkeypatch.setattr('cli.ebook_cmd._build_services', lambda: _Bundle())
+    monkeypatch.setattr("cli.ebook_cmd._build_services", lambda: _Bundle())
 
     class _Finder:
         def __init__(self, **kwargs):
             pass
 
         def find_duplicates(self, library_path: Path, recursive: bool = True):
-            return [DuplicateGroup(books=[keep, remove], match_confidence=0.95, best_version=keep, reason='EPUB best')]
+            return [DuplicateGroup(books=[keep, remove], match_confidence=0.95, best_version=keep, reason="EPUB best")]
 
-    monkeypatch.setattr('cli.ebook_cmd.DuplicateFinder', _Finder)
+    monkeypatch.setattr("cli.ebook_cmd.DuplicateFinder", _Finder)
 
-    result = runner.invoke(app, ['ebook', 'deduplicate', str(library), '--dry-run'])
+    result = runner.invoke(app, ["ebook", "deduplicate", str(library), "--dry-run"])
     assert result.exit_code == 0
-    assert 'Duplicate Group' in result.stdout
+    assert "Duplicate Group" in result.stdout
 
 
 def test_ebook_convert_command_dry_run(tmp_path: Path, monkeypatch) -> None:
-    cfg = tmp_path / 'media-tool.toml'
+    cfg = tmp_path / "media-tool.toml"
     _write_config(cfg)
-    monkeypatch.setenv('MEDIA_TOOL_CONFIG', str(cfg))
+    monkeypatch.setenv("MEDIA_TOOL_CONFIG", str(cfg))
     reset_config_cache()
 
-    source = tmp_path / 'book.epub'
-    source.write_text('x', encoding='utf-8')
+    source = tmp_path / "book.epub"
+    source.write_text("x", encoding="utf-8")
 
     class _Calibre:
         pass
@@ -117,9 +118,9 @@ def test_ebook_convert_command_dry_run(tmp_path: Path, monkeypatch) -> None:
         def convert(self, **kwargs):
             return _Result(True)
 
-    monkeypatch.setattr('cli.ebook_cmd.CalibreRunner', lambda: _Calibre())
-    monkeypatch.setattr('cli.ebook_cmd.FormatConverter', _Converter)
+    monkeypatch.setattr("cli.ebook_cmd.CalibreRunner", lambda: _Calibre())
+    monkeypatch.setattr("cli.ebook_cmd.FormatConverter", _Converter)
 
-    result = runner.invoke(app, ['ebook', 'convert', str(source), 'mobi', '--dry-run'])
+    result = runner.invoke(app, ["ebook", "convert", str(source), "mobi", "--dry-run"])
     assert result.exit_code == 0
-    assert 'Conversion complete' in result.stdout
+    assert "Conversion complete" in result.stdout

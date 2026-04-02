@@ -74,7 +74,6 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             force_disable_crop=False,
         ),
     ),
-
     # --- Jellyfin direct-play ----------------------------------------------
     "jellyfin": UpscaleProfile(
         name="jellyfin",
@@ -83,8 +82,8 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             "PAL 576p · CRF 18 · preset slow · deinterlace enabled · gentler filter chain."
         ),
         options=UpscaleOptions(
-            target_height=576,    # PAL native — no fake upscale beyond source resolution
-            target_width=1024,    # correct for 4:3 PAL after DAR
+            target_height=576,  # PAL native — no fake upscale beyond source resolution
+            target_width=1024,  # correct for 4:3 PAL after DAR
             crf=18,
             preset="slow",
             codec="libx265",
@@ -100,14 +99,10 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             force_disable_crop=False,
         ),
     ),
-
     # --- High quality -------------------------------------------------------
     "dvd-hq": UpscaleProfile(
         name="dvd-hq",
-        description=(
-            "High-quality DVD rip for important films. "
-            "720p · CRF 18 · preset slow · stronger sharpen."
-        ),
+        description=("High-quality DVD rip for important films. " "720p · CRF 18 · preset slow · stronger sharpen."),
         options=UpscaleOptions(
             target_height=720,
             target_width=1280,
@@ -124,13 +119,11 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             force_disable_crop=False,
         ),
     ),
-
     # --- Fast / batch -------------------------------------------------------
     "dvd-fast": UpscaleProfile(
         name="dvd-fast",
         description=(
-            "Fast batch processing for large NAS ingest queues. "
-            "720p · CRF 23 · preset fast · lighter filter chain."
+            "Fast batch processing for large NAS ingest queues. " "720p · CRF 23 · preset fast · lighter filter chain."
         ),
         options=UpscaleOptions(
             target_height=720,
@@ -148,13 +141,11 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             force_disable_crop=False,
         ),
     ),
-
     # --- Full HD ------------------------------------------------------------
     "1080p": UpscaleProfile(
         name="1080p",
         description=(
-            "Upscale to Full HD for cinema-quality content. "
-            "1080p · CRF 20 · preset medium · full filter chain."
+            "Upscale to Full HD for cinema-quality content. " "1080p · CRF 20 · preset medium · full filter chain."
         ),
         options=UpscaleOptions(
             target_height=1080,
@@ -172,13 +163,11 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             force_disable_crop=False,
         ),
     ),
-
     # --- Anime --------------------------------------------------------------
     "anime": UpscaleProfile(
         name="anime",
         description=(
-            "Optimised for animated content. "
-            "720p · CRF 19 · preset slow · cropdetect disabled · gentle sharpen."
+            "Optimised for animated content. " "720p · CRF 19 · preset slow · cropdetect disabled · gentle sharpen."
         ),
         options=UpscaleOptions(
             target_height=720,
@@ -196,7 +185,6 @@ BUILTIN_PROFILES: dict[str, UpscaleProfile] = {
             force_disable_crop=True,
         ),
     ),
-
     # --- Archive ------------------------------------------------------------
     "archive": UpscaleProfile(
         name="archive",
@@ -239,10 +227,7 @@ def get_profile(name: str) -> UpscaleProfile:
     """
     if name not in BUILTIN_PROFILES:
         known = ", ".join(sorted(BUILTIN_PROFILES))
-        raise ValueError(
-            f"Unknown upscale profile {name!r}. "
-            f"Available profiles: {known}"
-        )
+        raise ValueError(f"Unknown upscale profile {name!r}. " f"Available profiles: {known}")
     return BUILTIN_PROFILES[name]
 
 

@@ -1,5 +1,5 @@
 # tests/unit/test_subtitle_parser.py
-from core.translation.subtitle_parser import parse_srt, parse_vtt, parse_ass
+from core.translation.subtitle_parser import parse_ass, parse_srt, parse_vtt
 
 SRT_SAMPLE = """\
 1
@@ -70,7 +70,7 @@ class TestVttParser:
 
     def test_time_converted_to_srt_format(self) -> None:
         seg = parse_vtt(VTT_SAMPLE)[0]
-        assert "," in seg.start   # VTT "." → SRT ","
+        assert "," in seg.start  # VTT "." → SRT ","
 
     def test_first_segment_text(self) -> None:
         segs = parse_vtt(VTT_SAMPLE)

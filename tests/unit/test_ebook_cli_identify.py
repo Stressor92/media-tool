@@ -8,7 +8,6 @@ from cli.main import app
 from tests.ebook_test_support import create_minimal_epub
 from utils.config import reset_config_cache
 
-
 runner = CliRunner()
 
 

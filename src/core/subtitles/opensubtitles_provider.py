@@ -10,11 +10,11 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 import requests
 
-from .subtitle_provider import SubtitleProvider, SubtitleMatch, MovieInfo
+from .subtitle_provider import MovieInfo, SubtitleMatch, SubtitleProvider
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +32,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
 
     API_BASE = "https://api.opensubtitles.com/api/v1"
 
-    def __init__(
-        self,
-        api_key: str,
-        user_agent: str = "media-tool v1.0",
-        timeout: int = 30,
-        max_retries: int = 3
-    ):
+    def __init__(self, api_key: str, user_agent: str = "media-tool v1.0", timeout: int = 30, max_retries: int = 3):
         """
         Initialize OpenSubtitles provider.
 
@@ -57,11 +51,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
         self.timeout = timeout
         self.max_retries = max_retries
 
-        self.headers = {
-            "Api-Key": normalized_key,
-            "User-Agent": user_agent,
-            "Content-Type": "application/json"
-        }
+        self.headers = {"Api-Key": normalized_key, "User-Agent": user_agent, "Content-Type": "application/json"}
 
         self.session = requests.Session()
         self.session.headers.update(self.headers)
@@ -70,12 +60,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
         self.last_request_time: float = 0.0
         self.min_request_interval: float = 0.25  # 4 requests/second max
 
-    def search(
-        self,
-        movie_info: MovieInfo,
-        languages: List[str],
-        limit: int = 10
-    ) -> List[SubtitleMatch]:
+    def search(self, movie_info: MovieInfo, languages: list[str], limit: int = 10) -> list[SubtitleMatch]:
         """
         Search for subtitle matches via OpenSubtitles API.
 
@@ -94,7 +79,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
             "moviehash": movie_info.file_hash,
             "languages": ",".join(languages),
             "order_by": "download_count",
-            "limit": limit
+            "limit": limit,
         }
 
         # Add optional metadata for better matching
@@ -135,18 +120,14 @@ class OpenSubtitlesProvider(SubtitleProvider):
                 uploader=attributes.get("uploader", {}).get("name", "Unknown"),
                 hearing_impaired=bool(attributes.get("hearing_impaired", False)),
                 format=file_info.get("file_name", "").split(".")[-1].lower(),
-                provider="opensubtitles"
+                provider="opensubtitles",
             )
             matches.append(match)
 
         logger.info(f"Found {len(matches)} subtitle matches for {movie_info.file_path.name}")
         return matches
 
-    def download(
-        self,
-        match: SubtitleMatch,
-        output_path: Path
-    ) -> Path:
+    def download(self, match: SubtitleMatch, output_path: Path) -> Path:
         """
         Download subtitle file.
 
@@ -161,11 +142,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
 
         logger.debug(f"Downloading subtitle file_id: {match.id}")
 
-        response = self._make_request(
-            "POST",
-            f"{self.API_BASE}/download",
-            json={"file_id": int(match.id)}
-        )
+        response = self._make_request("POST", f"{self.API_BASE}/download", json={"file_id": int(match.id)})
 
         if not response:
             raise RuntimeError(f"Failed to get download link for file_id {match.id}")
@@ -186,11 +163,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
 
         return output_path
 
-    def get_best_match(
-        self,
-        matches: List[SubtitleMatch],
-        release_hint: Optional[str] = None
-    ) -> Optional[SubtitleMatch]:
+    def get_best_match(self, matches: list[SubtitleMatch], release_hint: str | None = None) -> SubtitleMatch | None:
         """
         Select best subtitle based on:
         1. Exact release name match (if provided)
@@ -209,24 +182,13 @@ class OpenSubtitlesProvider(SubtitleProvider):
 
         # If release name provided, prioritize exact match
         if release_hint:
-            exact_matches = [
-                m for m in filtered
-                if release_hint.lower() in m.release_name.lower()
-            ]
+            exact_matches = [m for m in filtered if release_hint.lower() in m.release_name.lower()]
             if exact_matches:
                 # Sort by rating, then downloads
-                return sorted(
-                    exact_matches,
-                    key=lambda x: (x.rating, x.download_count),
-                    reverse=True
-                )[0]
+                return sorted(exact_matches, key=lambda x: (x.rating, x.download_count), reverse=True)[0]
 
         # Otherwise, select by rating + downloads
-        return sorted(
-            filtered,
-            key=lambda x: (x.rating, x.download_count),
-            reverse=True
-        )[0]
+        return sorted(filtered, key=lambda x: (x.rating, x.download_count), reverse=True)[0]
 
     def _rate_limit(self) -> None:
         """Implement client-side rate limiting."""
@@ -240,7 +202,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
 
         self.last_request_time = time.time()
 
-    def _make_request(self, method: str, url: str, **kwargs: Any) -> Optional[requests.Response]:
+    def _make_request(self, method: str, url: str, **kwargs: Any) -> requests.Response | None:
         """Make HTTP request with retry logic and error handling."""
 
         for attempt in range(self.max_retries):
@@ -275,7 +237,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
             except requests.exceptions.RequestException as e:
                 logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
                 if attempt < self.max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
+                    time.sleep(2**attempt)  # Exponential backoff
                 else:
                     logger.error(f"All retry attempts failed for {url}")
                     return None

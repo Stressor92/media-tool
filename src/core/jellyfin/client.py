@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urljoin
 
-import requests
 from requests import Response, Session
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -46,7 +45,7 @@ class JellyfinClient:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout
-        self._session: Optional[Session] = None
+        self._session: Session | None = None
 
     def _get_session(self) -> Session:
         if self._session is None:
@@ -91,9 +90,7 @@ class JellyfinClient:
         if response.status_code == 404:
             raise JellyfinNotFoundError(f"Resource not found: {response.url}")
         if response.status_code >= 500:
-            raise JellyfinServerError(
-                f"Server error {response.status_code}: {response.text[:200]}"
-            )
+            raise JellyfinServerError(f"Server error {response.status_code}: {response.text[:200]}")
         response.raise_for_status()
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
@@ -111,9 +108,7 @@ class JellyfinClient:
     ) -> Any:
         url = self._url(path)
         logger.debug("POST %s", url)
-        resp = self._get_session().post(
-            url, params=params, json=body, timeout=self._timeout
-        )
+        resp = self._get_session().post(url, params=params, json=body, timeout=self._timeout)
         self._raise_for_status(resp)
         return resp.json() if resp.content else {}
 

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 import pytest
 
-from utils.epub_reader import EpubReadError, EpubReader
+from utils.epub_reader import EpubReader, EpubReadError
 
 
 def _write_epub(epub_path: Path, opf_content: str) -> None:

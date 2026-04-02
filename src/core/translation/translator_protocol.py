@@ -7,7 +7,7 @@ from typing import Protocol, runtime_checkable
 
 class TranslatorBackend(str, Enum):
     OPUS_MT = "opus-mt"
-    ARGOS   = "argos"
+    ARGOS = "argos"
 
 
 @runtime_checkable
@@ -30,8 +30,6 @@ class TranslatorProtocol(Protocol):
         """
         ...
 
-    def is_language_pair_supported(
-        self, source_lang: str, target_lang: str
-    ) -> bool:
+    def is_language_pair_supported(self, source_lang: str, target_lang: str) -> bool:
         """True if this backend supports the language pair."""
         ...

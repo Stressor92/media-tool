@@ -38,29 +38,21 @@ class TestBuildPostprocessors:
         assert "FFmpegExtractAudio" in keys
 
     def test_video_embeds_subtitles_when_enabled(self) -> None:
-        processors = build_postprocessors(
-            _make_request(MediaType.VIDEO, embed_subtitles=True)
-        )
+        processors = build_postprocessors(_make_request(MediaType.VIDEO, embed_subtitles=True))
         keys = [entry["key"] for entry in processors]
         assert "FFmpegEmbedSubtitle" in keys
 
     def test_video_omits_subtitles_when_disabled(self) -> None:
-        processors = build_postprocessors(
-            _make_request(MediaType.VIDEO, embed_subtitles=False)
-        )
+        processors = build_postprocessors(_make_request(MediaType.VIDEO, embed_subtitles=False))
         keys = [entry["key"] for entry in processors]
         assert "FFmpegEmbedSubtitle" not in keys
 
     def test_sponsorblock_removed_when_empty(self) -> None:
-        processors = build_postprocessors(
-            _make_request(MediaType.VIDEO, sponsorblock_remove=())
-        )
+        processors = build_postprocessors(_make_request(MediaType.VIDEO, sponsorblock_remove=()))
         keys = [entry["key"] for entry in processors]
         assert "SponsorBlock" not in keys
 
     def test_music_audio_codec_forwarded(self) -> None:
-        processors = build_postprocessors(
-            _make_request(MediaType.MUSIC, audio_format="flac")
-        )
+        processors = build_postprocessors(_make_request(MediaType.MUSIC, audio_format="flac"))
         extract = next(item for item in processors if item["key"] == "FFmpegExtractAudio")
         assert extract["preferredcodec"] == "flac"

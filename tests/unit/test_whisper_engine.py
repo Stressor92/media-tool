@@ -9,7 +9,6 @@ import wave
 from pathlib import Path
 from unittest.mock import patch
 
-
 from core.video import (
     HallucinationDetector,
     WhisperConfig,
@@ -36,7 +35,7 @@ Thank you for watching!
 Please subscribe to my channel.
 """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt_content)
             srt_path = Path(f.name)
 
@@ -77,7 +76,7 @@ This is a test.
 This is a test.
 """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt_content)
             srt_path = Path(f.name)
 
@@ -96,7 +95,7 @@ This is a test.
         # Create a very large SRT for short audio
         srt_content = "\n".join([f"{i}\n00:00:00,000 --> 00:00:01,000\nLine {i}\n" for i in range(1000)])
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt_content)
             srt_path = Path(f.name)
 
@@ -113,16 +112,16 @@ class TestWhisperEngine:
 
     def create_test_wav(self, duration_seconds: float = 5.0) -> Path:
         """Create a minimal test WAV file."""
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             wav_path = Path(f.name)
 
         # Create a simple WAV file
-        with wave.open(str(wav_path), 'wb') as wav:
+        with wave.open(str(wav_path), "wb") as wav:
             wav.setnchannels(1)
             wav.setsampwidth(2)
             wav.setframerate(16000)
             # Write minimal data
-            frames = b'\x00\x00' * int(16000 * duration_seconds)
+            frames = b"\x00\x00" * int(16000 * duration_seconds)
             wav.writeframes(frames)
 
         return wav_path
@@ -146,8 +145,8 @@ class TestWhisperEngine:
         finally:
             wav_path.unlink()
 
-    @patch('core.video.whisper_engine.WhisperEngine._run_whisper')
-    @patch('core.video.whisper_engine.WhisperEngine._get_audio_duration')
+    @patch("core.video.whisper_engine.WhisperEngine._run_whisper")
+    @patch("core.video.whisper_engine.WhisperEngine._get_audio_duration")
     def test_transcribe_success(self, mock_duration, mock_run):
         """Test successful transcription."""
         mock_duration.return_value = 60.0  # 1 minute
@@ -156,7 +155,7 @@ class TestWhisperEngine:
         wav_path = self.create_test_wav(60.0)
 
         try:
-            with tempfile.NamedTemporaryFile(suffix='.srt', delete=False) as srt_file:
+            with tempfile.NamedTemporaryFile(suffix=".srt", delete=False) as srt_file:
                 srt_path = Path(srt_file.name)
 
             result = engine.transcribe(wav_path, srt_path)
@@ -170,8 +169,8 @@ class TestWhisperEngine:
             if srt_path.exists():
                 srt_path.unlink()
 
-    @patch('core.video.whisper_engine.WhisperEngine._run_whisper')
-    @patch('core.video.whisper_engine.WhisperEngine._get_audio_duration')
+    @patch("core.video.whisper_engine.WhisperEngine._run_whisper")
+    @patch("core.video.whisper_engine.WhisperEngine._get_audio_duration")
     def test_transcribe_with_hallucinations(self, mock_duration, mock_run):
         """Test transcription with hallucination detection."""
         mock_duration.return_value = 60.0
@@ -180,7 +179,7 @@ class TestWhisperEngine:
         wav_path = self.create_test_wav(60.0)
 
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.srt', delete=False) as srt_file:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as srt_file:
                 # Write SRT with known hallucination pattern
                 srt_file.write("""1
 00:00:00,000 --> 00:00:05,000

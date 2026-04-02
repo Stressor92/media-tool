@@ -14,9 +14,9 @@ from core.translation.models import (
     TranslationResult,
     TranslationStatus,
 )
-from core.translation.translator_protocol import TranslatorBackend, TranslatorProtocol
 from core.translation.subtitle_translator import SubtitleTranslator
 from core.translation.translator_factory import create_translator
+from core.translation.translator_protocol import TranslatorBackend, TranslatorProtocol
 
 __all__ = [
     "LanguagePair",

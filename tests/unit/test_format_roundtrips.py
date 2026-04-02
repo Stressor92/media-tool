@@ -1,5 +1,6 @@
 # tests/unit/test_format_roundtrips.py
 """Roundtrip tests: write → read → content preserved."""
+
 from pathlib import Path
 from typing import Any
 
@@ -17,14 +18,17 @@ def _base_doc(fmt: SubtitleFormat) -> SubtitleDocument:
     return SubtitleDocument(segs, fmt)
 
 
-@pytest.mark.parametrize("module,fmt,ext", [
-    (srt,  SubtitleFormat.SRT,  ".srt"),
-    (vtt,  SubtitleFormat.VTT,  ".vtt"),
-    (ttml, SubtitleFormat.TTML, ".ttml"),
-    (lrc,  SubtitleFormat.LRC,  ".lrc"),
-    (sbv,  SubtitleFormat.SBV,  ".sbv"),
-    (ass,  SubtitleFormat.ASS,  ".ass"),
-])
+@pytest.mark.parametrize(
+    "module,fmt,ext",
+    [
+        (srt, SubtitleFormat.SRT, ".srt"),
+        (vtt, SubtitleFormat.VTT, ".vtt"),
+        (ttml, SubtitleFormat.TTML, ".ttml"),
+        (lrc, SubtitleFormat.LRC, ".lrc"),
+        (sbv, SubtitleFormat.SBV, ".sbv"),
+        (ass, SubtitleFormat.ASS, ".ass"),
+    ],
+)
 def test_roundtrip(module: Any, fmt: SubtitleFormat, ext: str, tmp_path: Path) -> None:
     doc = _base_doc(fmt)
     out = tmp_path / f"test{ext}"
@@ -96,6 +100,7 @@ def test_ass_header_present(tmp_path: Path) -> None:
 
 def test_ass_style_roundtrip(tmp_path: Path) -> None:
     from core.translation.models import StyleInfo
+
     doc = _base_doc(SubtitleFormat.ASS)
     doc.styles = [StyleInfo(name="Custom", bold=True, font_size=24)]
     out = tmp_path / "styled.ass"
@@ -133,10 +138,7 @@ def test_scc_write_creates_header(tmp_path: Path) -> None:
 
 
 def test_scc_read_basic(tmp_path: Path) -> None:
-    scc_content = (
-        "Scenarist_SCC V1.0\n\n"
-        "00:00:02;00\t1420 48 65 6c 6c 6f 142f\n"
-    )
+    scc_content = "Scenarist_SCC V1.0\n\n" "00:00:02;00\t1420 48 65 6c 6c 6f 142f\n"
     f = tmp_path / "test.scc"
     f.write_text(scc_content)
     doc = scc.read(f)

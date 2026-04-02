@@ -7,21 +7,23 @@ Provides download and search functionality for subtitles.
 
 from __future__ import annotations
 
-import typer
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
+import typer
 from rich.console import Console
 
 from core.subtitles.opensubtitles_provider import OpenSubtitlesProvider
-from core.subtitles.subtitle_provider import MovieInfo, SubtitleMatch
 from core.subtitles.subtitle_downloader import SubtitleDownloadManager
+from core.subtitles.subtitle_provider import MovieInfo, SubtitleMatch
 from utils.config import build_missing_config_hint, get_config, has_config_file
-from utils.video_hasher import VideoHasher
 from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
+from utils.video_hasher import VideoHasher
 
-app = typer.Typer(help="Download and manage subtitles. Use 'download' to fetch from OpenSubtitles.org, 'search' to check availability.")
+app = typer.Typer(
+    help="Download and manage subtitles. Use 'download' to fetch from OpenSubtitles.org, 'search' to check availability."
+)
 console = Console()
 
 
@@ -74,7 +76,7 @@ def download(
     interactive: bool = typer.Option(False, help="Show matches and let user choose"),
     recursive: bool = typer.Option(True, help="Process directories recursively"),
     overwrite: bool = typer.Option(False, help="Overwrite existing subtitles"),
-    api_key: str | None = typer.Option(None, envvar="OPENSUBTITLES_API_KEY")
+    api_key: str | None = typer.Option(None, envvar="OPENSUBTITLES_API_KEY"),
 ) -> None:
     """
     Download subtitles from OpenSubtitles.org
@@ -166,7 +168,7 @@ def search(
     path: Path = typer.Argument(..., help="MKV file to search subtitles for"),
     languages: str | None = typer.Option(None, help="Comma-separated language codes. Defaults to config."),
     limit: int = typer.Option(10, help="Max results to show"),
-    api_key: str | None = typer.Option(None, envvar="OPENSUBTITLES_API_KEY")
+    api_key: str | None = typer.Option(None, envvar="OPENSUBTITLES_API_KEY"),
 ) -> None:
     """
     Search for available subtitles (without downloading)
@@ -194,7 +196,7 @@ def search(
     )
     hasher = VideoHasher()
     ffmpeg_runner = FFmpegMuxer()
-    manager = SubtitleDownloadManager(provider, ffmpeg_runner)
+    SubtitleDownloadManager(provider, ffmpeg_runner)
 
     # Get movie info
     try:
@@ -205,12 +207,7 @@ def search(
         probe_result = probe_file(path)
         duration = float(probe_result.format.get("duration", 0))
 
-        movie_info = MovieInfo(
-            file_path=path,
-            file_hash=file_hash,
-            file_size=file_size,
-            duration=duration
-        )
+        movie_info = MovieInfo(file_path=path, file_hash=file_hash, file_size=file_size, duration=duration)
     except Exception as e:
         console.print(f"[red]Error analyzing file: {e}[/red]")
         raise typer.Exit(1)
@@ -241,7 +238,7 @@ def search(
             f"{match.rating:.1f}",
             f"{match.download_count:,}",
             match.uploader[:20],
-            match.format.upper()
+            match.format.upper(),
         )
 
     console.print(table)
@@ -250,7 +247,9 @@ def search(
     # Show best match
     best = provider.get_best_match(matches)
     if best:
-        console.print(f"[green]Best match:[/green] {best.release_name} ({best.rating:.1f}★, {best.download_count:,} downloads)")
+        console.print(
+            f"[green]Best match:[/green] {best.release_name} ({best.rating:.1f}★, {best.download_count:,} downloads)"
+        )
 
 
 @app.command("translate")
@@ -267,7 +266,9 @@ def translate_subtitle(
     no_line_wrap: Annotated[bool, typer.Option("--no-line-wrap", help="Disable automatic line wrapping")] = False,
     max_line_length: Annotated[int, typer.Option(help="Max characters per subtitle line")] = 40,
     no_tags: Annotated[bool, typer.Option("--no-tags", help="Disable HTML/ASS tag preservation")] = False,
-    auto_detect: Annotated[bool, typer.Option("--auto-detect", help="Auto-detect source language (requires: pip install langdetect)")] = False,
+    auto_detect: Annotated[
+        bool, typer.Option("--auto-detect", help="Auto-detect source language (requires: pip install langdetect)")
+    ] = False,
 ) -> None:
     """
     Translate subtitle files locally using an offline AI model.
@@ -348,9 +349,7 @@ def translate_subtitle(
                 console.print(f"  [red]✗[/red] {f.name}: {result.error_message}")
                 failed += 1
 
-    console.print(
-        f"\n[bold]Summary:[/bold] {success} translated · {skipped} skipped · {failed} failed"
-    )
+    console.print(f"\n[bold]Summary:[/bold] {success} translated · {skipped} skipped · {failed} failed")
     if failed:
         raise typer.Exit(1)
 
@@ -362,16 +361,16 @@ _DEFAULT_MODEL_DIR = Path(__file__).parent.parent / "utils" / "translate_models"
 # For en→de there is a tc-big model (transformer-big, BLEU ~43.7 vs ~35 standard).
 # For de→en no separate big variant exists.
 _ALL_MODELS: dict[str, str] = {
-    "Helsinki-NLP/opus-mt-en-de":      "en→de Standard (~300 MB, BLEU ~35)",
-    "gsarti/opus-mt-tc-big-en-de":     "en→de Big    (~900 MB, BLEU ~44, empfohlen)",
-    "Helsinki-NLP/opus-mt-de-en":      "de→en Standard (~300 MB)",
+    "Helsinki-NLP/opus-mt-en-de": "en→de Standard (~300 MB, BLEU ~35)",
+    "gsarti/opus-mt-tc-big-en-de": "en→de Big    (~900 MB, BLEU ~44, empfohlen)",
+    "Helsinki-NLP/opus-mt-de-en": "de→en Standard (~300 MB)",
 }
 
 
 @app.command("download-models")
 def download_models(
     model_dir: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--model-dir", "-d", help="Zielordner für die Modelle."),
     ] = None,
     force: Annotated[
@@ -435,6 +434,7 @@ def download_models(
             # Remove any leftover partial directory so converter can start fresh
             if model_dir_path.exists():
                 import shutil
+
                 shutil.rmtree(model_dir_path)
             converter = TransformersConverter(model_name, low_cpu_mem_usage=True)
             converter.convert(str(model_dir_path))
@@ -446,6 +446,7 @@ def download_models(
             errors.append(model_name)
             if model_dir_path.exists():
                 import shutil
+
                 shutil.rmtree(model_dir_path, ignore_errors=True)
 
     console.print()
@@ -460,7 +461,7 @@ def download_models(
 def convert_subtitle(
     path: Annotated[Path, typer.Argument(help="Subtitle file or directory")],
     to: Annotated[str, typer.Option(help="Target format: srt | ass | vtt | ttml | scc | stl | lrc | sbv")],
-    output: Annotated[Optional[Path], typer.Option("-o", help="Output file or directory")] = None,
+    output: Annotated[Path | None, typer.Option("-o", help="Output file or directory")] = None,
     recursive: Annotated[bool, typer.Option("-r/--recursive", help="Process subdirectories recursively")] = False,
     overwrite: Annotated[bool, typer.Option(help="Overwrite existing output files")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be done without writing files")] = False,
@@ -484,8 +485,7 @@ def convert_subtitle(
         typer.echo(f"❌ Unknown format '{to}'. Valid: {valid}", err=True)
         raise typer.Exit(1)
 
-    subtitle_exts = {".srt", ".ass", ".ssa", ".vtt", ".ttml", ".dfxp",
-                     ".scc", ".stl", ".lrc", ".sbv"}
+    subtitle_exts = {".srt", ".ass", ".ssa", ".vtt", ".ttml", ".dfxp", ".scc", ".stl", ".lrc", ".sbv"}
 
     files: list[Path] = []
     if path.is_file():
@@ -503,11 +503,10 @@ def convert_subtitle(
 
     for f in files:
         if output and output.is_dir():
-            out: Optional[Path] = output / f.with_suffix(f".{to}").name
+            out: Path | None = output / f.with_suffix(f".{to}").name
         else:
             out = output
-        result = converter.convert(f, target_fmt, output_path=out,
-                                   overwrite=overwrite, dry_run=dry_run)
+        result = converter.convert(f, target_fmt, output_path=out, overwrite=overwrite, dry_run=dry_run)
         match result.status:
             case ConversionStatus.SUCCESS:
                 out_name = result.output_path.name if result.output_path else "?"
@@ -531,7 +530,7 @@ def list_formats() -> None:
     from core.translation.format_registry import FormatRegistry
     from core.translation.models import SubtitleFormat
 
-    read_fmts  = set(FormatRegistry.supported_read_formats())
+    read_fmts = set(FormatRegistry.supported_read_formats())
     write_fmts = set(FormatRegistry.supported_write_formats())
 
     typer.echo("\n── Supported Subtitle Formats ──────────────────────────")
@@ -539,16 +538,16 @@ def list_formats() -> None:
     typer.echo("  " + "─" * 55)
 
     descriptions = {
-        SubtitleFormat.SRT:  "SubRip – universal standard",
-        SubtitleFormat.ASS:  "Advanced SubStation Alpha – Anime, styling",
-        SubtitleFormat.VTT:  "WebVTT – HTML5 / browser",
+        SubtitleFormat.SRT: "SubRip – universal standard",
+        SubtitleFormat.ASS: "Advanced SubStation Alpha – Anime, styling",
+        SubtitleFormat.VTT: "WebVTT – HTML5 / browser",
         SubtitleFormat.TTML: "TTML/DFXP – broadcast (Netflix, ARD)",
-        SubtitleFormat.SCC:  "SCC – US-TV closed captions (CEA-608)",
-        SubtitleFormat.STL:  "EBU STL – European broadcast TV",
-        SubtitleFormat.LRC:  "LRC – music/karaoke lyric sync",
-        SubtitleFormat.SBV:  "SBV – YouTube auto-captions",
-        SubtitleFormat.SUB:  "VobSub – DVD bitmap (read + OCR only)",
-        SubtitleFormat.SUP:  "PGS/SUP – Blu-ray bitmap (read + OCR only)",
+        SubtitleFormat.SCC: "SCC – US-TV closed captions (CEA-608)",
+        SubtitleFormat.STL: "EBU STL – European broadcast TV",
+        SubtitleFormat.LRC: "LRC – music/karaoke lyric sync",
+        SubtitleFormat.SBV: "SBV – YouTube auto-captions",
+        SubtitleFormat.SUB: "VobSub – DVD bitmap (read + OCR only)",
+        SubtitleFormat.SUP: "PGS/SUP – Blu-ray bitmap (read + OCR only)",
     }
 
     for fmt in SubtitleFormat:

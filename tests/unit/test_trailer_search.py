@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from utils.ytdlp_runner import VideoInfo
 from core.video.trailer_search import TrailerSearchService
+from utils.ytdlp_runner import VideoInfo
 
 
 class FakeRunner:

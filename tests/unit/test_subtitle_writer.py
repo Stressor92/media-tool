@@ -2,15 +2,12 @@
 from pathlib import Path
 
 from core.translation.models import SubtitleDocument, SubtitleFormat, SubtitleSegment
-from core.translation.subtitle_writer import write_subtitle_file
 from core.translation.subtitle_parser import parse_srt
+from core.translation.subtitle_writer import write_subtitle_file
 
 
 def _make_doc(texts: list[str]) -> SubtitleDocument:
-    segs = [
-        SubtitleSegment(i + 1, f"00:00:0{i},000", f"00:00:0{i + 1},000", t)
-        for i, t in enumerate(texts)
-    ]
+    segs = [SubtitleSegment(i + 1, f"00:00:0{i},000", f"00:00:0{i + 1},000", t) for i, t in enumerate(texts)]
     return SubtitleDocument(segs, SubtitleFormat.SRT)
 
 

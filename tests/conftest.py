@@ -7,16 +7,15 @@ ensuring tests remain isolated and fast.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from core.video.whisper_engine import HallucinationWarning, TranscriptionResult, WhisperEngine
+from tests.fixtures.media_generator import TestMediaGenerator
 from utils.ffmpeg_runner import FFmpegResult
 from utils.ffprobe_runner import ProbeResult
-from core.video.whisper_engine import TranscriptionResult, HallucinationWarning, WhisperEngine
-from tests.fixtures.media_generator import TestMediaGenerator
 
 
 @pytest.fixture
@@ -54,7 +53,7 @@ def mock_ffmpeg_failure():
 @pytest.fixture
 def patch_run_ffmpeg():
     """Patch run_ffmpeg for converter module tests.
-    
+
     Must patch where it's imported/used, not where it's defined.
     """
     with patch("core.video.converter.run_ffmpeg") as mock_ffmpeg:
@@ -92,17 +91,17 @@ def patch_merge_ffmpeg():
 @pytest.fixture
 def mock_ffmpeg_runner():
     """Standard FFmpeg runner mock with realistic default returns.
-    
+
     Returns a Mock object configured with sensible defaults
     for successful FFmpeg execution.
-    
+
     Usage:
         def test_convert(mock_ffmpeg_runner):
             converter = VideoConverter(ffmpeg_runner=mock_ffmpeg_runner)
             result = converter.convert(input_path, output_path)
     """
     mock = Mock()
-    
+
     # Default: successful conversion
     mock.run.return_value = FFmpegResult(
         success=True,
@@ -111,14 +110,14 @@ def mock_ffmpeg_runner():
         stderr_bytes=b"frame=   100 fps= 50 q=-1.0 Lsize=N/A time=00:02:00 bitrate=N/A speed=N/A\n",
         stdout_bytes=b"",
     )
-    
+
     return mock
 
 
 @pytest.fixture
 def mock_ffmpeg_runner_failure():
     """FFmpeg runner mock configured to simulate failure.
-    
+
     Usage:
         def test_convert_error(mock_ffmpeg_runner_failure):
             converter = VideoConverter(ffmpeg_runner=mock_ffmpeg_runner_failure)
@@ -126,7 +125,7 @@ def mock_ffmpeg_runner_failure():
                 converter.convert(input_path, output_path)
     """
     mock = Mock()
-    
+
     # Default: failed conversion
     mock.run.return_value = FFmpegResult(
         success=False,
@@ -135,24 +134,24 @@ def mock_ffmpeg_runner_failure():
         stderr_bytes=b"Unknown encoder 'libx265'",
         stdout_bytes=b"",
     )
-    
+
     return mock
 
 
 @pytest.fixture
 def mock_ffprobe_runner():
     """Standard FFprobe runner mock with realistic video/audio data.
-    
+
     Returns a Mock object configured like FFprobeRunner with sensible defaults
     for 1080p video with stereo audio.
-    
+
     Usage:
         def test_inspect(mock_ffprobe_runner):
             inspector = VideoInspector(ffprobe_runner=mock_ffprobe_runner)
             info = inspector.inspect(video_path)
     """
     mock = Mock()
-    
+
     # Default: 1080p video with stereo audio
     mock.probe_file.return_value = ProbeResult(
         success=True,
@@ -170,9 +169,7 @@ def mock_ffprobe_runner():
                     "duration": "120.5",
                     "nb_frames": "2892",
                     "bit_rate": "5000000",
-                    "tags": {
-                        "DURATION": "00:02:00.500000000"
-                    }
+                    "tags": {"DURATION": "00:02:00.500000000"},
                 },
                 {
                     "index": 1,
@@ -182,11 +179,8 @@ def mock_ffprobe_runner():
                     "sample_rate": "48000",
                     "duration": "120.5",
                     "bit_rate": "128000",
-                    "tags": {
-                        "language": "eng",
-                        "DURATION": "00:02:00.640000000"
-                    }
-                }
+                    "tags": {"language": "eng", "DURATION": "00:02:00.640000000"},
+                },
             ],
             "format": {
                 "filename": "input.mkv",
@@ -196,13 +190,13 @@ def mock_ffprobe_runner():
                 "bit_rate": "6991744",
                 "tags": {
                     "encoder": "libebml v1.3.10 + libmatroska v1.7.1",
-                    "creation_time": "2024-01-15T12:00:00.000000Z"
-                }
-            }
+                    "creation_time": "2024-01-15T12:00:00.000000Z",
+                },
+            },
         },
         stderr="",
     )
-    
+
     return mock
 
 
@@ -210,7 +204,7 @@ def mock_ffprobe_runner():
 def mock_ffprobe_runner_720p():
     """FFprobe runner mock with 720p video data."""
     mock = Mock()
-    
+
     mock.probe_file.return_value = ProbeResult(
         success=True,
         return_code=0,
@@ -226,18 +220,18 @@ def mock_ffprobe_runner_720p():
                     "avg_frame_rate": "30/1",
                     "duration": "60.0",
                     "bit_rate": "2500000",
-                    "tags": {"DURATION": "00:01:00.000000000"}
+                    "tags": {"DURATION": "00:01:00.000000000"},
                 }
             ],
             "format": {
                 "format_name": "matroska,webm",
                 "duration": "60.0",
                 "size": "20971520",
-            }
+            },
         },
         stderr="",
     )
-    
+
     return mock
 
 
@@ -245,30 +239,30 @@ def mock_ffprobe_runner_720p():
 def mock_ffprobe_runner_failure():
     """FFprobe runner mock configured to simulate failure."""
     mock = Mock()
-    
+
     mock.probe_file.return_value = ProbeResult(
         success=False,
         return_code=1,
         data={},
         stderr="No such file or directory",
     )
-    
+
     return mock
 
 
 @pytest.fixture
 def mock_whisper_engine():
     """Standard Whisper engine mock with realistic transcription data.
-    
+
     Usage:
         def test_transcribe(mock_whisper_engine):
             from core.video.whisper_engine import WhisperEngine
-            
+
             engine = WhisperEngine()
             # The mock will be used via dependency injection or patching
     """
     mock = Mock(spec=WhisperEngine)
-    
+
     # Default: successful transcription
     mock.transcribe.return_value = TranscriptionResult(
         success=True,
@@ -279,7 +273,7 @@ def mock_whisper_engine():
         error_message=None,
         processing_time=15.3,
     )
-    
+
     return mock
 
 
@@ -287,7 +281,7 @@ def mock_whisper_engine():
 def mock_whisper_engine_with_warnings():
     """Whisper engine mock with hallucination warnings."""
     mock = Mock(spec=WhisperEngine)
-    
+
     mock.transcribe.return_value = TranscriptionResult(
         success=True,
         srt_path=Path("output.srt"),
@@ -295,16 +289,13 @@ def mock_whisper_engine_with_warnings():
         estimated_duration=120.5,
         hallucination_warnings=[
             HallucinationWarning(
-                type="known_pattern",
-                message="Thank you for watching",
-                confidence=0.95,
-                details={"count": 1}
+                type="known_pattern", message="Thank you for watching", confidence=0.95, details={"count": 1}
             )
         ],
         error_message=None,
         processing_time=15.3,
     )
-    
+
     return mock
 
 
@@ -312,7 +303,7 @@ def mock_whisper_engine_with_warnings():
 def mock_whisper_engine_failure():
     """Whisper engine mock configured to simulate transcription failure."""
     mock = Mock(spec=WhisperEngine)
-    
+
     mock.transcribe.return_value = TranscriptionResult(
         success=False,
         srt_path=None,
@@ -322,17 +313,17 @@ def mock_whisper_engine_failure():
         error_message="WAV file duration too short: 5.0s",
         processing_time=0.0,
     )
-    
+
     return mock
 
 
 @pytest.fixture
 def patch_ffmpeg_run():
     """Patch utils.ffmpeg_runner.run_ffmpeg globally across tests.
-    
+
     Use this when you need to patch FFmpeg's run_ffmpeg function
     in the utils module itself.
-    
+
     Usage:
         def test_something(patch_ffmpeg_run):
             # patch_ffmpeg_run is the mock object
@@ -360,16 +351,8 @@ def patch_ffprobe_probe():
             success=True,
             return_code=0,
             data={
-                "streams": [
-                    {
-                        "index": 0,
-                        "codec_type": "video",
-                        "width": 1920,
-                        "height": 1080,
-                        "duration": "120.0"
-                    }
-                ],
-                "format": {"duration": "120.0"}
+                "streams": [{"index": 0, "codec_type": "video", "width": 1920, "height": 1080, "duration": "120.0"}],
+                "format": {"duration": "120.0"},
             },
             stderr="",
         )
@@ -379,22 +362,18 @@ def patch_ffprobe_probe():
 @pytest.fixture
 def patch_subprocess_run():
     """Patch subprocess.run for tests that call external commands.
-    
+
     Use this when you need to mock subprocess.run directly.
     """
     with patch("subprocess.run") as mock_run:
         # Default to success
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=b"",
-            stderr=b"",
-            args=["some", "command"]
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"", args=["some", "command"])
         yield mock_run
+
 
 def reset_path_exists():
     """Ensure Path.exists() behaves correctly in tests by default.
-    
+
     This prevents tests from accidentally depending on real filesystem state.
     Can be overridden per test by mocking Path.exists() specifically.
     """
@@ -422,13 +401,13 @@ def sample_chapter_files(tmp_media_dir):
     """Create sample audiobook chapter files for testing."""
     chapter_dir = tmp_media_dir / "chapters"
     chapter_dir.mkdir()
-    
+
     files = []
     for i in range(1, 4):
         file_path = chapter_dir / f"Book Title - Chapter {i:02d}.mp3"
         file_path.touch()
         files.append(file_path)
-    
+
     return chapter_dir, files
 
 
@@ -447,27 +426,21 @@ def media_generator():
 def test_video_720p(tmp_path, media_generator):
     """Generate valid 720p MKV video with audio for testing."""
     video_path = tmp_path / "test_720p.mkv"
-    return media_generator.create_test_video(
-        video_path, duration=5.0, resolution=(1280, 720), with_audio=True
-    )
+    return media_generator.create_test_video(video_path, duration=5.0, resolution=(1280, 720), with_audio=True)
 
 
 @pytest.fixture
 def test_video_1080p(tmp_path, media_generator):
     """Generate valid 1080p MKV video with audio for testing."""
     video_path = tmp_path / "test_1080p.mkv"
-    return media_generator.create_test_video(
-        video_path, duration=5.0, resolution=(1920, 1080), with_audio=True
-    )
+    return media_generator.create_test_video(video_path, duration=5.0, resolution=(1920, 1080), with_audio=True)
 
 
 @pytest.fixture
 def test_video_short(tmp_path, media_generator):
     """Generate short video for quick tests."""
     video_path = tmp_path / "test_short.mkv"
-    return media_generator.create_test_video(
-        video_path, duration=2.0, resolution=(1280, 720), with_audio=True
-    )
+    return media_generator.create_test_video(video_path, duration=2.0, resolution=(1280, 720), with_audio=True)
 
 
 @pytest.fixture
@@ -515,9 +488,10 @@ def test_srt_file(tmp_path, media_generator):
 # PYTEST HOOKS - Auto-mark integration tests
 # ============================================================================
 
+
 def pytest_collection_modifyitems(config, items):
     """Auto-mark tests in tests/integration/ directory as integration tests.
-    
+
     This allows running unit tests with: pytest -m "not integration"
     And integration tests separately: pytest -m integration
     """
@@ -527,5 +501,3 @@ def pytest_collection_modifyitems(config, items):
             # Only mark if not already marked
             if not any(marker.name == "integration" for marker in item.iter_markers()):
                 item.add_marker(pytest.mark.integration)
-
-

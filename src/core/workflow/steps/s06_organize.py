@@ -55,9 +55,7 @@ class OrganizeStep(BaseStep):
                     source.unlink(missing_ok=True)
                     deleted.append(source)
             else:
-                logger.info(
-                    "[DRY-RUN] Würde verschieben: %s → %s", source, destination
-                )
+                logger.info("[DRY-RUN] Würde verschieben: %s → %s", source, destination)
 
             moved.append(destination)
 

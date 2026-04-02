@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import cast
 
 from core.ebook.models import ProcessingResult
-from core.ebook.workflow.ebook_processor import EbookProcessor
 from core.ebook.workflow.batch_processor import BatchProcessor
+from core.ebook.workflow.ebook_processor import EbookProcessor
 from core.ebook.workflow.workflow_config import WorkflowConfig
 
 
@@ -15,9 +15,9 @@ class _Processor:
 
 
 def test_batch_processor_enrich_batch(tmp_path: Path) -> None:
-    files = [tmp_path / 'a.epub', tmp_path / 'b.epub']
+    files = [tmp_path / "a.epub", tmp_path / "b.epub"]
     for item in files:
-        item.write_text('x', encoding='utf-8')
+        item.write_text("x", encoding="utf-8")
 
     batch = BatchProcessor(cast(EbookProcessor, _Processor()))
     results = batch.enrich_batch(files, WorkflowConfig())

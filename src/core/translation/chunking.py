@@ -16,6 +16,7 @@ Design principles:
   - safe fallback: if line count after translation doesn't match, distribute
     by proportion of original text lengths
 """
+
 from __future__ import annotations
 
 import re
@@ -30,8 +31,9 @@ _SENTENCE_END_RE = re.compile(r"[.!?]\s*$")
 @dataclass
 class SubtitleChunk:
     """A group of consecutive subtitle segments sent for translation together."""
-    segment_indices: list[int]          # Positions in the original segments list
-    combined_text: str                  # Segments joined by "\n"
+
+    segment_indices: list[int]  # Positions in the original segments list
+    combined_text: str  # Segments joined by "\n"
     original_texts: list[str] = field(default_factory=list)  # Individual segment texts
 
 
@@ -68,9 +70,8 @@ def build_chunks(
         text_len = len(text)
 
         # Check if we should start a new chunk
-        should_break = (
-            len(current_texts) >= max_segments
-            or (current_chars + text_len + 1 > max_chars and current_texts)
+        should_break = len(current_texts) >= max_segments or (
+            current_chars + text_len + 1 > max_chars and current_texts
         )
 
         if should_break:
@@ -111,7 +112,7 @@ def split_translated_chunk(
     Returns a list of translated strings, one per segment in the chunk.
     """
     n = len(chunk.segment_indices)
-    lines = [l.strip() for l in translated_text.split("\n") if l.strip()]
+    lines = [line.strip() for line in translated_text.split("\n") if line.strip()]
 
     if len(lines) == n:
         return lines
@@ -123,6 +124,7 @@ def split_translated_chunk(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_chunk(indices: list[int], texts: list[str]) -> SubtitleChunk:
     return SubtitleChunk(
@@ -156,7 +158,7 @@ def _proportional_split(translated: str, originals: list[str]) -> list[str]:
         else:
             share = len(orig) / total_original
             n_words = max(1, round(total_words * share))
-            result.append(" ".join(words[word_pos: word_pos + n_words]))
+            result.append(" ".join(words[word_pos : word_pos + n_words]))
             word_pos += n_words
 
     return result

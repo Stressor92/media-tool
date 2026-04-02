@@ -1,16 +1,15 @@
 # tests/unit/test_style_mapper.py
-import pytest
 
 from core.translation.models import SubtitleDocument, SubtitleFormat, SubtitleSegment
 from core.translation.style_mapper import (
+    adapt_styles_for_target,
     ass_tags_to_html,
     html_to_ass_tags,
     strip_all_tags,
-    adapt_styles_for_target,
 )
 
-
 # ── ass_tags_to_html ──────────────────────────────────────────────────────
+
 
 def test_ass_italic_to_html() -> None:
     assert ass_tags_to_html(r"{\i1}Hello{\i0}") == "<i>Hello</i>"
@@ -38,6 +37,7 @@ def test_ass_multiple_tags() -> None:
 
 # ── html_to_ass_tags ──────────────────────────────────────────────────────
 
+
 def test_html_italic_to_ass() -> None:
     assert html_to_ass_tags("<i>Hello</i>") == r"{\i1}Hello{\i0}"
 
@@ -51,6 +51,7 @@ def test_html_passthrough_non_markup() -> None:
 
 
 # ── strip_all_tags ────────────────────────────────────────────────────────
+
 
 def test_strip_removes_ass_and_html() -> None:
     result = strip_all_tags(r"{\i1}Hello{\i0} <b>World</b>")
@@ -66,6 +67,7 @@ def test_strip_removes_html_only() -> None:
 
 
 # ── adapt_styles_for_target ───────────────────────────────────────────────
+
 
 def _make_doc(fmt: SubtitleFormat, text: str) -> SubtitleDocument:
     return SubtitleDocument(

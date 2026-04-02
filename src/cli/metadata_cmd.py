@@ -21,10 +21,10 @@ def _make_pipeline(
     artwork_raw: str,
     language: str,
     preferred_artwork_language: str,
-) -> "MetadataPipeline":
-    from core.metadata.metadata_pipeline import MetadataPipeline
+) -> MetadataPipeline:
     from core.metadata.artwork_downloader import ArtworkDownloader
     from core.metadata.match_selector import MatchSelector, SelectionMode
+    from core.metadata.metadata_pipeline import MetadataPipeline
     from core.metadata.models import ArtworkType
     from core.metadata.tmdb_client import TmdbClient
     from core.metadata.tmdb_provider import TmdbProvider
@@ -42,9 +42,7 @@ def _make_pipeline(
         artwork_types = list(artwork_map.values())
     else:
         artwork_types = [
-            artwork_map[item.strip().lower()]
-            for item in artwork_raw.split(",")
-            if item.strip().lower() in artwork_map
+            artwork_map[item.strip().lower()] for item in artwork_raw.split(",") if item.strip().lower() in artwork_map
         ]
         if not artwork_types:
             artwork_types = [ArtworkType.POSTER, ArtworkType.FANART]
@@ -123,9 +121,7 @@ def fetch(
 
     for result in results:
         if result.status == MetadataStatus.SUCCESS:
-            typer.echo(
-                f"OK {result.source_path.name}: NFO + {len(result.artwork_files)} artwork files"
-            )
+            typer.echo(f"OK {result.source_path.name}: NFO + {len(result.artwork_files)} artwork files")
             ok += 1
         elif result.status == MetadataStatus.SKIPPED:
             typer.echo(f"SKIP {result.source_path.name}: {result.skipped_reason}")
@@ -137,9 +133,7 @@ def fetch(
             typer.echo(f"FAIL {result.source_path.name}: {result.error}", err=True)
             failed += 1
 
-    typer.echo(
-        f"\n{ok} processed, {skipped} skipped, {not_found} not found, {failed} failed"
-    )
+    typer.echo(f"\n{ok} processed, {skipped} skipped, {not_found} not found, {failed} failed")
 
     if dry_run:
         typer.echo("Dry run mode: no files were written.")
@@ -175,6 +169,4 @@ def search_cmd(
     typer.echo("-" * 78)
     for index, result in enumerate(results, start=1):
         result_year = str(result.year) if result.year else "-"
-        typer.echo(
-            f"{index:<4} {result.title:<45} {result_year:<6} {result.vote_average:<7.1f} {result.tmdb_id}"
-        )
+        typer.echo(f"{index:<4} {result.title:<45} {result_year:<6} {result.vote_average:<7.1f} {result.tmdb_id}")

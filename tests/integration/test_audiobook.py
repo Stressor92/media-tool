@@ -11,11 +11,12 @@ Tests validate the complete audiobook processing workflow including:
 """
 
 from core.audiobook import (
-    scan_audiobook_library,
-    organize_audiobooks,
     detect_chapter_files,
     merge_audiobook_library,
+    organize_audiobooks,
+    scan_audiobook_library,
 )
+
 from .conftest import create_test_audio
 
 
@@ -28,12 +29,12 @@ class TestAudiobookScanIntegration:
         book1 = create_test_audio(
             tmp_path / "book1.m4a",
             duration=1800,  # 30 minutes
-            language="und"
+            language="und",
         )
         book2 = create_test_audio(
             tmp_path / "book2.m4b",
             duration=3600,  # 1 hour
-            language="und"
+            language="und",
         )
 
         # Scan directory
@@ -144,10 +145,7 @@ class TestAudiobookMergeIntegration:
         # Create chapter files
         chapters = []
         for i in range(1, 4):
-            chapter_file = create_test_audio(
-                source_dir / "02.m4a",
-                duration=300
-            )
+            chapter_file = create_test_audio(source_dir / "02.m4a", duration=300)
             chapters.append(chapter_file)
 
         # Merge chapters
@@ -167,10 +165,7 @@ class TestAudiobookMergeIntegration:
 
         # Create chapter files
         for i in range(1, 3):
-            create_test_audio(
-                source_dir / "03.m4a",
-                duration=300
-            )
+            create_test_audio(source_dir / "03.m4a", duration=300)
 
         # Dry run merge
         results = merge_audiobook_library(source_dir, target_dir, "m4a", dry_run=True)
@@ -190,10 +185,7 @@ class TestAudiobookMergeIntegration:
         # Create M4A chapter files
         chapters = []
         for i in range(1, 3):
-            chapter = create_test_audio(
-                source_dir / "04.m4a",
-                duration=300
-            )
+            chapter = create_test_audio(source_dir / "04.m4a", duration=300)
             chapters.append(chapter)
 
         # Merge to MP3 format
@@ -215,10 +207,7 @@ class TestAudiobookMergeIntegration:
 
         # Create chapter files
         for i in range(1, 3):
-            create_test_audio(
-                source_dir / "05.m4a",
-                duration=300
-            )
+            create_test_audio(source_dir / "05.m4a", duration=300)
 
         # First merge
         results1 = merge_audiobook_library(source_dir, target_dir, "m4a", overwrite=False)

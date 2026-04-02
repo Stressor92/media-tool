@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-import time
 import logging
+import time
+from pathlib import Path
 
 from core.ebook.models import ConversionProfile, ConversionResult, EbookFormat
 from utils.calibre_runner import CalibreConversionError, CalibreRunner
@@ -32,23 +32,33 @@ class FormatConverter:
         timeout: int = 600,
     ) -> ConversionResult:
         if not input_path.exists() or not input_path.is_file():
-            return ConversionResult(success=False, error_message=f"Input file does not exist: {input_path}", dry_run=self.dry_run)
+            return ConversionResult(
+                success=False, error_message=f"Input file does not exist: {input_path}", dry_run=self.dry_run
+            )
 
         input_format = EbookFormat.from_extension(input_path.suffix)
         if input_format is None or input_format not in self.SUPPORTED_INPUTS:
-            return ConversionResult(success=False, error_message=f"Unsupported input format: {input_path.suffix}", dry_run=self.dry_run)
+            return ConversionResult(
+                success=False, error_message=f"Unsupported input format: {input_path.suffix}", dry_run=self.dry_run
+            )
 
         if output_format not in self.SUPPORTED_OUTPUTS:
-            return ConversionResult(success=False, error_message=f"Unsupported output format: {output_format.value}", dry_run=self.dry_run)
+            return ConversionResult(
+                success=False, error_message=f"Unsupported output format: {output_format.value}", dry_run=self.dry_run
+            )
 
         if input_format == output_format:
-            return ConversionResult(success=False, error_message="Input and output format are the same", dry_run=self.dry_run)
+            return ConversionResult(
+                success=False, error_message="Input and output format are the same", dry_run=self.dry_run
+            )
 
         target_dir = output_dir if output_dir is not None else input_path.parent
         output_path = target_dir / f"{input_path.stem}.{output_format.value}"
 
         if output_path.exists() and not overwrite:
-            return ConversionResult(success=False, error_message=f"Output already exists: {output_path}", dry_run=self.dry_run)
+            return ConversionResult(
+                success=False, error_message=f"Output already exists: {output_path}", dry_run=self.dry_run
+            )
 
         original_size = input_path.stat().st_size / (1024 * 1024)
         backup_path: Path | None = None

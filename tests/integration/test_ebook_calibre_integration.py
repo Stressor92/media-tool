@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +9,6 @@ from core.ebook.conversion.format_converter import FormatConverter
 from core.ebook.models import EbookFormat
 from tests.ebook_test_support import create_minimal_epub
 from utils.calibre_runner import CalibreRunner
-
 
 pytestmark = [pytest.mark.integration, pytest.mark.external]
 

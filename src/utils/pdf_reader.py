@@ -38,7 +38,7 @@ class PdfReader:
     def _open_reader(self, file_path: Path) -> Any:
         try:
             module = importlib.import_module("pypdf")
-            pdf_reader_class = getattr(module, "PdfReader")
+            pdf_reader_class = module.PdfReader
         except ImportError as exc:
             raise PdfReadError("pypdf is required for PDF ebook inspection") from exc
 

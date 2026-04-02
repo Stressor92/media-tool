@@ -139,12 +139,17 @@ def convert_mp4_to_mkv(
     target.parent.mkdir(parents=True, exist_ok=True)
 
     ffmpeg_args = [
-        "-y",                          # overwrite target without asking
-        "-i", str(source),
-        "-map", "0",                   # preserve ALL streams
-        "-c", "copy",                  # lossless: no re-encoding
-        "-metadata:s:a:0", f"language={audio_language}",
-        "-metadata:s:a:0", f"title={audio_title}",
+        "-y",  # overwrite target without asking
+        "-i",
+        str(source),
+        "-map",
+        "0",  # preserve ALL streams
+        "-c",
+        "copy",  # lossless: no re-encoding
+        "-metadata:s:a:0",
+        f"language={audio_language}",
+        "-metadata:s:a:0",
+        f"title={audio_title}",
         str(target),
     ]
 
@@ -170,10 +175,7 @@ def convert_mp4_to_mkv(
         status=ConversionStatus.FAILED,
         source=source,
         target=target,
-        message=(
-            f"ffmpeg failed (exit {ffmpeg_result.return_code}). "
-            f"See logs for details."
-        ),
+        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}). " f"See logs for details."),
         ffmpeg_result=ffmpeg_result,
     )
 

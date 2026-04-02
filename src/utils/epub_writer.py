@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
-from typing import Any
 import xml.etree.ElementTree as ET
 import zipfile
-
+from pathlib import Path
+from typing import Any
 
 DC_NAMESPACE = "http://purl.org/dc/elements/1.1/"
 OPF_NAMESPACE = "http://www.idpf.org/2007/opf"
@@ -174,7 +173,9 @@ class EpubWriter:
 
             for file_path in sorted(source_dir.rglob("*")):
                 if file_path.is_file() and file_path.name != "mimetype":
-                    epub.write(file_path, file_path.relative_to(source_dir).as_posix(), compress_type=zipfile.ZIP_DEFLATED)
+                    epub.write(
+                        file_path, file_path.relative_to(source_dir).as_posix(), compress_type=zipfile.ZIP_DEFLATED
+                    )
 
     @staticmethod
     def _relative_href(base_dir: Path, target_path: Path) -> str:

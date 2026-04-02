@@ -5,21 +5,27 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import typer
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-import typer
 
 from core.ebook.audit import LibraryAuditor
 from core.ebook.conversion import CalibreNotFoundError, CalibreRunner, ConversionProfiles, FormatConverter
-from core.ebook.cover import CoverProvider, CoverSelector, CoverService, GoogleBooksCoverProvider, OpenLibraryCoverProvider
+from core.ebook.cover import (
+    CoverProvider,
+    CoverSelector,
+    CoverService,
+    GoogleBooksCoverProvider,
+    OpenLibraryCoverProvider,
+)
 from core.ebook.deduplication import DuplicateFinder, VersionComparator
 from core.ebook.identification import BookIdentifier, ISBNExtractor
 from core.ebook.metadata import MetadataService
 from core.ebook.metadata.providers import GoogleBooksProvider, OpenLibraryProvider
 from core.ebook.metadata.providers.provider import MetadataProvider
 from core.ebook.models import AuditReport, EbookFormat, ProcessingResult
-from core.ebook.normalization import EpubValidator, EbookNormalizer, MetadataEmbedder, TocGenerator
+from core.ebook.normalization import EbookNormalizer, EpubValidator, MetadataEmbedder, TocGenerator
 from core.ebook.organization import LibraryOrganizer, NamingService
 from core.ebook.workflow import EbookProcessor
 from utils.config import get_config
@@ -217,7 +223,9 @@ def enrich(
     )
 
     results: list[ProcessingResult] = []
-    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), console=console) as progress:
+    with Progress(
+        SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), console=console
+    ) as progress:
         task = progress.add_task("Enriching books...", total=len(files))
         for file_path in files:
             results.append(
@@ -395,7 +403,9 @@ def convert(
         return
 
     results = []
-    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), console=console) as progress:
+    with Progress(
+        SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), console=console
+    ) as progress:
         task = progress.add_task("Converting books...", total=len(files))
         for file_path in files:
             results.append(

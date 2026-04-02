@@ -15,14 +15,15 @@ from __future__ import annotations
 
 import logging
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
+from core.video.subtitle_processor import SubtitleTimingProcessor
+from core.video.whisper_engine import WhisperConfig, WhisperEngine, WhisperModel
 from utils import audio_processor
 from utils.ffmpeg_runner import FFmpegMuxer
-from core.video.subtitle_processor import SubtitleTimingProcessor
-from core.video.whisper_engine import WhisperEngine, WhisperConfig, WhisperModel
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GenerationResult:
     """Result of subtitle generation process.
-    
+
     Attributes:
         success: Whether generation completed successfully
         mkv_path: Path to the input MKV file
@@ -43,18 +44,18 @@ class GenerationResult:
         warnings: List of non-critical warnings
         error_message: Error message if generation failed
     """
-    
+
     success: bool
-    mkv_path: Optional[Path] = None
-    output_mkv_path: Optional[Path] = None
-    audio_duration: Optional[float] = None
-    srt_path: Optional[Path] = None
-    backup_path: Optional[Path] = None
+    mkv_path: Path | None = None
+    output_mkv_path: Path | None = None
+    audio_duration: float | None = None
+    srt_path: Path | None = None
+    backup_path: Path | None = None
     processing_time: float = 0.0
     steps_completed: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    error_message: Optional[str] = None
-    
+    error_message: str | None = None
+
     @property
     def has_subtitles(self) -> bool:
         """True if subtitles were successfully added."""
@@ -68,17 +69,17 @@ class GenerationResult:
 
 class SubtitleGenerator:
     """Orchestrates the complete subtitle generation workflow."""
-    
+
     def __init__(
         self,
         whisper_model: WhisperConfig | WhisperModel | str = WhisperModel.LARGE,
         config: WhisperConfig | None = None,
         enhance_mode: str = "light",
-        keep_temp_files: bool = False
+        keep_temp_files: bool = False,
     ):
         """
         Initialize subtitle generator.
-        
+
         Args:
             whisper_model: WhisperConfig instance or model name
             enhance_mode: Audio enhancement mode
@@ -94,19 +95,19 @@ class SubtitleGenerator:
 
         self.enhance_mode = enhance_mode
         self.keep_temp_files = keep_temp_files
-        
+
         # Initialize components
         self.whisper_engine = WhisperEngine(self.whisper_config)
         self.subtitle_processor = SubtitleTimingProcessor()
         self.ffmpeg_muxer = FFmpegMuxer()
-        
+
         self.logger = logging.getLogger(__name__)
 
     def generate_subtitles(
         self,
         source_mkv: Path | None = None,
         target_mkv: Path | None = None,
-        progress_callback: Optional[Callable[[str, float], None]] = None,
+        progress_callback: Callable[[str, float], None] | None = None,
         video_path: Path | None = None,
         output_mkv_path: Path | None = None,
         overwrite: bool = False,
@@ -144,18 +145,18 @@ class SubtitleGenerator:
             detect_hallucinations=detect_hallucinations,
         )
         result.output_mkv_path = target_mkv
-        result.audio_duration = getattr(result, 'audio_duration', None)
+        result.audio_duration = getattr(result, "audio_duration", None)
         return result
 
     def generate(
         self,
         mkv_path: Path,
-        progress_callback: Optional[Callable[[str, float], None]] = None,
+        progress_callback: Callable[[str, float], None] | None = None,
         detect_hallucinations: bool = True,
     ) -> GenerationResult:
         """
         Generate subtitles for MKV file.
-        
+
         Workflow:
         1. Validate input MKV
         2. Check prerequisites (no existing English subs)
@@ -166,59 +167,55 @@ class SubtitleGenerator:
         7. Create MKV backup
         8. Mux subtitles into MKV
         9. Cleanup temp files
-        
+
         Args:
             mkv_path: Path to MKV file
             progress_callback: Called with (message, progress_fraction)
-            
+
         Returns:
             GenerationResult with success status and paths
         """
         import time
+
         start_time = time.time()
-        
+
         result = GenerationResult(success=False, mkv_path=mkv_path, output_mkv_path=mkv_path)
         temp_dir = None
-        
+
         try:
             # Step 1: Validate input
             if progress_callback:
                 progress_callback("Validating input file...", 0.0)
-            
+
             validation_result = self._validate_input(mkv_path)
             if not validation_result["valid"]:
                 result.error_message = validation_result["error"]
                 return result
-            
+
             result.steps_completed.append("input_validation")
-            
+
             # Step 2: Get video duration
             video_duration = validation_result["duration"]
-            
+
             # Step 3: Setup temp directory — created next to the MKV so it
             # is easy to find and delete manually if something goes wrong.
             temp_dir = mkv_path.parent / ".subtitle_tmp" / mkv_path.stem
             temp_dir.mkdir(parents=True, exist_ok=True)
             wav_path = temp_dir / f"{mkv_path.stem}_speech.wav"
             srt_path = temp_dir / f"{mkv_path.stem}.srt"
-            
+
             # Step 4: Extract audio
             if progress_callback:
                 progress_callback("Extracting audio for speech recognition...", 0.1)
-            
-            audio_result = audio_processor.extract_for_speech(
-                mkv_path,
-                wav_path,
-                sample_rate=16000,
-                channels=1
-            )
-            
+
+            audio_result = audio_processor.extract_for_speech(mkv_path, wav_path, sample_rate=16000, channels=1)
+
             if not audio_result.success:
                 result.error_message = f"Audio extraction failed: {audio_result.error_message}"
                 return result
-            
+
             result.steps_completed.append("audio_extraction")
-            
+
             # Step 4b: Enhance audio for speech recognition
             if self.enhance_mode not in ("none", "off"):
                 if progress_callback:
@@ -232,23 +229,21 @@ class SubtitleGenerator:
                     self.logger.info("Audio enhancement applied (highpass + loudnorm)")
                 else:
                     # Non-fatal: continue with the original WAV
-                    self.logger.warning(
-                        f"Audio enhancement failed (skipping): {enhance_result.error_message}"
-                    )
+                    self.logger.warning(f"Audio enhancement failed (skipping): {enhance_result.error_message}")
 
             # Step 5: Run Whisper transcription
             if progress_callback:
                 progress_callback("Running Whisper transcription...", 0.3)
-            
+
             transcription_result = self.whisper_engine.transcribe(
                 wav_path,
                 srt_path,
-                progress_callback=lambda msg, prog: progress_callback(
-                    f"Transcription: {msg}", 0.3 + prog * 0.4
-                ) if progress_callback else None,
+                progress_callback=lambda msg, prog: progress_callback(f"Transcription: {msg}", 0.3 + prog * 0.4)
+                if progress_callback
+                else None,
                 detect_hallucinations=detect_hallucinations,
             )
-            
+
             if not transcription_result.success:
                 result.error_message = f"Transcription failed: {transcription_result.error_message}"
                 result.warnings.extend([str(w) for w in transcription_result.hallucination_warnings])
@@ -269,33 +264,29 @@ class SubtitleGenerator:
                     )
 
             result.steps_completed.append("whisper_transcription")
-            
+
             # Step 6: Sync timing
             if progress_callback:
                 progress_callback("Synchronizing subtitle timing...", 0.7)
-            
+
             sync_result = self.subtitle_processor.sync_to_video(
-                srt_path,
-                video_duration,
-                transcription_result.wav_duration
+                srt_path, video_duration, transcription_result.wav_duration
             )
-            
+
             if not sync_result.success:
                 result.error_message = f"Timing sync failed: {sync_result.error_message}"
                 return result
-            
+
             if sync_result.scale_factor != 1.0:
                 result.warnings.append(f"Timing scaled by {sync_result.scale_factor:.4f}")
-            
+
             result.steps_completed.append("timing_sync")
 
             # Step 7a: Fix any overlapping timestamps left by Whisper or the
             # hallucination-strip pass before we validate.
             n_fixed = self.subtitle_processor.fix_overlapping_timestamps(srt_path)
             if n_fixed:
-                result.warnings.append(
-                    f"Auto-fixed {n_fixed} overlapping timestamp(s) from Whisper output"
-                )
+                result.warnings.append(f"Auto-fixed {n_fixed} overlapping timestamp(s) from Whisper output")
                 result.steps_completed.append("timestamp_overlap_fix")
 
             # Step 7: Validate SRT
@@ -306,16 +297,16 @@ class SubtitleGenerator:
             if not validation.is_valid:
                 result.error_message = f"SRT validation failed: {', '.join(validation.errors)}"
                 return result
-            
+
             if validation.warnings:
                 result.warnings.extend(validation.warnings)
-            
+
             result.steps_completed.append("srt_validation")
-            
+
             # Step 8: Optimize readability
             self.subtitle_processor.optimize_readability(srt_path)
             result.steps_completed.append("readability_optimization")
-            
+
             # Step 9/10: Mux subtitles (add_subtitle_to_mkv manages its own
             # atomic backup/restore internally, so we don't need a separate
             # copy here — creating a duplicate .mkv.backup at the same path
@@ -325,50 +316,47 @@ class SubtitleGenerator:
             # Step 10: Mux subtitles
             if progress_callback:
                 progress_callback("Adding subtitles to MKV...", 0.9)
-            
+
             mux_result = self.ffmpeg_muxer.add_subtitle_to_mkv(
-                mkv_path,
-                srt_path,
-                language="eng",
-                title="English (Whisper AI)"
+                mkv_path, srt_path, language="eng", title="English (Whisper AI)"
             )
-            
+
             if not mux_result.success:
                 result.error_message = f"Muxing failed: {mux_result.error_message}"
                 # add_subtitle_to_mkv already restored the original from its
                 # own internal backup on failure, so no further action needed.
                 return result
-            
+
             result.steps_completed.append("subtitle_muxing")
             result.mkv_path = mkv_path
             result.output_mkv_path = mkv_path
             result.srt_path = srt_path if self.keep_temp_files else None
             result.audio_duration = transcription_result.wav_duration
-            
+
             # Step 11: Cleanup
             if not self.keep_temp_files:
                 if progress_callback:
                     progress_callback("Cleaning up temporary files...", 0.95)
                 self._cleanup_temp_files(temp_dir)
-            
+
             result.success = True
             result.processing_time = time.time() - start_time
-            
+
             if progress_callback:
                 progress_callback("Subtitle generation complete!", 1.0)
-            
+
             self.logger.info(f"Successfully generated subtitles for {mkv_path}")
             return result
-        
+
         except Exception as e:
             self.logger.exception(f"Subtitle generation failed: {e}")
             result.error_message = f"Unexpected error: {e}"
-            
+
             # add_subtitle_to_mkv already restores from its own backup on
             # failure, so no separate restore is needed here.
-            
+
             return result
-        
+
         finally:
             # Always cleanup temp dir if not keeping files
             if temp_dir and not self.keep_temp_files:
@@ -376,93 +364,98 @@ class SubtitleGenerator:
                     shutil.rmtree(temp_dir, ignore_errors=True)
                 except Exception as e:
                     self.logger.warning(f"Failed to cleanup temp dir {temp_dir}: {e}")
-    
+
     def _validate_input(self, mkv_path: Path) -> dict[str, Any]:
         """
         Validate input MKV file.
-        
+
         Checks:
         - File exists
         - Is MKV format
         - Has video stream
         - No existing English subtitles
         - Get duration
-        
+
         Returns:
             Dict with validation results
         """
         if not mkv_path.exists():
             return {"valid": False, "error": f"File not found: {mkv_path}"}
-        
+
         if mkv_path.suffix.lower() != ".mkv":
             return {"valid": False, "error": f"Not an MKV file: {mkv_path}"}
-        
+
         # Check with ffprobe
         try:
             import subprocess
-            
+
             # Get format info
             result = subprocess.run(
                 [
-                    "ffprobe", "-v", "error",
-                    "-show_entries", "format=format_name,duration",
-                    "-of", "default=noprint_wrappers=1:nokey=1",
-                    str(mkv_path)
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=format_name,duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    str(mkv_path),
                 ],
                 capture_output=True,
                 # ✅ NO text=True - capture as bytes
-                timeout=10
+                timeout=10,
             )
-            
+
             if result.returncode != 0:
                 stderr_str = result.stderr.decode("utf-8", errors="replace")
                 return {"valid": False, "error": f"FFprobe failed: {stderr_str}"}
-            
+
             stdout_str = result.stdout.decode("utf-8", errors="replace")
-            lines = stdout_str.strip().split('\n')
+            lines = stdout_str.strip().split("\n")
             if len(lines) < 2:
                 return {"valid": False, "error": "Cannot determine file format"}
-            
+
             format_name, duration_str = lines
             if "matroska" not in format_name.lower():
                 return {"valid": False, "error": f"Not a Matroska/MKV file: {format_name}"}
-            
+
             try:
                 duration = float(duration_str)
             except ValueError:
                 return {"valid": False, "error": f"Invalid duration: {duration_str}"}
-            
+
             # Check for existing English subtitles
             result = subprocess.run(
                 [
-                    "ffprobe", "-v", "error",
-                    "-select_streams", "s",
-                    "-show_entries", "stream_tags=language",
-                    "-of", "csv=p=0",
-                    str(mkv_path)
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "s",
+                    "-show_entries",
+                    "stream_tags=language",
+                    "-of",
+                    "csv=p=0",
+                    str(mkv_path),
                 ],
                 capture_output=True,
                 # ✅ NO text=True - capture as bytes
-                timeout=10
+                timeout=10,
             )
-            
+
             if result.returncode == 0:
                 stdout_str = result.stdout.decode("utf-8", errors="replace")
-                languages = stdout_str.strip().split('\n')
+                languages = stdout_str.strip().split("\n")
                 if any(lang.strip() == "eng" for lang in languages if lang.strip()):
                     return {"valid": False, "error": "MKV already contains English subtitles"}
-            
-            return {
-                "valid": True,
-                "duration": duration,
-                "format": format_name
-            }
-        
+
+            return {"valid": True, "duration": duration, "format": format_name}
+
         except subprocess.TimeoutExpired:
             return {"valid": False, "error": "FFprobe timeout"}
         except Exception as e:
             return {"valid": False, "error": f"Validation failed: {e}"}
-    
+
     def _cleanup_temp_files(self, temp_dir: Path) -> None:
         """Clean up temporary files."""
         try:

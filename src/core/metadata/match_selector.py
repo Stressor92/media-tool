@@ -51,9 +51,7 @@ class MatchSelector:
         for index, result in enumerate(results, start=1):
             item_year = str(result.year) if result.year else "-"
             rating = f"{result.vote_average:.1f}" if result.vote_average else "-"
-            typer.echo(
-                f"  {index:<4} {result.title:<45} {item_year:<6} {rating:<10} {result.tmdb_id}"
-            )
+            typer.echo(f"  {index:<4} {result.title:<45} {item_year:<6} {rating:<10} {result.tmdb_id}")
 
         typer.echo("  0    Skip this movie\n")
 

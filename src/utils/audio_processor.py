@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from .audio_analyzer import AudioMetadata
 from .ffmpeg_runner import FFmpegResult, run_ffmpeg
@@ -62,16 +61,16 @@ class AudioConversionResult:
 @dataclass(frozen=True)
 class AudioExtractionResult:
     """Result of audio extraction for speech processing."""
-    
+
     success: bool
     input_file: Path
     output_file: Path
-    ffmpeg_result: Optional[FFmpegResult] = None
+    ffmpeg_result: FFmpegResult | None = None
     duration_seconds: float = 0.0
     sample_rate: int = 16000
     channels: int = 1
-    error_message: Optional[str] = None
-    
+    error_message: str | None = None
+
     @property
     def failed(self) -> bool:
         return not self.success
@@ -89,9 +88,9 @@ def convert_audio_format(
     input_file: Path,
     output_file: Path,
     codec: str = "flac",
-    quality: Optional[str] = None,
+    quality: str | None = None,
     preserve_metadata: bool = True,
-    overwrite: bool = False
+    overwrite: bool = False,
 ) -> AudioConversionResult:
     """
     Convert audio file to a different format.
@@ -180,59 +179,62 @@ def convert_audio_format(
 
 
 def extract_for_speech(
-    video_path: Path,
-    output_wav_path: Optional[Path] = None,
-    sample_rate: int = 16000,
-    channels: int = 1
+    video_path: Path, output_wav_path: Path | None = None, sample_rate: int = 16000, channels: int = 1
 ) -> AudioExtractionResult:
     """
     Extract audio from video file optimized for speech recognition.
-    
+
     Args:
         video_path: Path to input video file
         output_wav_path: Path for output WAV file (auto-generated if None)
         sample_rate: Target sample rate (default 16kHz for Whisper)
         channels: Number of channels (1=mono for Whisper)
-        
+
     Returns:
         AudioExtractionResult with extraction details
     """
     if output_wav_path is None:
-        output_wav_path = video_path.with_suffix('.wav')
-    
+        output_wav_path = video_path.with_suffix(".wav")
+
     # FFmpeg command for audio extraction
     cmd = [
         "-y",  # Overwrite
-        "-i", str(video_path),  # Input video
+        "-i",
+        str(video_path),  # Input video
         "-vn",  # No video
-        "-acodec", "pcm_s16le",  # PCM 16-bit
-        "-ar", str(sample_rate),  # Sample rate
-        "-ac", str(channels),  # Channels
-        "-f", "wav",  # WAV format
-        str(output_wav_path)
+        "-acodec",
+        "pcm_s16le",  # PCM 16-bit
+        "-ar",
+        str(sample_rate),  # Sample rate
+        "-ac",
+        str(channels),  # Channels
+        "-f",
+        "wav",  # WAV format
+        str(output_wav_path),
     ]
-    
+
     ffmpeg_result = run_ffmpeg(cmd)
-    
+
     duration = 0.0
     if ffmpeg_result.success and output_wav_path.exists():
         # Get duration using ffprobe
         try:
             from .ffprobe_runner import probe_file
+
             probe_result = probe_file(output_wav_path)
             if probe_result.success:
                 duration_str = probe_result.format.get("duration", "0")
                 duration = float(duration_str)
         except Exception as e:
             logger.warning(f"Could not get WAV duration: {e}")
-    
+
     return AudioExtractionResult(
         success=ffmpeg_result.success,
         input_file=video_path,
         output_file=output_wav_path,
         ffmpeg_result=ffmpeg_result,
         duration_seconds=duration,
-        error_message=None if ffmpeg_result.success else ffmpeg_result.stderr
+        error_message=None if ffmpeg_result.success else ffmpeg_result.stderr,
     )
 
 
@@ -255,11 +257,16 @@ def enhance_audio_for_speech(
     """
     cmd = [
         "-y",
-        "-i", str(input_wav),
-        "-af", "highpass=f=200,loudnorm",
-        "-ar", "16000",
-        "-ac", "1",
-        "-f", "wav",
+        "-i",
+        str(input_wav),
+        "-af",
+        "highpass=f=200,loudnorm",
+        "-ar",
+        "16000",
+        "-ac",
+        "1",
+        "-f",
+        "wav",
         str(output_wav),
     ]
 
@@ -275,10 +282,7 @@ def enhance_audio_for_speech(
 
 
 def embed_audio_metadata(
-    input_file: Path,
-    output_file: Path,
-    metadata: dict[str, str],
-    overwrite: bool = False
+    input_file: Path, output_file: Path, metadata: dict[str, str], overwrite: bool = False
 ) -> AudioConversionResult:
     """
     Embed metadata into an audio file.

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-import zipfile
 
 from utils.epub_reader import EpubReader
 

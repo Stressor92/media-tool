@@ -13,9 +13,7 @@ def test_get_cover_by_isbn_uses_google_books_image_links() -> None:
     search_response = MagicMock()
     search_response.status_code = 200
     search_response.json.return_value = {
-        "items": [
-            {"volumeInfo": {"imageLinks": {"thumbnail": "https://books.google.test/cover.jpg"}}}
-        ]
+        "items": [{"volumeInfo": {"imageLinks": {"thumbnail": "https://books.google.test/cover.jpg"}}}]
     }
     cover_response = MagicMock()
     cover_response.status_code = 200

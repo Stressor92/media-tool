@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 class CheckSeverity(Enum):
@@ -51,7 +51,7 @@ class AuditFinding:
     path: Path
     message: str
     details: dict[str, Any] = field(default_factory=dict)
-    suggested_command: Optional[str] = None
+    suggested_command: str | None = None
 
 
 @dataclass
@@ -60,7 +60,7 @@ class CheckResult:
     findings: list[AuditFinding]
     files_checked: int
     duration_seconds: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def passed(self) -> bool:

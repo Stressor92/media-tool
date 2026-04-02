@@ -40,11 +40,7 @@ class LibraryAuditor:
         logger.info("Audit gestartet: %s", root_dir)
 
         pattern = "**/*" if recursive else "*"
-        files = sorted(
-            f
-            for f in root_dir.glob(pattern)
-            if f.is_file() and f.suffix.lower() in _MEDIA_EXTENSIONS
-        )
+        files = sorted(f for f in root_dir.glob(pattern) if f.is_file() and f.suffix.lower() in _MEDIA_EXTENSIONS)
         logger.info("%d Mediendateien gefunden.", len(files))
 
         probes = self._cache.probe_all(files, root_dir=root_dir)
@@ -62,9 +58,7 @@ class LibraryAuditor:
             result = check.execute(files, probes)
             report.check_results.append(result)
             if result.error:
-                logger.warning(
-                    "Check %s fehlgeschlagen: %s", check.check_id, result.error
-                )
+                logger.warning("Check %s fehlgeschlagen: %s", check.check_id, result.error)
 
         report.duration_seconds = round(time.monotonic() - start, 1)
         logger.info(

@@ -1,5 +1,6 @@
 # src/core/translation/formats/ass.py
 """ASS/SSA (Advanced SubStation Alpha) format reader and writer."""
+
 from __future__ import annotations
 
 import re
@@ -8,27 +9,27 @@ from pathlib import Path
 from core.translation.models import StyleInfo, SubtitleDocument, SubtitleFormat, SubtitleSegment
 
 _ASS_DIALOGUE = re.compile(
-    r"^Dialogue:\s*\d+,"           # Layer
-    r"(\d:\d{2}:\d{2}\.\d{2}),"   # Start
-    r"(\d:\d{2}:\d{2}\.\d{2}),"   # End
-    r"([^,]*),"                    # Style
-    r"([^,]*),"                    # Actor
-    r"[^,]*,[^,]*,[^,]*,[^,]*,"   # margins, effect
+    r"^Dialogue:\s*\d+,"  # Layer
+    r"(\d:\d{2}:\d{2}\.\d{2}),"  # Start
+    r"(\d:\d{2}:\d{2}\.\d{2}),"  # End
+    r"([^,]*),"  # Style
+    r"([^,]*),"  # Actor
+    r"[^,]*,[^,]*,[^,]*,[^,]*,"  # margins, effect
     r"(.*)",
     re.MULTILINE,
 )
 _ASS_TAG = re.compile(r"\{[^}]*\}")
 _ASS_STYLE = re.compile(
-    r"^Style:\s*([^,]+),"          # Name
-    r"([^,]+),"                    # Fontname
-    r"(\d+),"                      # Fontsize
-    r"&H[0-9A-Fa-f]+&,"           # PrimaryColour
-    r"[^,]*,[^,]*,[^,]*,"          # Secondary/Outline/Back
-    r"(-?\d+),(-?\d+),(-?\d+),"   # Bold, Italic, Underline
-    r"[^,]*,[^,]*,[^,]*,[^,]*,"   # StrikeOut, ScaleX, ScaleY, Spacing
-    r"[^,]*,[^,]*,[^,]*,"          # Angle, BorderStyle, Outline
-    r"[^,]*,[^,]*,"                # Shadow, Alignment(1)
-    r"(\d+)",                      # Alignment(2) – actual numpad value
+    r"^Style:\s*([^,]+),"  # Name
+    r"([^,]+),"  # Fontname
+    r"(\d+),"  # Fontsize
+    r"&H[0-9A-Fa-f]+&,"  # PrimaryColour
+    r"[^,]*,[^,]*,[^,]*,"  # Secondary/Outline/Back
+    r"(-?\d+),(-?\d+),(-?\d+),"  # Bold, Italic, Underline
+    r"[^,]*,[^,]*,[^,]*,[^,]*,"  # StrikeOut, ScaleX, ScaleY, Spacing
+    r"[^,]*,[^,]*,[^,]*,"  # Angle, BorderStyle, Outline
+    r"[^,]*,[^,]*,"  # Shadow, Alignment(1)
+    r"(\d+)",  # Alignment(2) – actual numpad value
     re.MULTILINE,
 )
 
@@ -55,29 +56,33 @@ def read(path: Path) -> SubtitleDocument:
 
     styles: list[StyleInfo] = []
     for m in _ASS_STYLE.finditer(text):
-        styles.append(StyleInfo(
-            name=m.group(1).strip(),
-            font_name=m.group(2).strip(),
-            font_size=int(m.group(3)),
-            bold=(m.group(4) == "-1"),
-            italic=(m.group(5) == "-1"),
-            underline=(m.group(6) == "-1"),
-            alignment=int(m.group(7)),
-        ))
+        styles.append(
+            StyleInfo(
+                name=m.group(1).strip(),
+                font_name=m.group(2).strip(),
+                font_size=int(m.group(3)),
+                bold=(m.group(4) == "-1"),
+                italic=(m.group(5) == "-1"),
+                underline=(m.group(6) == "-1"),
+                alignment=int(m.group(7)),
+            )
+        )
 
     segments: list[SubtitleSegment] = []
     for i, m in enumerate(_ASS_DIALOGUE.finditer(text), start=1):
         raw_text = m.group(5)
         clean = _ASS_TAG.sub("", raw_text).replace(r"\N", "\n").replace(r"\n", "\n")
-        segments.append(SubtitleSegment(
-            index=i,
-            start=_ass_to_srt_time(m.group(1)),
-            end=_ass_to_srt_time(m.group(2)),
-            text=clean.strip(),
-            raw_tags=raw_text,
-            style_name=m.group(3).strip() or "Default",
-            actor=m.group(4).strip(),
-        ))
+        segments.append(
+            SubtitleSegment(
+                index=i,
+                start=_ass_to_srt_time(m.group(1)),
+                end=_ass_to_srt_time(m.group(2)),
+                text=clean.strip(),
+                raw_tags=raw_text,
+                style_name=m.group(3).strip() or "Default",
+                actor=m.group(4).strip(),
+            )
+        )
 
     return SubtitleDocument(
         segments=segments,

@@ -111,9 +111,7 @@ class TestSubtitleValidationErrors:
 
     def test_validate_srt_bom_valid(self, tmp_path: Path) -> None:
         srt_path = tmp_path / "bom.srt"
-        srt_path.write_bytes(
-            b"\xef\xbb\xbf1\n00:00:00,000 --> 00:00:05,000\nText content\n"
-        )
+        srt_path.write_bytes(b"\xef\xbb\xbf1\n00:00:00,000 --> 00:00:05,000\nText content\n")
 
         result = SubtitleTimingProcessor().validate_srt(srt_path)
         assert result.is_valid
@@ -136,4 +134,3 @@ class TestSubtitleValidationErrors:
 
         result = SubtitleTimingProcessor().validate_srt(srt_path)
         assert result.is_valid
-

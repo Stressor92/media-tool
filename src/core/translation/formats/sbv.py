@@ -4,6 +4,7 @@ SBV (SubViewer / YouTube) format reader and writer.
 
 Similar to SRT, but timestamp format: 0:00:01.000,0:00:03.000
 """
+
 from __future__ import annotations
 
 import re
@@ -40,12 +41,14 @@ def read(path: Path) -> SubtitleDocument:
     text = path.read_text(encoding="utf-8-sig", errors="replace")
     segments: list[SubtitleSegment] = []
     for i, m in enumerate(_SBV_BLOCK.finditer(text.strip() + "\n\n"), start=1):
-        segments.append(SubtitleSegment(
-            index=i,
-            start=_sbv_to_srt(m.group(1)),
-            end=_sbv_to_srt(m.group(2)),
-            text=m.group(3).strip(),
-        ))
+        segments.append(
+            SubtitleSegment(
+                index=i,
+                start=_sbv_to_srt(m.group(1)),
+                end=_sbv_to_srt(m.group(2)),
+                text=m.group(3).strip(),
+            )
+        )
     return SubtitleDocument(
         segments=segments,
         source_format=SubtitleFormat.SBV,

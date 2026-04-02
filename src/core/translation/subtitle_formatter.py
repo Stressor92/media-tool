@@ -12,10 +12,10 @@ Rules (configurable, with sensible defaults):
   - prefer breaks at: punctuation (.,!?), conjunctions, commas
   - never split inside a word
 """
+
 from __future__ import annotations
 
 import re
-
 
 # Sentence-ending punctuation after which a break is ideal
 _SENTENCE_END_RE = re.compile(r"[.!?]\s+")
@@ -72,7 +72,7 @@ def _wrap(text: str, max_chars: int, max_lines: int) -> list[str]:
             lines.append(" ".join(current))
             if len(lines) >= max_lines:
                 # Append all remaining words to last line rather than truncating
-                remaining = words[words.index(word):]
+                remaining = words[words.index(word) :]
                 lines[-1] = lines[-1] + " " + " ".join(remaining)
                 return lines
             current = [word]

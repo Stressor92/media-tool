@@ -7,19 +7,19 @@ CLI interface for audiobook processing.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import typer
-from cli.progress_display import ConsoleProgressReporter
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
+from cli.progress_display import ConsoleProgressReporter
 from core.audiobook import (
-    scan_audiobook_library,
-    organize_audiobooks,
     detect_chapter_files,
     merge_audiobook_library,
+    organize_audiobooks,
+    scan_audiobook_library,
 )
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ def _print_audiobook_preview(metadata_list: list[AudioMetadataEnhanced]) -> None
         book = metadata.album or metadata.parsed_album or "Unknown"
         title = metadata.title or metadata.parsed_title or metadata.filename
         duration = f"{metadata.duration_seconds:.0f}s" if metadata.duration_seconds else "Unknown"
-        format_name = metadata.filepath.suffix.upper().lstrip('.') if metadata.filepath else "Unknown"
+        format_name = metadata.filepath.suffix.upper().lstrip(".") if metadata.filepath else "Unknown"
 
         table.add_row(
             metadata.filepath.name if metadata.filepath else "Unknown",
@@ -66,19 +66,29 @@ def _print_audiobook_preview(metadata_list: list[AudioMetadataEnhanced]) -> None
 @app.command("scan")
 def scan_command(
     directory: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Directory to scan for audiobook files.",
     ),
-    output: Optional[Path] = typer.Option(
-        None, "--output", "-o",
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
         help="Output CSV file path. Defaults to <directory>/audiobooks_list.csv",
     ),
     recursive: bool = typer.Option(
-        True, "--recursive/--no-recursive", "-r",
+        True,
+        "--recursive/--no-recursive",
+        "-r",
         help="Scan subdirectories (default: on).",
     ),
     preview: bool = typer.Option(
-        False, "--preview", "-p",
+        False,
+        "--preview",
+        "-p",
         help="Print a Rich table preview of the first 20 results in the terminal.",
     ),
 ) -> None:
@@ -113,29 +123,42 @@ def scan_command(
 
     try:
         import csv
-        with open(output, 'w', newline='', encoding='utf-8') as csvfile:
+
+        with open(output, "w", newline="", encoding="utf-8") as csvfile:
             fieldnames = [
-                'file_path', 'filename', 'title', 'artist', 'album', 'year',
-                'track_number', 'duration', 'bitrate', 'format', 'narrator', 'series'
+                "file_path",
+                "filename",
+                "title",
+                "artist",
+                "album",
+                "year",
+                "track_number",
+                "duration",
+                "bitrate",
+                "format",
+                "narrator",
+                "series",
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
 
             for metadata in metadata_list:
-                writer.writerow({
-                    'file_path': str(metadata.filepath),
-                    'filename': metadata.filename,
-                    'title': metadata.title,
-                    'artist': metadata.artist,
-                    'album': metadata.album,
-                    'year': metadata.year,
-                    'track_number': metadata.track_number,
-                    'duration': metadata.duration_seconds,
-                    'bitrate': metadata.bit_rate,
-                    'format': metadata.codec_name,
-                    'narrator': metadata.narrator,
-                    'series': metadata.series,
-                })
+                writer.writerow(
+                    {
+                        "file_path": str(metadata.filepath),
+                        "filename": metadata.filename,
+                        "title": metadata.title,
+                        "artist": metadata.artist,
+                        "album": metadata.album,
+                        "year": metadata.year,
+                        "track_number": metadata.track_number,
+                        "duration": metadata.duration_seconds,
+                        "bitrate": metadata.bit_rate,
+                        "format": metadata.codec_name,
+                        "narrator": metadata.narrator,
+                        "series": metadata.series,
+                    }
+                )
 
         console.print(f"[green]✓[/green] Exported metadata to {output}")
 
@@ -147,23 +170,34 @@ def scan_command(
 @app.command("organize")
 def organize_command(
     source_dir: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Source directory containing audiobook files.",
     ),
     target_dir: Path = typer.Argument(
-        ..., file_okay=False, dir_okay=True,
+        ...,
+        file_okay=False,
+        dir_okay=True,
         help="Target directory for organized files.",
     ),
     format: str = typer.Option(
-        "flac", "--format", "-f",
+        "flac",
+        "--format",
+        "-f",
         help="Target audio format (mp3, flac, m4a, aac, opus, ogg).",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run", "-n",
+        False,
+        "--dry-run",
+        "-n",
         help="Show what would be done without making changes.",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite",
+        False,
+        "--overwrite",
         help="Overwrite existing files in target directory.",
     ),
 ) -> None:
@@ -202,30 +236,42 @@ def organize_command(
         f"Errors: {counts['errors']}"
     )
 
-    if counts['errors'] > 0:
+    if counts["errors"] > 0:
         raise typer.Exit(code=1)
 
 
 @app.command("merge")
 def merge_command(
     source_dir: Path = typer.Argument(
-        ..., exists=True, file_okay=False, dir_okay=True, readable=True,
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
         help="Source directory containing chapter files.",
     ),
     target_dir: Path = typer.Argument(
-        ..., file_okay=False, dir_okay=True,
+        ...,
+        file_okay=False,
+        dir_okay=True,
         help="Target directory for merged audiobook files.",
     ),
     format: str = typer.Option(
-        "m4a", "--format", "-f",
+        "m4a",
+        "--format",
+        "-f",
         help="Output audio format (m4a, mp3, flac, aac, ogg).",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run", "-n",
+        False,
+        "--dry-run",
+        "-n",
         help="Show what would be merged without making changes.",
     ),
     overwrite: bool = typer.Option(
-        False, "--overwrite", "-y",
+        False,
+        "--overwrite",
+        "-y",
         help="Overwrite existing merged files.",
     ),
 ) -> None:
@@ -283,7 +329,9 @@ def merge_command(
             )
 
         console.print(table)
-        console.print(f"\n[dim]Total books that would be merged: {len([b for b in book_chapters.values() if len(b) >= 2])}[/dim]")
+        console.print(
+            f"\n[dim]Total books that would be merged: {len([b for b in book_chapters.values() if len(b) >= 2])}[/dim]"
+        )
         return
 
     try:
@@ -319,7 +367,7 @@ def merge_command(
         console.print("[yellow]No audiobooks were merged.[/yellow]")
 
     if results["errors"]:
-        console.print(f"\n[red]Errors encountered:[/red]")
+        console.print("\n[red]Errors encountered:[/red]")
         for error in results["errors"]:
             console.print(f"  • {error}")
 
@@ -337,5 +385,6 @@ def merge_command(
 def _sanitize_filename(name: str) -> str:
     """Sanitize filename by removing/replacing invalid characters."""
     import re
+
     # Replace invalid characters with underscores
-    return re.sub(r'[<>:"/\\|?*]', '_', name)
+    return re.sub(r'[<>:"/\\|?*]', "_", name)

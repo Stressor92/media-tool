@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from utils.audio_processor import AudioConversionResult, convert_audio_format
 
@@ -21,9 +20,9 @@ def convert_audio(
     input_file: Path,
     output_file: Path,
     format: str,
-    quality: Optional[str] = None,
+    quality: str | None = None,
     preserve_metadata: bool = True,
-    overwrite: bool = False
+    overwrite: bool = False,
 ) -> AudioConversionResult:
     """
     Convert an audio file to a different format.
@@ -43,15 +42,9 @@ def convert_audio(
         ValueError: If format is not supported.
     """
     if format.lower() not in SUPPORTED_FORMATS:
-        raise ValueError(
-            f"Unsupported format '{format}'. "
-            f"Supported: {', '.join(sorted(SUPPORTED_FORMATS))}"
-        )
+        raise ValueError(f"Unsupported format '{format}'. " f"Supported: {', '.join(sorted(SUPPORTED_FORMATS))}")
 
-    logger.info(
-        "Converting %s to %s (%s)",
-        input_file.name, output_file.name, format.upper()
-    )
+    logger.info("Converting %s to %s (%s)", input_file.name, output_file.name, format.upper())
 
     return convert_audio_format(
         input_file=input_file,
