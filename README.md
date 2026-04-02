@@ -291,17 +291,25 @@ media-tool metadata fetch "Y:\Jellyfin\Movies" --output "Y:\Jellyfin\Movies"
 
 ### ebook — E-book processing
 
-Identify, fetch metadata, embed covers, normalize EPUBs.
+Identify, enrich, organize, audit, deduplicate, and convert ebook libraries.
 
 - `media-tool ebook` — Display current ebook config settings
 - `media-tool ebook config` — Detailed ebook configuration (same as above)
+- `media-tool ebook identify "book.epub"` — Identify title/author/ISBN and confidence
+- `media-tool ebook enrich "library/" --recursive` — Identify + metadata + cover + normalization
+- `media-tool ebook organize "downloads/" "library/" --dry-run` — Preview target structure
+- `media-tool ebook organize "downloads/" "library/"` — Move/copy into Jellyfin-compatible layout
+- `media-tool ebook audit "library/" --output "audit-report.txt"` — Library quality audit report
+- `media-tool ebook deduplicate "library/" --dry-run` — Show duplicate groups and best version picks
+- `media-tool ebook deduplicate "library/" --delete` — Remove non-best duplicates
+- `media-tool ebook convert "book.epub" mobi --profile kindle_high` — Convert format via Calibre
 
-**Planned operations (see config for behavior):**
-- Automatic ISBN extraction from filename or embedded metadata
-- Fetch book metadata from OpenLibrary or Google Books
-- Download cover images and embed in EPUB
-- Normalize EPUB structure and metadata (OPF fields)
-- Organize by author/series/title
+**Behavior highlights:**
+- Dry-run support on enrich, organize, deduplicate, and convert
+- Backups before conversion
+- Safe move/copy validations for organization
+- Duplicate ranking by format, size, and filename quality
+- Audit checks for metadata gaps, missing covers, missing ISBN, and series gaps
 
 ```toml
 # From media-tool.toml
