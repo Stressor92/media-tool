@@ -32,7 +32,11 @@ class _MetadataService:
 
 
 class _IsbnExtractor:
+    def __init__(self) -> None:
+        self.calls = 0
+
     def extract(self, file_path: Path) -> str | None:
+        self.calls += 1
         return None if "noisbn" in file_path.name else "9780441172719"
 
 
@@ -50,10 +54,12 @@ def test_library_auditor_collects_missing_metadata_and_isbn(tmp_path: Path) -> N
     create_minimal_epub(first, "Book", "Author")
     create_minimal_epub(second, "Book", "Author")
 
+    isbn_extractor = _IsbnExtractor()
+
     auditor = LibraryAuditor(
         book_identifier=_Identifier(),
         metadata_service=_MetadataService(),
-        isbn_extractor=_IsbnExtractor(),
+        isbn_extractor=isbn_extractor,
         epub_reader=_EpubReader(),
     )
 
@@ -65,3 +71,4 @@ def test_library_auditor_collects_missing_metadata_and_isbn(tmp_path: Path) -> N
     assert len(report.missing_isbn) == 1
     assert second in report.missing_isbn
     assert ".epub" in report.format_distribution
+    assert isbn_extractor.calls == 0

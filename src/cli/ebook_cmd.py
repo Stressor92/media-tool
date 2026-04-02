@@ -62,6 +62,7 @@ def _print_ebook_config_summary() -> None:
 
 def _build_services() -> EbookServiceBundle:
     config = get_config()
+    googlebooks_api_key = config.api.googlebooks_api_key
 
     epub_reader = EpubReader()
     pdf_reader = PdfReader()
@@ -69,17 +70,14 @@ def _build_services() -> EbookServiceBundle:
     fuzzy_matcher = FuzzyMatcher()
     identifier = BookIdentifier(isbn_extractor=isbn_extractor, epub_reader=epub_reader)
 
-    metadata_provider_map: dict[str, type[MetadataProvider]] = {
-        "openlibrary": OpenLibraryProvider,
-        "googlebooks": GoogleBooksProvider,
-    }
     metadata_providers: list[MetadataProvider] = []
     for provider_name in config.ebook.metadata_providers:
-        metadata_provider_cls = metadata_provider_map.get(provider_name)
-        if metadata_provider_cls is not None:
-            metadata_providers.append(metadata_provider_cls())
+        if provider_name == "openlibrary":
+            metadata_providers.append(OpenLibraryProvider())
+        elif provider_name == "googlebooks":
+            metadata_providers.append(GoogleBooksProvider(api_key=googlebooks_api_key))
     if not metadata_providers:
-        metadata_providers = [OpenLibraryProvider(), GoogleBooksProvider()]
+        metadata_providers = [OpenLibraryProvider(), GoogleBooksProvider(api_key=googlebooks_api_key)]
     metadata_service = MetadataService(metadata_providers, fuzzy_matcher)
 
     cover_provider_map: dict[str, type[CoverProvider]] = {

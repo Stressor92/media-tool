@@ -40,8 +40,9 @@ class MetadataService:
                 all_results.extend(provider.search_by_title(book_identity.title, author=None, limit=3))
 
         if not all_results:
-            logger.warning(
-                "No ebook metadata found", extra={"title": book_identity.title, "author": book_identity.author}
+            logger.info(
+                "No ebook metadata found",
+                extra={"context": {"title": book_identity.title, "author": book_identity.author}},
             )
             return None
 

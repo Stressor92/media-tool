@@ -5,6 +5,7 @@
 opensubtitles_api_key = ""
 acoustid_api_key = ""
 tmdb_api_key = ""
+googlebooks_api_key = ""
 # Kostenlos unter: https://www.themoviedb.org/settings/api
 opensubtitles_user_agent = "media-tool v1.0"
 
@@ -43,6 +44,8 @@ sponsorblock_remove = ["sponsor"]
 preferred_format = "epub"
 download_cover = true
 metadata_providers = ["openlibrary", "googlebooks"]
+
+# Optional: set [api].googlebooks_api_key for higher Google Books quota.
 
 [ebook.organization]
 structure = "{author}/{series}/{title}"

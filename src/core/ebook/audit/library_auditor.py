@@ -84,9 +84,7 @@ class LibraryAuditor:
                 report.format_issues.append((ebook_path, identity_issue))
 
             if not (identity.isbn or identity.isbn13):
-                extracted = self.isbn_extractor.extract(ebook_path)
-                if extracted is None:
-                    report.missing_isbn.append(ebook_path)
+                report.missing_isbn.append(ebook_path)
 
             metadata = self.metadata_service.fetch_metadata(identity)
             if metadata is None:

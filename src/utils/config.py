@@ -25,9 +25,10 @@ class ApiConfig(BaseModel):
     opensubtitles_api_key: str | None = None
     acoustid_api_key: str | None = None
     tmdb_api_key: str | None = None
+    googlebooks_api_key: str | None = None
     opensubtitles_user_agent: str = "media-tool v1.0"
 
-    @field_validator("opensubtitles_api_key", "acoustid_api_key", "tmdb_api_key", mode="before")
+    @field_validator("opensubtitles_api_key", "acoustid_api_key", "tmdb_api_key", "googlebooks_api_key", mode="before")
     @classmethod
     def _normalize_optional_secret(cls, value: object) -> object:
         if value is None:
@@ -431,6 +432,7 @@ def _legacy_env_mapping(key: str) -> list[str] | None:
         "OPENSUBTITLES_API_KEY": ["api", "opensubtitles_api_key"],
         "ACOUSTID_API_KEY": ["api", "acoustid_api_key"],
         "TMDB_API_KEY": ["api", "tmdb_api_key"],
+        "GOOGLEBOOKS_API_KEY": ["api", "googlebooks_api_key"],
         "FFMPEG_BIN": ["tools", "ffmpeg"],
         "FFPROBE_BIN": ["tools", "ffprobe"],
     }
@@ -488,6 +490,7 @@ def _is_relevant_env_var(key: str) -> bool:
         "OPENSUBTITLES_API_KEY",
         "ACOUSTID_API_KEY",
         "TMDB_API_KEY",
+        "GOOGLEBOOKS_API_KEY",
         "FFMPEG_BIN",
         "FFPROBE_BIN",
     }

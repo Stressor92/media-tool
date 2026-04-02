@@ -6,12 +6,14 @@
 # Kostenlos registrieren:
 #   OpenSubtitles : https://www.opensubtitles.com/de/consumers
 #   AcoustID      : https://acoustid.org/login
+#   TMDB          : https://www.themoviedb.org/settings/api
 # ---------------------------------------------------------------------------
 [api]
 opensubtitles_api_key = "cAeMfM14epFYPgCgDcQg3TG6wTnm8vcs"   # <-- hier deinen Key eintragen
 acoustid_api_key      = "cur84dh2Vo"   # <-- hier deinen Key eintragen
-tmdb_api_key          = ""             # <-- TMDB v3 API Key
+tmdb_api_key          = "2e528f2f856be09f53570dac14f1921d"             # <-- TMDB v3 API Key
 opensubtitles_user_agent = "media-tool v1.0"
+googlebooks_api_key = ""
 
 # ---------------------------------------------------------------------------
 # Externe Tools (müssen im PATH sein oder absolut angeben)

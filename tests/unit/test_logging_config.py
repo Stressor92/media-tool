@@ -6,7 +6,7 @@ from pathlib import Path
 
 from rich.logging import RichHandler
 
-from utils.logging_config import setup_logging
+from utils.logging_config import ContextFormatter, setup_logging
 
 
 def _reset_root_logger() -> None:
@@ -84,3 +84,23 @@ def test_setup_logging_json_file_formatter(tmp_path: Path) -> None:
     content = log_path.read_text(encoding="utf-8")
     assert '"message": "json-message"' in content
     assert '"level": "DEBUG"' in content
+
+
+def test_context_formatter_renders_structured_context() -> None:
+    formatter = ContextFormatter("%(levelname)s | %(message)s")
+    record = logging.LogRecord(
+        name="test.logger",
+        level=logging.WARNING,
+        pathname=__file__,
+        lineno=1,
+        msg="provider failed",
+        args=(),
+        exc_info=None,
+    )
+    record.context = {"error": "timed out", "title": "Dune"}
+
+    rendered = formatter.format(record)
+
+    assert "provider failed" in rendered
+    assert "error=timed out" in rendered
+    assert "title=Dune" in rendered

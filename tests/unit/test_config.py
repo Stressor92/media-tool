@@ -16,8 +16,10 @@ def clear_config_cache(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for key in [
         "MEDIA_TOOL_CONFIG",
         "MEDIA_TOOL_API__OPENSUBTITLES_API_KEY",
+        "MEDIA_TOOL_API__GOOGLEBOOKS_API_KEY",
         "MEDIA_TOOL_DEFAULTS__SUBTITLES__LANGUAGES",
         "OPENSUBTITLES_API_KEY",
+        "GOOGLEBOOKS_API_KEY",
         "FFMPEG_BIN",
         "FFPROBE_BIN",
     ]:
@@ -35,6 +37,7 @@ def test_get_config_uses_defaults_when_file_missing(tmp_path: Path) -> None:
     assert config.tools.yt_dlp == "yt-dlp"
     assert config.defaults.subtitles.languages == ["en"]
     assert config.api.opensubtitles_api_key is None
+    assert config.api.googlebooks_api_key is None
     assert config.ebook.preferred_format == "epub"
     assert config.ebook.download_cover is True
     assert config.ebook.metadata_providers == ["openlibrary", "googlebooks"]
@@ -48,6 +51,7 @@ def test_get_config_reads_file_and_env_overrides(tmp_path: Path, monkeypatch: py
         """
 [api]
 opensubtitles_api_key = "from-file"
+googlebooks_api_key = "from-file-google"
 
 [tools]
 ffmpeg = "C:/tools/ffmpeg.exe"
@@ -72,12 +76,14 @@ target_format = "mobi"
 
     monkeypatch.setenv("MEDIA_TOOL_CONFIG", str(config_path))
     monkeypatch.setenv("MEDIA_TOOL_API__OPENSUBTITLES_API_KEY", "from-env")
+    monkeypatch.setenv("MEDIA_TOOL_API__GOOGLEBOOKS_API_KEY", "from-env-google")
     monkeypatch.setenv("MEDIA_TOOL_DEFAULTS__SUBTITLES__LANGUAGES", "de,fr")
     monkeypatch.setenv("MEDIA_TOOL_EBOOK__METADATA_PROVIDERS", "openlibrary,googlebooks")
 
     config = get_config()
 
     assert config.api.opensubtitles_api_key == "from-env"
+    assert config.api.googlebooks_api_key == "from-env-google"
     assert config.tools.ffmpeg == "C:/tools/ffmpeg.exe"
     assert config.tools.yt_dlp == "C:/tools/yt-dlp.exe"
     assert config.defaults.subtitles.languages == ["de", "fr"]
@@ -90,11 +96,13 @@ target_format = "mobi"
 
 def test_get_config_supports_legacy_environment_variables(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENSUBTITLES_API_KEY", "legacy-key")
+    monkeypatch.setenv("GOOGLEBOOKS_API_KEY", "legacy-google-key")
     monkeypatch.setenv("FFMPEG_BIN", "D:/portable/ffmpeg.exe")
 
     config = get_config()
 
     assert config.api.opensubtitles_api_key == "legacy-key"
+    assert config.api.googlebooks_api_key == "legacy-google-key"
     assert config.tools.ffmpeg == "D:/portable/ffmpeg.exe"
 
 

@@ -313,6 +313,9 @@ Identify, enrich, organize, audit, deduplicate, and convert ebook libraries.
 
 ```toml
 # From media-tool.toml
+[api]
+googlebooks_api_key = ""
+
 [ebook]
 preferred_format = "epub"
 download_cover = true
@@ -321,6 +324,8 @@ metadata_providers = ["openlibrary", "googlebooks"]
 [ebook.organization]
 structure = "{author}/{series}/{title}"
 ```
+
+`api.googlebooks_api_key` is optional. Leave it empty to use unauthenticated Google Books requests, or set it to increase quota and reduce lookup failures during ebook metadata enrichment.
 
 ---
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
+import time
+from collections.abc import Callable
 from typing import Any
 
 import requests
@@ -16,25 +18,38 @@ class OpenLibraryProvider(MetadataProvider):
     """Metadata provider backed by the Open Library API."""
 
     BASE_URL = "https://openlibrary.org"
+    RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 
-    def __init__(self, timeout: int = 10, session: requests.Session | None = None) -> None:
+    def __init__(
+        self,
+        timeout: int = 10,
+        session: requests.Session | None = None,
+        max_retries: int = 2,
+        backoff_seconds: float = 0.5,
+        sleep_func: Callable[[float], None] | None = None,
+    ) -> None:
         self.timeout = timeout
         self.session = session or requests.Session()
+        self.max_retries = max_retries
+        self.backoff_seconds = backoff_seconds
+        self.sleep_func = sleep_func or time.sleep
+        self._failure_streak = 0
         self.session.headers.update({"User-Agent": "media-tool/1.0 (ebook management)"})
 
     def search_by_isbn(self, isbn: str) -> BookMetadata | None:
-        try:
-            response = self.session.get(f"{self.BASE_URL}/isbn/{isbn}.json", timeout=self.timeout)
-            if response.status_code == 404:
-                return None
-            response.raise_for_status()
-            payload = response.json()
-            if not isinstance(payload, dict):
-                return None
-            return self._parse_book_data(payload)
-        except requests.RequestException as exc:
-            logger.error("Open Library ISBN lookup failed", extra={"isbn": isbn, "error": str(exc)})
+        response = self._get_with_retries(
+            f"{self.BASE_URL}/isbn/{isbn}.json",
+            failure_message="Open Library ISBN lookup failed after retries",
+            context={"isbn": isbn},
+            not_found_statuses={404},
+        )
+        if response is None:
             return None
+
+        payload = response.json()
+        if not isinstance(payload, dict):
+            return None
+        return self._parse_book_data(payload)
 
     def search_by_title(
         self,
@@ -42,31 +57,99 @@ class OpenLibraryProvider(MetadataProvider):
         author: str | None = None,
         limit: int = 5,
     ) -> list[BookMetadata]:
-        try:
-            params: dict[str, str | int] = {"title": title, "limit": limit}
-            if author:
-                params["author"] = author
-            response = self.session.get(f"{self.BASE_URL}/search.json", params=params, timeout=self.timeout)
-            response.raise_for_status()
-            payload = response.json()
-            docs = payload.get("docs", []) if isinstance(payload, dict) else []
-            if not isinstance(docs, list):
-                return []
+        params: dict[str, str | int] = {"title": title, "limit": limit}
+        if author:
+            params["author"] = author
 
-            results: list[BookMetadata] = []
-            for doc in docs[:limit]:
-                if not isinstance(doc, dict):
-                    continue
-                parsed = self._parse_search_result(doc)
-                if parsed is not None:
-                    results.append(parsed)
-            return results
-        except requests.RequestException as exc:
-            logger.error("Open Library title search failed", extra={"title": title, "error": str(exc)})
+        response = self._get_with_retries(
+            f"{self.BASE_URL}/search.json",
+            params=params,
+            failure_message="Open Library title search failed after retries",
+            context={"title": title, "author": author or "*"},
+        )
+        if response is None:
             return []
+
+        payload = response.json()
+        docs = payload.get("docs", []) if isinstance(payload, dict) else []
+        if not isinstance(docs, list):
+            return []
+
+        results: list[BookMetadata] = []
+        for doc in docs[:limit]:
+            if not isinstance(doc, dict):
+                continue
+            parsed = self._parse_search_result(doc)
+            if parsed is not None:
+                results.append(parsed)
+        return results
 
     def get_provider_name(self) -> str:
         return "openlibrary"
+
+    def _get_with_retries(
+        self,
+        url: str,
+        *,
+        params: dict[str, str | int] | None = None,
+        failure_message: str,
+        context: dict[str, str],
+        not_found_statuses: set[int] | None = None,
+    ) -> requests.Response | None:
+        not_found_statuses = not_found_statuses or set()
+        total_attempts = self.max_retries + 1
+        last_error: str | None = None
+
+        for attempt in range(1, total_attempts + 1):
+            try:
+                response = self.session.get(url, params=params, timeout=self.timeout)
+                if response.status_code in not_found_statuses:
+                    self._mark_success()
+                    return None
+                response.raise_for_status()
+                self._mark_success()
+                return response
+            except requests.HTTPError as exc:
+                status_code = exc.response.status_code if exc.response is not None else None
+                last_error = self._describe_request_exception(exc)
+                if status_code not in self.RETRYABLE_STATUS_CODES or attempt == total_attempts:
+                    break
+            except requests.RequestException as exc:
+                last_error = self._describe_request_exception(exc)
+                if attempt == total_attempts:
+                    break
+
+            self.sleep_func(self.backoff_seconds * (2 ** (attempt - 1)))
+
+        self._log_failure(
+            failure_message,
+            context={
+                **context,
+                "attempts": str(total_attempts),
+                "error": last_error or "unknown request failure",
+            },
+        )
+        return None
+
+    def _log_failure(self, message: str, *, context: dict[str, str]) -> None:
+        self._failure_streak += 1
+        if self._failure_streak == 1:
+            logger.warning(
+                f"{message}; repeated provider failures will be suppressed until recovery",
+                extra={"context": context},
+            )
+            return
+        logger.debug(message, extra={"context": {**context, "failure_streak": str(self._failure_streak)}})
+
+    def _mark_success(self) -> None:
+        self._failure_streak = 0
+
+    @staticmethod
+    def _describe_request_exception(exc: requests.RequestException) -> str:
+        response = getattr(exc, "response", None)
+        if response is not None and response.status_code:
+            return f"HTTP {response.status_code}"
+        return str(exc) or exc.__class__.__name__
 
     def _parse_book_data(self, data: dict[str, Any]) -> BookMetadata:
         authors: list[str] = []

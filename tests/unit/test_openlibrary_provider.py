@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock
+
+import requests
 
 from core.ebook.metadata.providers.openlibrary_provider import OpenLibraryProvider
 
@@ -49,3 +52,36 @@ def test_search_by_title_filters_invalid_docs() -> None:
     assert len(results) == 1
     assert results[0].title == "Dune"
     assert results[0].author == "Frank Herbert"
+
+
+def test_search_by_title_retries_and_logs_real_exception(caplog) -> None:
+    session = MagicMock()
+    session.get.side_effect = [
+        requests.ReadTimeout("first timeout"),
+        requests.ReadTimeout("second timeout"),
+        requests.ReadTimeout("final timeout"),
+    ]
+
+    provider = OpenLibraryProvider(session=session, max_retries=2, backoff_seconds=0.0)
+
+    with caplog.at_level(logging.WARNING):
+        results = provider.search_by_title("Dune")
+
+    assert results == []
+    assert session.get.call_count == 3
+    assert "Open Library title search failed after retries" in caplog.text
+    assert caplog.records[0].context["error"] == "final timeout"
+
+
+def test_repeated_openlibrary_failures_only_warn_once(caplog) -> None:
+    session = MagicMock()
+    session.get.side_effect = requests.ReadTimeout("still timing out")
+
+    provider = OpenLibraryProvider(session=session, max_retries=0, backoff_seconds=0.0)
+
+    with caplog.at_level(logging.WARNING):
+        provider.search_by_title("Dune")
+        provider.search_by_title("Dune Messiah")
+
+    warnings = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warnings) == 1

@@ -50,7 +50,10 @@ class ISBNExtractor:
         try:
             metadata = self.epub_reader.get_metadata(file_path)
         except Exception as exc:
-            logger.error("Failed to extract ISBN from EPUB", extra={"file_path": str(file_path), "error": str(exc)})
+            logger.debug(
+                "Failed to extract ISBN from EPUB",
+                extra={"context": {"file_path": str(file_path), "error": str(exc)}},
+            )
             return None
 
         candidates = [
@@ -76,7 +79,10 @@ class ISBNExtractor:
             ]
             return self._first_valid_isbn(candidates)
         except Exception as exc:
-            logger.error("Failed to extract ISBN from PDF", extra={"file_path": str(file_path), "error": str(exc)})
+            logger.debug(
+                "Failed to extract ISBN from PDF",
+                extra={"context": {"file_path": str(file_path), "error": str(exc)}},
+            )
             return None
 
     def _first_valid_isbn(self, candidates: list[str | None]) -> str | None:
