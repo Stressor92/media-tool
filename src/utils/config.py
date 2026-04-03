@@ -324,6 +324,50 @@ class StatisticsConfig(BaseModel):
         return value
 
 
+class BackupAutoCleanupConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    after_days: int = 0
+    video: bool = True
+    audio: bool = True
+    ebook: bool = True
+    audiobook: bool = True
+
+
+class BackupValidationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    video_duration_tolerance: float = Field(default=0.05, ge=0.0)
+    audio_duration_tolerance: float = Field(default=0.03, ge=0.0)
+    audiobook_duration_tolerance: float = Field(default=0.05, ge=0.0)
+    require_audio_tracks: bool = True
+    require_subtitles_if_present: bool = True
+    require_tags: bool = True
+    min_audio_bitrate_kbps: int = Field(default=0, ge=0)
+    require_epub_metadata: bool = True
+    require_cover: bool = True
+    require_isbn_if_present: bool = False
+    require_chapters: bool = True
+
+
+class BackupConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    backup_dir: str = ""
+    max_size_gb: float = Field(default=50.0, gt=0.0)
+    max_age_days: int = Field(default=30, ge=0)
+    auto_cleanup: BackupAutoCleanupConfig = Field(default_factory=BackupAutoCleanupConfig)
+    validation: BackupValidationConfig = Field(default_factory=BackupValidationConfig)
+
+    @field_validator("backup_dir", mode="before")
+    @classmethod
+    def _normalize_backup_dir(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -338,6 +382,7 @@ class AppConfig(BaseModel):
     ebook: EbookConfig = Field(default_factory=EbookConfig)
     upscale: UpscaleConfig = Field(default_factory=UpscaleConfig)
     statistics: StatisticsConfig = Field(default_factory=StatisticsConfig)
+    backup: BackupConfig = Field(default_factory=BackupConfig)
 
 
 _CONFIG_CACHE: AppConfig | None = None

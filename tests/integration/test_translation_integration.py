@@ -92,7 +92,8 @@ class TestOpusMtIntegration:
         )
 
         assert result.status == TranslationStatus.SUCCESS
-        content = result.output_path.read_text()  # type: ignore[union-attr]
+        assert result.output_path is not None
+        content = result.output_path.read_text()
         assert "morning" in content.lower() or "good" in content.lower()
 
     def test_vtt_format_preserved(self, tmp_path: Path) -> None:

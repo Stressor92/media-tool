@@ -42,4 +42,4 @@ def test_segment_defaults() -> None:
 def test_language_pair_frozen() -> None:
     pair = LanguagePair.en_to_de()
     with pytest.raises((AttributeError, TypeError)):
-        pair.source = "fr"  # type: ignore[misc]
+        pair.source = "fr"

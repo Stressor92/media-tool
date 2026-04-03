@@ -16,6 +16,7 @@ from src.statistics.stats_manager import StatsManager
 from cli.audio_cmd import app as audio_app
 from cli.audiobook_cmd import app as audiobook_app
 from cli.audit_cmd import app as audit_app
+from cli.backup_cmd import app as backup_app
 from cli.convert_cmd import app as convert_app
 from cli.download_cmd import app as download_app
 from cli.ebook_cmd import app as ebook_app
@@ -51,6 +52,7 @@ app.add_typer(video_app, name="video", help="Process video files.")
 app.add_typer(audiobook_app, name="audiobook", help="Process audiobook files.")
 app.add_typer(subtitle_app, name="subtitle", help="Download and manage subtitles from OpenSubtitles.org.")
 app.add_typer(stats_app, name="stats", help="Show and manage statistics.")
+app.add_typer(backup_app, name="backup", help="Manage backups and rollback operations.")
 app.add_typer(download_app, name="download", help="Download music, videos, and series using yt-dlp.")
 app.add_typer(workflow_app, name="workflow", help="Run automated media processing pipelines.")
 app.add_typer(jellyfin_app, name="jellyfin", help="Manage and sync the Jellyfin media library.")
@@ -110,6 +112,14 @@ def global_options(
 
     try:
         config = get_config()
+
+        try:
+            import src.backup as backup
+
+            backup.init()
+        except Exception:
+            pass
+
         if not config.statistics.enabled:
             return
 

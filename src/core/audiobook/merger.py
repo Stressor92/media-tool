@@ -12,6 +12,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypedDict
 
+from src.backup import get_backup_manager
+from src.backup.models import MediaType
+
 from utils.progress import ProgressEvent, emit_progress
 
 from .metadata import extract_audiobook_metadata_enhanced
@@ -143,6 +146,15 @@ def merge_audiobook_chapters(
     # Ensure output directory exists
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
+    backup_entry = None
+    if output_file.exists() and overwrite:
+        try:
+            backup_entry = get_backup_manager().create(
+                output_file, operation="audiobook_merge", media_type=MediaType.AUDIOBOOK
+            )
+        except Exception:
+            logger.debug("Backup creation failed", exc_info=True)
+
     # Create a temporary concat file list for ffmpeg
     concat_file = output_file.parent / f"{output_file.stem}_concat.txt"
 
@@ -202,6 +214,11 @@ def merge_audiobook_chapters(
         else:
             # Clean up failed output file
             output_file.unlink(missing_ok=True)
+            if backup_entry is not None:
+                try:
+                    get_backup_manager().rollback(backup_entry)
+                except Exception:
+                    logger.debug("Backup rollback failed", exc_info=True)
             return {
                 "success": False,
                 "error": f"FFmpeg failed: {result.stderr}",
@@ -212,6 +229,11 @@ def merge_audiobook_chapters(
         # Clean up
         concat_file.unlink(missing_ok=True)
         output_file.unlink(missing_ok=True)
+        if backup_entry is not None:
+            try:
+                get_backup_manager().rollback(backup_entry)
+            except Exception:
+                logger.debug("Backup rollback failed", exc_info=True)
         return {"success": False, "error": str(e)}
 
 

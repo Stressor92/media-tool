@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
+from src.backup import get_backup_manager
+from src.backup.models import MediaType
 from src.statistics import get_collector
 from src.statistics.event_types import EventType
 
@@ -158,11 +160,27 @@ def convert_mp4_to_mkv(
     ]
 
     logger.info("Converting: %s → %s", source.name, target)
+    backup_entry = None
+    try:
+        backup_entry = get_backup_manager().create(source, operation="remux", media_type=MediaType.VIDEO)
+    except Exception:
+        logger.debug("Backup creation failed", exc_info=True)
+
     start = time.perf_counter()
     ffmpeg_result = run_ffmpeg(ffmpeg_args)
     duration = time.perf_counter() - start
 
     if ffmpeg_result.success:
+        if backup_entry is not None:
+            try:
+                validation = get_backup_manager().validate(backup_entry, target)
+                if validation.passed:
+                    get_backup_manager().cleanup(backup_entry)
+                else:
+                    get_backup_manager().rollback(backup_entry)
+            except Exception:
+                logger.debug("Backup validation/cleanup failed", exc_info=True)
+
         try:
             get_collector().record(EventType.VIDEO_CONVERTED, duration_seconds=duration)
         except Exception:
@@ -180,6 +198,12 @@ def convert_mp4_to_mkv(
     if target.exists():
         logger.warning("Removing incomplete output: %s", target)
         target.unlink(missing_ok=True)
+
+    if backup_entry is not None:
+        try:
+            get_backup_manager().rollback(backup_entry)
+        except Exception:
+            logger.debug("Backup rollback failed", exc_info=True)
 
     return ConversionResult(
         status=ConversionStatus.FAILED,

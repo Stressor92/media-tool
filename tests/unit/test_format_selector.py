@@ -1,19 +1,20 @@
 """Unit tests for download format selector logic."""
 
 from pathlib import Path
+from typing import Any
 
 from core.download.format_selector import build_format_string, build_postprocessors
 from core.download.models import DownloadRequest, MediaType
 
 
 def _make_request(media_type: MediaType, **kwargs: object) -> DownloadRequest:
-    defaults: dict[str, object] = {
+    defaults: dict[str, Any] = {
         "url": "https://example.com",
         "media_type": media_type,
         "output_dir": Path("out"),
     }
     defaults.update(kwargs)
-    return DownloadRequest(**defaults)  # type: ignore[arg-type]
+    return DownloadRequest(**defaults)
 
 
 class TestBuildFormatString:

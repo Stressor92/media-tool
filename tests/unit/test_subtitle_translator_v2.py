@@ -86,7 +86,8 @@ class TestChunkingIntegration:
         st = SubtitleTranslator(translator=mock_trans, chunk_size=4)
         result = st.translate_file(f, LanguagePair.en_to_de())
         assert result.segments_translated == 5
-        content = result.output_path.read_text()  # type: ignore[union-attr]
+        assert result.output_path is not None
+        content = result.output_path.read_text()
         assert "[DE]" in content
 
 
@@ -136,7 +137,8 @@ class TestTagPreservation:
         st = SubtitleTranslator(translator=t, preserve_tags=True)
         result = st.translate_file(f, LanguagePair.en_to_de())
         assert result.status == TranslationStatus.SUCCESS
-        content = result.output_path.read_text()  # type: ignore[union-attr]
+        assert result.output_path is not None
+        content = result.output_path.read_text()
         assert "<i>" in content
 
     def test_tags_disabled_passes_raw_text(self, tmp_path: Path) -> None:
@@ -170,7 +172,8 @@ class TestLineWrapping:
         t.is_language_pair_supported.return_value = True
         st = SubtitleTranslator(translator=t, line_wrap=True, max_line_length=30, max_lines=2)
         result = st.translate_file(f, LanguagePair.en_to_de())
-        content = result.output_path.read_text()  # type: ignore[union-attr]
+        assert result.output_path is not None
+        content = result.output_path.read_text()
         # At least one \n should be in the subtitle text block
         subtitle_line = [l for l in content.split("\n") if "Das" in l]
         if subtitle_line:
@@ -185,6 +188,7 @@ class TestLineWrapping:
         t.is_language_pair_supported.return_value = True
         st = SubtitleTranslator(translator=t, line_wrap=False)
         result = st.translate_file(f, LanguagePair.en_to_de())
-        content = result.output_path.read_text()  # type: ignore[union-attr]
+        assert result.output_path is not None
+        content = result.output_path.read_text()
         # Long text should appear unchanged in the file
         assert "A A A" in content

@@ -40,7 +40,7 @@ class TestDownloadRequest:
             output_dir=Path("out"),
         )
         with pytest.raises(FrozenInstanceError):
-            request.url = "https://changed.example"  # type: ignore[misc]
+            request.url = "https://changed.example"
 
     def test_subtitle_languages_tuple(self) -> None:
         request = DownloadRequest(

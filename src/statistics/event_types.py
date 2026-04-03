@@ -28,6 +28,10 @@ class EventType(StrEnum):
     SESSION_START = "session_start"
     SESSION_END = "session_end"
     ERROR_OCCURRED = "error_occurred"
+    # Backup
+    BACKUP_CREATED = "backup_created"
+    BACKUP_ROLLED_BACK = "backup_rolled_back"
+    BACKUP_CLEANED = "backup_cleaned"
 
 
 @dataclass

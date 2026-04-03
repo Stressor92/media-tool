@@ -31,6 +31,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
+from src.backup import get_backup_manager
+from src.backup.models import MediaType
 from src.statistics import get_collector
 from src.statistics.event_types import EventType
 
@@ -516,6 +518,12 @@ def upscale_dvd(
         "yes" if opts.use_hardware else "no",
     )
 
+    backup_entry = None
+    try:
+        backup_entry = get_backup_manager().create(source, operation="upscale", media_type=MediaType.VIDEO)
+    except Exception:
+        logger.debug("Backup creation failed", exc_info=True)
+
     start = time.monotonic()
     ffmpeg_result = run_ffmpeg(ffmpeg_args)
     elapsed = round(time.monotonic() - start, 1)
@@ -534,6 +542,16 @@ def upscale_dvd(
         elapsed = round(time.monotonic() - start, 1)
 
     if ffmpeg_result.success and resolved_target.exists():
+        if backup_entry is not None:
+            try:
+                validation = get_backup_manager().validate(backup_entry, resolved_target)
+                if validation.passed:
+                    get_backup_manager().cleanup(backup_entry)
+                else:
+                    get_backup_manager().rollback(backup_entry)
+            except Exception:
+                logger.debug("Backup validation/cleanup failed", exc_info=True)
+
         size_after = round(resolved_target.stat().st_size / 1_073_741_824, 3)
         try:
             get_collector().record(
@@ -570,6 +588,12 @@ def upscale_dvd(
 
     # Cleanup on failure
     resolved_target.unlink(missing_ok=True)
+
+    if backup_entry is not None:
+        try:
+            get_backup_manager().rollback(backup_entry)
+        except Exception:
+            logger.debug("Backup rollback failed", exc_info=True)
 
     return UpscaleResult(
         status=UpscaleStatus.FAILED,

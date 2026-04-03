@@ -482,162 +482,25 @@ python -m pre_commit run --all-files
 
 ## Project Structure
 
-```
-src/
-├── cli/                      # Typer command groups (user-facing interface)
-│   ├── main.py              # Root CLI dispatcher and global options
-│   ├── audio_cmd.py         # Music: scan, organize, convert, improve, identify, tag, detect-language
-│   ├── video_cmd.py         # Video: convert, inspect, merge, subtitle, subtitle-auto, 
-│   │                         #        download-trailers, upscale, subtitle-translate, subtitle-translate-mkv
-│   ├── audiobook_cmd.py     # Audiobook: scan, organize, merge
-│   ├── subtitle_cmd.py      # Subtitles: download, search, translate, download-models, convert, formats
-│   ├── download_cmd.py      # Download: video, music, series (yt-dlp backend)
-│   ├── convert_cmd.py       # Convert: batch, single (MP4 → MKV)
-│   ├── upscale_cmd.py       # Upscale: profiles, batch, single (DVD → 720p/1080p H.265)
-│   ├── merge_cmd.py         # Merge: auto, manual (language variant merging)
-│   ├── inspect_cmd.py       # Inspect: scan (media library CSV export)
-│   ├── metadata_cmd.py      # Metadata: fetch, search (TMDB integration)
-│   ├── jellyfin_cmd.py      # Jellyfin: ping, refresh, scan-status, libraries, inspect, fix-series, search
-│   ├── audit_cmd.py         # Audit: run, checks (library quality analysis)
-│   ├── workflow_cmd.py      # Workflow: movies (end-to-end automation pipeline)
-│   ├── ebook_cmd.py         # Ebook: (startup config display), config
-│   └── progress_display.py  # Rich progress reporting utilities
-│
-├── core/                     # Domain logic (UI-independent business rules)
-│   ├── audio/               # Music processing
-│   │   ├── scanner.py       # Parallel metadata extraction (tags, codec info)
-│   │   ├── organizer.py     # Library organization (Artist/Album/Track structure)
-│   │   ├── converter.py     # Audio format conversion (FLAC, MP3, M4A, etc.)
-│   │   ├── enhancer.py      # Silence removal, normalization, quality enhancement
-│   │   ├── tagger.py        # AcoustID + MusicBrainz tagging
-│   │   └── models.py        # AudioFileMetadata, ConversionResult
-│   │
-│   ├── video/               # Video processing
-│   │   ├── converter.py     # MP4 → MKV lossless remuxing
-│   │   ├── merger.py        # Dual-audio merging (German + English)
-│   │   ├── upscaler.py      # DVD → 720p/1080p H.265 encoding with CRF/preset profiles
-│   │   ├── inspector.py     # Library scanning and CSV export (resolution, codec, duration)
-│   │   ├── trailer.py       # Trailer download + MKV embedding
-│   │   └── models.py        # Conversion/Upscale/Trailer results
-│   │
-│   ├── audiobook/           # Audiobook-specific processing
-│   │   ├── scanner.py       # Audiobook library scanning
-│   │   ├── organizer.py     # Folder reorganization
-│   │   ├── merger.py        # Chapter file merging
-│   │   └── models.py        # AudiobookMetadata
-│   │
-│   ├── subtitles/           # Subtitle acquisition
-│   │   ├── opensubtitles_provider.py # OpenSubtitles.org API client
-│   │   ├── subtitle_provider.py     # Provider abstraction
-│   │   ├── subtitle_downloader.py   # Download + MKV embedding orchestration
-│   │   └── models.py               # SubtitleMatch, DownloadResult
-│   │
-│   ├── translation/         # Offline subtitle conversion + translation
-│   │   ├── converter.py     # Format conversion dispatcher
-│   │   ├── format_registry.py # Format detection + lazy loading
-│   │   ├── style_mapper.py  # ASS ↔ HTML tag mapping
-│   │   ├── translator/      # OPUS-MT (GPU) + Argos (CPU) backends
-│   │   ├── formats/         # SRT, VTT, ASS, TTML, SCC, STL, LRC, SBV readers/writers
-│   │   └── models.py        # SubtitleSegment, StyleTag
-│   │
-│   ├── metadata/            # TMDB movie metadata scraping
-│   │   ├── tmdb_client.py   # HTTP wrapper with retry/cache
-│   │   ├── tmdb_provider.py # Search + detailed metadata mapping
-│   │   ├── title_parser.py  # Title/year extraction from filenames
-│   │   ├── match_selector.py # Auto/interactive selection
-│   │   ├── nfo_writer.py    # Jellyfin/Kodi-compatible .nfo generation
-│   │   ├── artwork_downloader.py # Parallel poster/fanart/banner downloading
-│   │   ├── metadata_pipeline.py  # Orchestration
-│   │   └── models.py        # MovieMetadata, ArtworkType, PipelineResult
-│   │
-│   ├── jellyfin/            # Jellyfin REST API integration
-│   │   ├── client.py        # HTTP client with retries + structured exceptions
-│   │   ├── library_manager.py # Refresh, scan status, item lookup
-│   │   ├── metadata_inspector.py # Missing/wrong metadata detection
-│   │   ├── metadata_fixer.py # Auto-repair (refresh trigger for fixable issues)
-│   │   └── auto_trigger.py  # Workflow hook → library refresh
-│   │
-│   ├── download/            # yt-dlp media downloading
-│   │   ├── download_manager.py # Request orchestration + retry
-│   │   ├── format_selector.py # Video/audio/subtitle format selection
-│   │   ├── yt_dlp_runner.py # Process wrapper + cookie handling
-│   │   └── models.py        # DownloadRequest, DownloadResult, DownloadStatus
-│   │
-│   ├── ebook/               # E-book processing (identification, metadata, covers, normalization)
-│   │   ├── models.py        # BookIdentity, BookMetadata
-│   │   ├── identification/  # ISBN extraction, filename parsing, confidence scoring
-│   │   │   ├── isbn_extractor.py    # Pattern matching + ISBN13 normalization
-│   │   │   ├── book_identifier.py   # Multi-strategy (ISBN, metadata, filename)
-│   │   │   └── confidence_scorer.py # Match scoring
-│   │   ├── metadata/        # Metadata retrieval from providers
-│   │   │   ├── metadata_service.py     # Provider orchestration + fuzzy matching
-│   │   │   └── providers/              # OpenLibrary, Google Books API integrations
-│   │   ├── cover/           # Cover image acquisition + embedding
-│   │   │   ├── cover_service.py       # Fetch + embed orchestration
-│   │   │   ├── cover_selector.py      # Resolution/aspect-ratio based ranking
-│   │   │   └── providers/             # OpenLibrary, Google Books cover APIs
-│   │   └── normalization/   # EPUB metadata embedding, cover insertion, TOC generation
-│   │       ├── metadata_embedder.py # OPF field updates
-│   │       ├── epub_validator.py    # Archive + metadata validation
-│   │       ├── toc_generator.py     # Navigation document generation
-│   │       └── normalizer.py        # Full workflow orchestration
-│   │
-│   ├── audit/               # Library quality auditing
-│   │   ├── auditor.py       # Orchestration engine
-│   │   ├── check_registry.py # Check discovery (A01–Z99 IDs)
-│   │   ├── reporter.py      # Terminal + CSV/JSON output
-│   │   └── models.py        # Check, Finding, AuditReport
-│   │
-│   ├── workflow/            # Automation pipeline orchestration
-│   │   ├── runner.py        # Movie pipeline builder + executor (merge → convert → upscale → subtitle → organize)
-│   │   └── models.py        # WorkflowContext, StepResult
-│   │
-│   ├── language_detection/  # Audio language identification (heuristic + Whisper)
-│   │   ├── detector.py      # Multi-strategy detection
-│   │   └── models.py        # DetectionResult
-│   │
-│   ├── naming/              # Jellyfin-compatible file path generation
-│   │   └── namer.py         # Naming template engine
-│   │
-│   └── __init__.py
-│
-├── utils/                    # Shared utilities and low-level wrappers
-│   ├── config.py            # TOML loader + environment overrides (API keys, tool paths, defaults)
-│   ├── logging_config.py    # Rich console + rotating file logging setup
-│   ├── ffmpeg_runner.py     # FFmpeg subprocess wrapper (container conversion, codec re-encoding)
-│   ├── ffprobe_runner.py    # FFprobe JSON wrapper (media inspection, metadata extraction)
-│   ├── ytdlp_runner.py      # yt-dlp subprocess wrapper (format selection, cookies)
-│   ├── video_hasher.py      # Opensubtitles.org-compatible video file hashing
-│   ├── url_validator.py     # URL validation + platform classification (YouTube, Soundcloud, etc.)
-│   ├── audio_analyzer.py    # Audio metadata extraction using ffprobe
-│   ├── audio_processor.py   # Audio manipulation utilities (ffmpeg-based)
-│   ├── epub_reader.py       # EPUB container reading and metadata extraction (OPF parsing)
-│   ├── epub_writer.py       # EPUB metadata updates, cover embedding, navigation generation
-│   ├── pdf_reader.py        # PDF metadata and text extraction (optional pypdf dependency)
-│   ├── image_processor.py   # Image resizing + quality optimization (Pillow)
-│   ├── fuzzy_matcher.py     # String similarity scoring (difflib)
-│   ├── ffprobe_cache.py     # Parallel ffprobe caching for batch operations
-│   └── __init__.py
-│
-├── gui/                      # (Future) Graphical user interface (PySide6/Qt)
-│
-└── obsolet_ps_scrips/        # Legacy PowerShell scripts (deprecated, replaced by Python)
+Key sections:
 
-tests/
-├── unit/                     # Unit tests for isolated functions and classes
-├── integration/              # Integration tests for full workflows
-├── fixtures/                 # Test data and helper functions
-├── conftest.py              # Pytest configuration and shared fixtures
-├── ebook_test_support.py    # E-book test helpers (EPUB creation, image generation)
-└── cleanup_test_artifacts.py # Test artifact cleanup
-```
+| Section | Purpose |
+| --- | --- |
+| `[api]` | API keys and user-agent values (OpenSubtitles, AcoustID, TMDB, Google Books) |
+| `[tools]` | Executable names/paths (`ffmpeg`, `ffprobe`, `yt_dlp`) |
+| `[paths]` | Library, incoming, and temp directories |
+| `[defaults.subtitles]` | Default subtitle languages/embed behavior |
+| `[defaults.audio]` | Audio confidence defaults |
+| `[download]` | yt-dlp output and quality defaults |
+| `[upscale]` | Hardware encoder behavior and fallback settings |
+| `[translation]` | Subtitle translation backend and chunking options |
+| `[language_detection]` | Audio language detection behavior |
+| `[metadata]` + sub-sections | Metadata and artwork defaults |
+| `[ebook]` + sub-sections | Ebook format, provider, organization, conversion defaults |
+| `[workflow.movies]` | Movie pipeline step behavior |
+| `[jellyfin]` + sub-sections | Jellyfin endpoint and integration controls |
+| `[statistics]` | Statistics enablement/history location |
+| `[backup]` + sub-sections | Backup storage, cleanup policy, validation tolerances |
 
-### Architecture Highlights
-
-- **Layered design**: Core logic is UI-independent; both CLI and GUI use the same backend.
-- **Provider pattern**: Metadata (OpenLibrary, Google Books), covers, and subtitles are pluggable.
-- **Service orchestration**: High-level services coordinate multiple providers (e.g., `MetadataService` searches multiple providers, ranks results).
-- **Configuration-driven**: TOML config + environment overrides for tool paths, API keys, and behavioral defaults.
-- **Structured logging**: Rich console output with optional rotating file logs (text or JSON format).
-- **Batch-safe execution**: Explicit status enums prevent silent failures in large NAS automation runs.
+Environment overrides are supported by the config loader, including `MEDIA_TOOL_CONFIG` for a custom config path.
 

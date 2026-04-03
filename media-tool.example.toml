@@ -188,3 +188,38 @@ history_max_days = 365
 
 # Disable statistics collection (e.g. in CI/tests)
 enabled = true
+
+[backup]
+enabled = true
+
+# Directory for backup files and backup_index.json
+# Default: ~/.media-tool/backups/
+backup_dir = ""
+
+# Maximum combined backup size in GB
+max_size_gb = 50
+
+# Maximum age in days before entries are considered for eviction (0 = disabled)
+max_age_days = 30
+
+[backup.auto_cleanup]
+# 0 = delete immediately after successful validation
+# -1 = keep forever unless manually purged
+after_days = 0
+video = true
+audio = true
+ebook = true
+audiobook = true
+
+[backup.validation]
+video_duration_tolerance = 0.05
+audio_duration_tolerance = 0.03
+audiobook_duration_tolerance = 0.05
+require_audio_tracks = true
+require_subtitles_if_present = true
+require_tags = true
+min_audio_bitrate_kbps = 0
+require_epub_metadata = true
+require_cover = true
+require_isbn_if_present = false
+require_chapters = true

@@ -5,6 +5,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.backup import get_backup_manager
+from src.backup.models import MediaType
 from src.statistics import get_collector
 from src.statistics.event_types import EventType
 
@@ -56,11 +58,20 @@ class EbookNormalizer:
         """Apply available normalization steps to one EPUB file."""
         result = NormalizationResult(success=False)
         start = time.perf_counter()
+        backup_entry = None
 
         try:
             if not self.validator.is_valid(epub_path):
                 result.error_message = "EPUB validation failed"
                 return result
+
+            if backup:
+                try:
+                    backup_entry = get_backup_manager().create(
+                        epub_path, operation="ebook_normalize", media_type=MediaType.EBOOK
+                    )
+                except Exception:
+                    logger.debug("Backup creation failed", exc_info=True)
 
             if metadata is not None:
                 result.metadata_updated = self.metadata_embedder.embed(epub_path, metadata, backup=backup)
@@ -72,6 +83,16 @@ class EbookNormalizer:
             result.success = any([result.metadata_updated, result.cover_embedded, result.toc_generated])
             result.structure_fixed = result.toc_generated
             if result.success:
+                if backup_entry is not None:
+                    try:
+                        validation = get_backup_manager().validate(backup_entry, epub_path)
+                        if validation.passed:
+                            get_backup_manager().cleanup(backup_entry)
+                        else:
+                            get_backup_manager().rollback(backup_entry)
+                    except Exception:
+                        logger.debug("Backup validation/cleanup failed", exc_info=True)
+
                 try:
                     get_collector().record(
                         EventType.EBOOK_PROCESSED,
@@ -84,6 +105,11 @@ class EbookNormalizer:
                     logger.debug("Stats recording failed", exc_info=True)
             return result
         except Exception as exc:
+            if backup_entry is not None:
+                try:
+                    get_backup_manager().rollback(backup_entry)
+                except Exception:
+                    logger.debug("Backup rollback failed", exc_info=True)
             logger.error("Ebook normalization failed", extra={"file_path": str(epub_path), "error": str(exc)})
             result.error_message = str(exc)
             return result

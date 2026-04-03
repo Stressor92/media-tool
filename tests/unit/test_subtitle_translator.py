@@ -110,7 +110,8 @@ def test_tag_preservation(tmp_path: Path, mock_translator: MagicMock) -> None:
     st = SubtitleTranslator(translator=mock_translator)
     result = st.translate_file(f, LanguagePair.en_to_de())
     assert result.status == TranslationStatus.SUCCESS
-    content = result.output_path.read_text()  # type: ignore[union-attr]
+    assert result.output_path is not None
+    content = result.output_path.read_text()
     assert "<i>" in content
 
 
