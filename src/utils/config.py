@@ -309,6 +309,21 @@ class JellyfinConfig(BaseModel):
         return value
 
 
+class StatisticsConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data_dir: str = ""
+    history_max_days: int = Field(default=365, ge=1)
+    enabled: bool = True
+
+    @field_validator("data_dir", mode="before")
+    @classmethod
+    def _normalize_data_dir(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -322,6 +337,7 @@ class AppConfig(BaseModel):
     metadata: MetadataConfig = Field(default_factory=MetadataConfig)
     ebook: EbookConfig = Field(default_factory=EbookConfig)
     upscale: UpscaleConfig = Field(default_factory=UpscaleConfig)
+    statistics: StatisticsConfig = Field(default_factory=StatisticsConfig)
 
 
 _CONFIG_CACHE: AppConfig | None = None

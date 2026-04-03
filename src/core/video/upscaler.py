@@ -31,6 +31,9 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
+from src.statistics import get_collector
+from src.statistics.event_types import EventType
+
 from core.video.encoder_profile_builder import EncoderProfileBuilder
 from core.video.hardware_detector import HardwareDetector
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
@@ -532,6 +535,20 @@ def upscale_dvd(
 
     if ffmpeg_result.success and resolved_target.exists():
         size_after = round(resolved_target.stat().st_size / 1_073_741_824, 3)
+        try:
+            get_collector().record(
+                EventType.VIDEO_UPSCALED,
+                duration_seconds=elapsed,
+                input_resolution=f"{height}p",
+                output_resolution=f"{opts.target_height}p",
+                profile="dvd-hq",
+                encoder=encoder_type,
+                file_size_before_mb=round(size_before * 1024, 3),
+                file_size_after_mb=round(size_after * 1024, 3),
+            )
+        except Exception:
+            logger.debug("Stats recording failed", exc_info=True)
+
         logger.info(
             "%s — Done in %.1fs. %.3fGB → %.3fGB (Δ %.3fGB)",
             source.name,

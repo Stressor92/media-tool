@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Sequence
+
+from src.statistics import get_collector
+from src.statistics.event_types import EventType
 
 from core.ebook.identification.confidence_scorer import ConfidenceScorer
 from core.ebook.metadata.providers.provider import MetadataProvider
@@ -20,10 +24,19 @@ class MetadataService:
 
     def fetch_metadata(self, book_identity: BookIdentity) -> BookMetadata | None:
         """Fetch the best metadata match for one identified book."""
+        start = time.perf_counter()
         if book_identity.isbn:
             for provider in self.providers:
                 metadata = provider.search_by_isbn(book_identity.isbn)
                 if metadata is not None:
+                    try:
+                        get_collector().record(
+                            EventType.EBOOK_ENRICHED,
+                            duration_seconds=time.perf_counter() - start,
+                            provider=provider.get_provider_name(),
+                        )
+                    except Exception:
+                        logger.debug("Stats recording failed", exc_info=True)
                     logger.info(
                         "Book metadata found via ISBN",
                         extra={"provider": provider.get_provider_name(), "isbn": book_identity.isbn},
@@ -46,7 +59,17 @@ class MetadataService:
             )
             return None
 
-        return self._select_best_match(book_identity, all_results)
+        selected = self._select_best_match(book_identity, all_results)
+        if selected is not None:
+            try:
+                get_collector().record(
+                    EventType.EBOOK_ENRICHED,
+                    duration_seconds=time.perf_counter() - start,
+                    provider=selected.source,
+                )
+            except Exception:
+                logger.debug("Stats recording failed", exc_info=True)
+        return selected
 
     def _select_best_match(self, identity: BookIdentity, candidates: list[BookMetadata]) -> BookMetadata | None:
         if not candidates:

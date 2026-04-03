@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: .venv/Scripts/python.exe -m mypy .
+        entry: .venv/Scripts/python.exe scripts/run_mypy_hook.py
         language: system
         pass_filenames: false
         require_serial: true

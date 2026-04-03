@@ -7,7 +7,11 @@ Audio format conversion using ffmpeg.
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
+
+from src.statistics import get_collector
+from src.statistics.event_types import EventType
 
 from utils.audio_processor import AudioConversionResult, convert_audio_format
 
@@ -46,7 +50,8 @@ def convert_audio(
 
     logger.info("Converting %s to %s (%s)", input_file.name, output_file.name, format.upper())
 
-    return convert_audio_format(
+    start = time.perf_counter()
+    result = convert_audio_format(
         input_file=input_file,
         output_file=output_file,
         codec=format.lower(),
@@ -54,3 +59,12 @@ def convert_audio(
         preserve_metadata=preserve_metadata,
         overwrite=overwrite,
     )
+    duration = time.perf_counter() - start
+
+    if result.success:
+        try:
+            get_collector().record(EventType.AUDIO_CONVERTED, duration_seconds=duration)
+        except Exception:
+            logger.debug("Stats recording failed", exc_info=True)
+
+    return result

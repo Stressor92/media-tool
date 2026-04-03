@@ -13,7 +13,14 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections.abc import Callable
+from importlib import import_module
+from importlib.util import find_spec
 from pathlib import Path
+from typing import Any, cast
+
+from src.statistics import get_collector
+from src.statistics.event_types import EventType
 
 from core.translation.chunking import SubtitleChunk, build_chunks, split_translated_chunk
 from core.translation.models import (
@@ -151,7 +158,19 @@ class SubtitleTranslator:
                 error_message="dry_run",
             )
 
-        return self._translate_and_write(request, resolved_output)
+        result = self._translate_and_write(request, resolved_output)
+        if result.status == TranslationStatus.SUCCESS:
+            try:
+                get_collector().record(
+                    EventType.SUBTITLE_TRANSLATED,
+                    duration_seconds=result.duration_seconds,
+                    source_language=effective_pair.source,
+                    target_language=effective_pair.target,
+                    backend=backend,
+                )
+            except Exception:
+                logger.debug("Stats recording failed", exc_info=True)
+        return result
 
     # ------------------------------------------------------------------
     # Core pipeline
@@ -312,7 +331,13 @@ class SubtitleTranslator:
         Returns an ISO 639-1 code, or None if detection fails / langdetect not installed.
         """
         try:
-            from langdetect import detect
+            if find_spec("langdetect") is None:
+                return None
+
+            module = import_module("langdetect")
+            detect = cast(Callable[[str], Any], getattr(module, "detect", None))
+            if detect is None:
+                return None
 
             sample = " ".join(s.text for s in segments if s.text)
             if not sample.strip():

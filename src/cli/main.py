@@ -7,9 +7,11 @@ Mounts all sub-command groups. This is the only place where sub-apps are wired t
 
 from __future__ import annotations
 
+import atexit
 from pathlib import Path
 
 import typer
+from src.statistics.stats_manager import StatsManager
 
 from cli.audio_cmd import app as audio_app
 from cli.audiobook_cmd import app as audiobook_app
@@ -21,10 +23,12 @@ from cli.inspect_cmd import app as inspect_app
 from cli.jellyfin_cmd import app as jellyfin_app
 from cli.merge_cmd import app as merge_app
 from cli.metadata_cmd import app as metadata_app
+from cli.stats_cmd import app as stats_app
 from cli.subtitle_cmd import app as subtitle_app
 from cli.upscale_cmd import app as upscale_app
 from cli.video_cmd import app as video_app
 from cli.workflow_cmd import app as workflow_app
+from utils.config import get_config
 from utils.logging_config import setup_logging
 
 # ---------------------------------------------------------------------------
@@ -46,6 +50,7 @@ app.add_typer(audio_app, name="audio", help="Process music files.")
 app.add_typer(video_app, name="video", help="Process video files.")
 app.add_typer(audiobook_app, name="audiobook", help="Process audiobook files.")
 app.add_typer(subtitle_app, name="subtitle", help="Download and manage subtitles from OpenSubtitles.org.")
+app.add_typer(stats_app, name="stats", help="Show and manage statistics.")
 app.add_typer(download_app, name="download", help="Download music, videos, and series using yt-dlp.")
 app.add_typer(workflow_app, name="workflow", help="Run automated media processing pipelines.")
 app.add_typer(jellyfin_app, name="jellyfin", help="Manage and sync the Jellyfin media library.")
@@ -102,6 +107,30 @@ def global_options(
         log_file=log_file,
         log_json=log_json,
     )
+
+    try:
+        config = get_config()
+        if not config.statistics.enabled:
+            return
+
+        import src.statistics as statistics
+
+        manager = StatsManager()
+        manager.load()
+        statistics.init(manager)
+        statistics.get_collector().start_session()
+
+        def _flush_stats() -> None:
+            try:
+                events = statistics.get_collector().end_session()
+                manager.aggregate(events)
+                manager.save()
+            except Exception:
+                return
+
+        atexit.register(_flush_stats)
+    except Exception:
+        return
 
 
 # ---------------------------------------------------------------------------

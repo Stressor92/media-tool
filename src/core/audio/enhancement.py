@@ -7,9 +7,13 @@ Audio enhancement functions for music library improvement.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+from src.statistics import get_collector
+from src.statistics.event_types import EventType
 
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 from utils.progress import ProgressEvent, emit_progress
@@ -147,9 +151,17 @@ def normalize_audio(
 
     args.append(str(output_file))
 
+    start = time.perf_counter()
     ffmpeg_result = run_ffmpeg(args)
+    duration = time.perf_counter() - start
 
     operations = ["volume_normalization"] if ffmpeg_result.success else []
+
+    if ffmpeg_result.success:
+        try:
+            get_collector().record(EventType.AUDIO_NORMALIZED, duration_seconds=duration)
+        except Exception:
+            logger.debug("Stats recording failed", exc_info=True)
 
     return AudioEnhancementResult(
         success=ffmpeg_result.success,

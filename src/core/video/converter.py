@@ -14,9 +14,13 @@ Rules:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
+
+from src.statistics import get_collector
+from src.statistics.event_types import EventType
 
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 
@@ -154,9 +158,15 @@ def convert_mp4_to_mkv(
     ]
 
     logger.info("Converting: %s → %s", source.name, target)
+    start = time.perf_counter()
     ffmpeg_result = run_ffmpeg(ffmpeg_args)
+    duration = time.perf_counter() - start
 
     if ffmpeg_result.success:
+        try:
+            get_collector().record(EventType.VIDEO_CONVERTED, duration_seconds=duration)
+        except Exception:
+            logger.debug("Stats recording failed", exc_info=True)
         logger.info("Conversion successful: %s", target)
         return ConversionResult(
             status=ConversionStatus.SUCCESS,

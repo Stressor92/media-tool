@@ -9,8 +9,12 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from collections.abc import Callable
 from pathlib import Path
+
+from src.statistics import get_collector
+from src.statistics.event_types import EventType
 
 from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
@@ -77,6 +81,7 @@ class SubtitleDownloadManager:
         """
         if languages is None:
             languages = ["en"]
+        start = time.perf_counter()
 
         # Step 1: Pre-checks
         if not self._should_process_file(video_path, overwrite):
@@ -122,6 +127,15 @@ class SubtitleDownloadManager:
         if embed:
             success = self._embed_subtitle(video_path, subtitle_path, best_match.language)
             if success:
+                try:
+                    get_collector().record(
+                        EventType.SUBTITLE_DOWNLOADED,
+                        duration_seconds=time.perf_counter() - start,
+                        language=best_match.language,
+                        source="opensubtitles",
+                    )
+                except Exception:
+                    logger.debug("Stats recording failed", exc_info=True)
                 # Clean up external file after embedding
                 subtitle_path.unlink()
                 return DownloadResult(
@@ -129,6 +143,16 @@ class SubtitleDownloadManager:
                 )
             else:
                 logger.warning("Embedding failed, keeping external subtitle file")
+
+        try:
+            get_collector().record(
+                EventType.SUBTITLE_DOWNLOADED,
+                duration_seconds=time.perf_counter() - start,
+                language=best_match.language,
+                source="opensubtitles",
+            )
+        except Exception:
+            logger.debug("Stats recording failed", exc_info=True)
 
         return DownloadResult(
             success=True,

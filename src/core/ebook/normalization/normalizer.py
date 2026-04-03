@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
+
+from src.statistics import get_collector
+from src.statistics.event_types import EventType
 
 from core.ebook.cover.cover_service import CoverService
 from core.ebook.cover.providers.provider import CoverImage
@@ -51,6 +55,7 @@ class EbookNormalizer:
     ) -> NormalizationResult:
         """Apply available normalization steps to one EPUB file."""
         result = NormalizationResult(success=False)
+        start = time.perf_counter()
 
         try:
             if not self.validator.is_valid(epub_path):
@@ -66,6 +71,17 @@ class EbookNormalizer:
 
             result.success = any([result.metadata_updated, result.cover_embedded, result.toc_generated])
             result.structure_fixed = result.toc_generated
+            if result.success:
+                try:
+                    get_collector().record(
+                        EventType.EBOOK_PROCESSED,
+                        duration_seconds=time.perf_counter() - start,
+                        metadata_updated=result.metadata_updated,
+                        cover_embedded=result.cover_embedded,
+                        toc_generated=result.toc_generated,
+                    )
+                except Exception:
+                    logger.debug("Stats recording failed", exc_info=True)
             return result
         except Exception as exc:
             logger.error("Ebook normalization failed", extra={"file_path": str(epub_path), "error": str(exc)})

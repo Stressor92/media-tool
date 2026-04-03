@@ -177,3 +177,14 @@ download_logo = false
 
 [metadata.cast]
 max_actors = 20
+
+[statistics]
+# Directory for stats.json
+# Default: ~/.media-tool/
+data_dir = ""
+
+# Maximum number of history entries (days)
+history_max_days = 365
+
+# Disable statistics collection (e.g. in CI/tests)
+enabled = true

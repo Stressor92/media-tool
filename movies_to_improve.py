@@ -78,19 +78,25 @@ target_folder.mkdir(parents=True, exist_ok=True)
 # Copy each movie to target folder
 copied = 0
 failed = 0
+skipped = 0
 
 print(f"Copying {len(movies_to_copy)} movies to {target_folder}\n")
 
 for movie_path in movies_to_copy:
     source = Path(movie_path)
+    target_file = target_folder / source.name
 
     if not source.exists():
         print(f"❌ Not found: {source.name}")
         failed += 1
         continue
 
+    if target_file.exists() and target_file.stat().st_size == source.stat().st_size:
+        print(f"⏭ Already copied: {source.name}")
+        skipped += 1
+        continue
+
     try:
-        target_file = target_folder / source.name
         shutil.copy2(source, target_file)
         print(f"✓ Copied: {source.name}")
         copied += 1
@@ -98,4 +104,4 @@ for movie_path in movies_to_copy:
         print(f"❌ Error copying {source.name}: {e}")
         failed += 1
 
-print(f"\n✓ Done: {copied} files copied, {failed} failed")
+print(f"\n✓ Done: {copied} files copied, {skipped} skipped, {failed} failed")
