@@ -1,11 +1,11 @@
 # src/core/translation/translator_protocol.py
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 
-class TranslatorBackend(str, Enum):
+class TranslatorBackend(StrEnum):
     OPUS_MT = "opus-mt"
     ARGOS = "argos"
 

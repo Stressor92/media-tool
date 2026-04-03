@@ -238,9 +238,9 @@ class SubtitleGenerator:
             transcription_result = self.whisper_engine.transcribe(
                 wav_path,
                 srt_path,
-                progress_callback=lambda msg, prog: progress_callback(f"Transcription: {msg}", 0.3 + prog * 0.4)
-                if progress_callback
-                else None,
+                progress_callback=lambda msg, prog: (
+                    progress_callback(f"Transcription: {msg}", 0.3 + prog * 0.4) if progress_callback else None
+                ),
                 detect_hallucinations=detect_hallucinations,
             )
 

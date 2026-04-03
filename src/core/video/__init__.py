@@ -12,6 +12,13 @@ from .converter import (
     convert_mp4_to_mkv,
     resolve_output_path,
 )
+from .encoder_profile_builder import (
+    EncoderParams,
+    EncoderProfileBuilder,
+)
+from .hardware_detector import (
+    HardwareDetector,
+)
 from .inspector import (
     VIDEO_EXTENSIONS,
     VideoInfo,
@@ -26,6 +33,10 @@ from .merger import (
     detect_language_files,
     merge_directory,
     merge_dual_audio,
+)
+from .models import (
+    EncoderType,
+    HardwareCapabilities,
 )
 from .movie_folder_scanner import (
     MovieFolder,
@@ -102,6 +113,12 @@ __all__ = [
     "UpscaleProfile",
     "get_profile",
     "resolve_upscale_options",
+    # Hardware encoders
+    "EncoderType",
+    "HardwareCapabilities",
+    "HardwareDetector",
+    "EncoderParams",
+    "EncoderProfileBuilder",
     # Whisper Engine
     "HallucinationDetector",
     "HallucinationWarning",

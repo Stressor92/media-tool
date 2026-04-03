@@ -40,6 +40,24 @@ embed_subtitles = true
 embed_thumbnail = true
 sponsorblock_remove = ["sponsor"]
 
+# ---------------------------------------------------------------------------
+# Hardware Encoder Configuration (H.265 Upscaling)
+# Automatic detection of available GPU encoders (NVENC, AMF, QSV)
+# ---------------------------------------------------------------------------
+[upscale]
+# "auto" = use best available hardware, or "nvenc", "amf", "qsv", "software"
+encoder = "auto"
+
+# Automatically retry with software encoding if hardware encoding fails
+hw_fallback_on_error = true
+
+# NVENC-specific tuning
+nvenc_max_vram_mb = 0          # 0 = unlimited; consumer GPUs: ~11GB (RTX 3080)
+nvenc_max_sessions = 2         # Consumer GPUs allow max 3 sessions; use 2 to stay safe
+
+# Encoder probe timeout (seconds)
+hw_probe_timeout_sec = 10
+
 [ebook]
 preferred_format = "epub"
 download_cover = true

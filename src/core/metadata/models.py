@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
 from pathlib import Path
 from typing import Any
 
 
-class ArtworkType(str, Enum):
+class ArtworkType(StrEnum):
     POSTER = "poster"
     FANART = "fanart"
     BANNER = "banner"

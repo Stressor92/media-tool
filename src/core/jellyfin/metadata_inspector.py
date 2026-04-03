@@ -109,7 +109,7 @@ class MetadataInspector:
                 MetadataIssue(
                     item=item,
                     kind=MetadataIssueKind.UNMATCHED,
-                    description=(f"'{item.name}': No provider IDs (TMDB/IMDB). " "Item was not matched by Jellyfin."),
+                    description=(f"'{item.name}': No provider IDs (TMDB/IMDB). Item was not matched by Jellyfin."),
                     auto_fixable=False,
                 )
             )

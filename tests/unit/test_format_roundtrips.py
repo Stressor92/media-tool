@@ -138,7 +138,7 @@ def test_scc_write_creates_header(tmp_path: Path) -> None:
 
 
 def test_scc_read_basic(tmp_path: Path) -> None:
-    scc_content = "Scenarist_SCC V1.0\n\n" "00:00:02;00\t1420 48 65 6c 6c 6f 142f\n"
+    scc_content = "Scenarist_SCC V1.0\n\n00:00:02;00\t1420 48 65 6c 6c 6f 142f\n"
     f = tmp_path / "test.scc"
     f.write_text(scc_content)
     doc = scc.read(f)

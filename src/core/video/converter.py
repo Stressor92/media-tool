@@ -175,7 +175,7 @@ def convert_mp4_to_mkv(
         status=ConversionStatus.FAILED,
         source=source,
         target=target,
-        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}). " f"See logs for details."),
+        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}). See logs for details."),
         ffmpeg_result=ffmpeg_result,
     )
 

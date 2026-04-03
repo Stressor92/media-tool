@@ -19,14 +19,14 @@ import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal, cast
 
 logger = logging.getLogger(__name__)
 
 
-class WhisperModel(str, Enum):
+class WhisperModel(StrEnum):
     """Available Whisper model sizes."""
 
     TINY = "tiny"

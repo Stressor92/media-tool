@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class MediaType(str, Enum):
+class MediaType(StrEnum):
     """Type of media to download."""
 
     VIDEO = "video"
@@ -13,7 +13,7 @@ class MediaType(str, Enum):
     SERIES = "series"
 
 
-class DownloadStatus(str, Enum):
+class DownloadStatus(StrEnum):
     """Status of a download operation."""
 
     SUCCESS = "success"

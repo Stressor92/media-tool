@@ -234,7 +234,7 @@ def merge_dual_audio(
         german_source=german_file,
         english_source=english_file,
         target=target,
-        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}). " "See logs for details."),
+        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}). See logs for details."),
         ffmpeg_result=ffmpeg_result,
     )
 
@@ -277,7 +277,7 @@ def merge_directory(
             german_source=german,
             english_source=english,
             target=_dummy_target,
-            message=("Could not detect both language versions. " f"Found MP4 files: {names}"),
+            message=(f"Could not detect both language versions. Found MP4 files: {names}"),
         )
 
     if output is not None:

@@ -27,7 +27,7 @@ class BrokenFileCheck(BaseCheck):
                         kind=FindingKind.BROKEN_FILE,
                         severity=CheckSeverity.CRITICAL,
                         path=f,
-                        message=("Datei ist leer oder konnte nicht analysiert werden " "(ffprobe fehlgeschlagen)."),
+                        message=("Datei ist leer oder konnte nicht analysiert werden (ffprobe fehlgeschlagen)."),
                     )
                 )
         return findings
@@ -47,8 +47,7 @@ class WrongContainerCheck(BaseCheck):
                         severity=CheckSeverity.MEDIUM,
                         path=f,
                         message=(
-                            f"Container {f.suffix.upper()} statt MKV. "
-                            "Mehrere Spuren können nicht eingebettet werden."
+                            f"Container {f.suffix.upper()} statt MKV. Mehrere Spuren können nicht eingebettet werden."
                         ),
                         suggested_command=(f'media-tool video convert "{f}" --language de'),
                     )
@@ -81,7 +80,7 @@ class InefficientCodecCheck(BaseCheck):
                         severity=CheckSeverity.LOW,
                         path=f,
                         message=(
-                            f"Codec {codec.upper()}, Größe {size_gb:.1f} GB. " "H.265-Enkodierung würde Platz sparen."
+                            f"Codec {codec.upper()}, Größe {size_gb:.1f} GB. H.265-Enkodierung würde Platz sparen."
                         ),
                         details={"codec": codec, "size_gb": round(size_gb, 2)},
                         suggested_command=(f'media-tool video upscale "{f}" --profile dvd-hq'),
@@ -133,7 +132,7 @@ class LowBitrateCheck(BaseCheck):
                         kind=FindingKind.LOW_BITRATE,
                         severity=CheckSeverity.LOW,
                         path=f,
-                        message=(f"Video-Bitrate nur {bitrate // 1000} kbps " "— sehr schlechte Qualität."),
+                        message=(f"Video-Bitrate nur {bitrate // 1000} kbps — sehr schlechte Qualität."),
                         details={"bitrate_kbps": bitrate // 1000},
                     )
                 )

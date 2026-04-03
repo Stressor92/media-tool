@@ -708,9 +708,7 @@ def detect_language_command(
                 )
                 success += 1
             case TaggingStatus.SKIPPED:
-                typer.echo(
-                    f"⏭️   {r.path.name} Spur {r.stream_index}: " f"bereits '{r.detected_language}' — übersprungen"
-                )
+                typer.echo(f"⏭️   {r.path.name} Spur {r.stream_index}: bereits '{r.detected_language}' — übersprungen")
                 skipped += 1
             case TaggingStatus.FAILED:
                 typer.echo(

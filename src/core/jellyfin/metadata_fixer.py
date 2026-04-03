@@ -145,6 +145,6 @@ class MetadataFixer:
             ),
             success=True,
             applied_fix=(
-                f"Refresh triggered for series '{series.name}'. " f"Episode '{episode.name}' should be reassigned."
+                f"Refresh triggered for series '{series.name}'. Episode '{episode.name}' should be reassigned."
             ),
         )

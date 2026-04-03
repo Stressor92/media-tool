@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +15,7 @@ class CheckSeverity(Enum):
     INFO = 5
 
 
-class FindingKind(str, Enum):
+class FindingKind(StrEnum):
     # Subtitel
     MISSING_DE_SUBTITLE = "missing_de_subtitle"
     MISSING_EN_SUBTITLE = "missing_en_subtitle"

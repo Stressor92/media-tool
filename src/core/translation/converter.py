@@ -72,8 +72,7 @@ class SubtitleConverter:
                 source_path=source_path,
                 source_format=source_format,
                 error_message=(
-                    f"{source_format.value.upper()} is a Bitmap format. "
-                    f"Use 'media-tool subtitle ocr' for conversion."
+                    f"{source_format.value.upper()} is a Bitmap format. Use 'media-tool subtitle ocr' for conversion."
                 ),
             )
 

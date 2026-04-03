@@ -101,7 +101,7 @@ class FormatRegistry:
     def get_writer(cls, fmt: SubtitleFormat) -> WriterFn:
         cls._ensure_loaded()
         if fmt not in cls._writers:
-            raise ValueError(f"No writer for format: {fmt.value}. " f"Available: {[f.value for f in cls._writers]}")
+            raise ValueError(f"No writer for format: {fmt.value}. Available: {[f.value for f in cls._writers]}")
         return cls._writers[fmt]
 
     @classmethod

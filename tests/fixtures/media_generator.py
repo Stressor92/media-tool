@@ -167,9 +167,7 @@ class TestMediaGenerator:
 
         actual_size = output_path.stat().st_size
         if actual_size < size_bytes:
-            raise RuntimeError(
-                f"Failed to create file with required size. " f"Expected {size_bytes}, got {actual_size}"
-            )
+            raise RuntimeError(f"Failed to create file with required size. Expected {size_bytes}, got {actual_size}")
 
         logger.debug(f"Created binary file: {output_path} ({actual_size} bytes)")
         return output_path

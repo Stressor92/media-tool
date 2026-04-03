@@ -23,6 +23,7 @@ from core.video import (
     resolve_upscale_options,
     upscale_dvd,
 )
+from core.video.hardware_detector import HardwareDetector
 
 app = typer.Typer(help="Upscale DVD-quality video to H.265.")
 console = Console()
@@ -31,8 +32,58 @@ err_console = Console(stderr=True, style="bold red")
 # Build profile list for help text once at import time
 _PROFILE_NAMES = ", ".join(sorted(BUILTIN_PROFILES))
 _PROFILE_HELP = (
-    f"Named upscale profile to use. Available: {_PROFILE_NAMES}. " "Run with --list-profiles to see full descriptions."
+    f"Named upscale profile to use. Available: {_PROFILE_NAMES}. Run with --list-profiles to see full descriptions."
 )
+
+
+@app.command("detect")
+def detect_command(force: bool = typer.Option(False, "--force", help="Force re-detection (bypass cache).")) -> None:
+    """
+    Detect available hardware encoders.
+
+    Checks ffmpeg for available hardware encoders (NVENC, AMF, QSV)
+    and validates them with a probe encoding test.
+    """
+    console.rule("[bold cyan]Hardware Encoder Detection[/bold cyan]")
+
+    if force:
+        HardwareDetector.clear_cache()
+        console.print("[dim]Cache cleared, running fresh detection...[/dim]")
+
+    caps = HardwareDetector.detect()
+
+    # Display results in a table
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold")
+    table.add_column("Encoder", style="bold cyan")
+    table.add_column("Status", justify="center")
+    table.add_column("Notes")
+
+    def status_badge(available: bool) -> str:
+        return "[green]✓ available[/green]" if available else "[dim]✗ not found[/dim]"
+
+    table.add_row("NVENC (hevc_nvenc)", status_badge(caps.nvenc_available), "NVIDIA GPU acceleration")
+    table.add_row("AMF (hevc_amf)", status_badge(caps.amf_available), "AMD GPU acceleration")
+    table.add_row("QSV (hevc_qsv)", status_badge(caps.qsv_available), "Intel GPU acceleration")
+    table.add_row("libx265 (software)", "[green]✓ available[/green]", "CPU fallback")
+
+    console.print(table)
+
+    console.print()
+    console.print(f"[bold]Selected encoder:[/bold] {caps.encoder_type.value:12} ({caps.best_encoder})")
+    console.print(f"[dim]Detection time:   {caps.detection_time_ms:.1f} ms[/dim]")
+
+    if caps.probe_errors:
+        console.print("\n[yellow]Probe errors:[/yellow]")
+        for encoder, error in caps.probe_errors.items():
+            console.print(f"  {encoder}: {error}")
+
+    console.print()
+    if caps.has_hardware_acceleration:
+        console.print(
+            "[green]✓ Hardware acceleration available![/green] Upscaling will use GPU encoding for faster processing."
+        )
+    else:
+        console.print("[yellow]ℹ No hardware acceleration detected.[/yellow] Upscaling will use CPU encoding (slower).")
 
 
 @app.command("profiles")
@@ -148,6 +199,17 @@ def batch_command(
         "--deinterlace-mode",
         help='Deinterlace filter to use: "yadif" (fast) or "bwdif" (higher quality). Default: yadif.',
     ),
+    encoder: str = typer.Option(
+        "auto",
+        "--encoder",
+        help="Hardware encoder to use: auto (best available), nvenc, amf, qsv, or software.",
+    ),
+    no_hw: bool = typer.Option(False, "--no-hw", help="Disable hardware encoding completely."),
+    no_hw_fallback: bool = typer.Option(
+        False,
+        "--no-hw-fallback",
+        help="Do not fall back to software encoding if hardware encoding fails.",
+    ),
 ) -> None:
     """
     Batch-upscale all DVD-quality MKV files in DIRECTORY to H.265.
@@ -179,6 +241,12 @@ def batch_command(
         deinterlace=deinterlace,
         deinterlace_mode=deinterlace_mode,
     )
+
+    # Apply hardware encoder options
+    opts.use_hardware = not no_hw and encoder != "software"
+    opts.preferred_encoder = None if no_hw or encoder == "auto" else encoder
+    opts.hw_fallback_on_error = not no_hw_fallback
+
     deinterlace_info = f" · {opts.deinterlace_mode}" if opts.deinterlace else ""
     console.print(
         f"[dim]Settings :[/dim] "
@@ -233,6 +301,17 @@ def single_command(
         "--deinterlace-mode",
         help='Deinterlace filter: "yadif" (fast) or "bwdif" (higher quality). Default: yadif.',
     ),
+    encoder: str = typer.Option(
+        "auto",
+        "--encoder",
+        help="Hardware encoder to use: auto (best available), nvenc, amf, qsv, or software.",
+    ),
+    no_hw: bool = typer.Option(False, "--no-hw", help="Disable hardware encoding completely."),
+    no_hw_fallback: bool = typer.Option(
+        False,
+        "--no-hw-fallback",
+        help="Do not fall back to software encoding if hardware encoding fails.",
+    ),
 ) -> None:
     """Upscale a single MKV file to H.265 using the chosen profile."""
     try:
@@ -254,10 +333,13 @@ def single_command(
         deinterlace=deinterlace,
         deinterlace_mode=deinterlace_mode,
     )
+
+    # Apply hardware encoder options
+    opts.use_hardware = not no_hw and encoder != "software"
+    opts.preferred_encoder = None if no_hw or encoder == "auto" else encoder
+    opts.hw_fallback_on_error = not no_hw_fallback
     console.print(
-        f"[dim]Settings:[/dim] "
-        f"{opts.target_height}p · CRF {opts.crf} · preset {opts.preset} · "
-        f"codec {opts.codec}"
+        f"[dim]Settings:[/dim] {opts.target_height}p · CRF {opts.crf} · preset {opts.preset} · codec {opts.codec}"
     )
 
     result = upscale_dvd(source, opts=opts)

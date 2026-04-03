@@ -272,6 +272,26 @@ class DownloadConfig(BaseModel):
         return normalized
 
 
+class UpscaleConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    encoder: str = "auto"  # "auto" | "nvenc" | "amf" | "qsv" | "software"
+    hw_fallback_on_error: bool = True
+    nvenc_max_vram_mb: int = Field(default=0, ge=0)
+    nvenc_max_sessions: int = Field(default=2, ge=1, le=32)
+    hw_probe_timeout_sec: int = Field(default=10, ge=5, le=60)
+
+    @field_validator("encoder", mode="before")
+    @classmethod
+    def _normalize_encoder(cls, value: object) -> object:
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in ("auto", "nvenc", "amf", "qsv", "software"):
+                return normalized
+            raise ValueError("encoder must be one of: auto, nvenc, amf, qsv, software")
+        return value
+
+
 class JellyfinConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -301,6 +321,7 @@ class AppConfig(BaseModel):
     language_detection: LanguageDetectionConfig = Field(default_factory=LanguageDetectionConfig)
     metadata: MetadataConfig = Field(default_factory=MetadataConfig)
     ebook: EbookConfig = Field(default_factory=EbookConfig)
+    upscale: UpscaleConfig = Field(default_factory=UpscaleConfig)
 
 
 _CONFIG_CACHE: AppConfig | None = None

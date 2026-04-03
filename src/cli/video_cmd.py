@@ -814,7 +814,7 @@ def download_trailers_command(
 
     success_count = sum(1 for result in results if result.success)
     failure_count = len(results) - success_count
-    console.print(f"\n[bold]Summary:[/bold] {success_count}/{len(results)} successful" f" · {failure_count} failed")
+    console.print(f"\n[bold]Summary:[/bold] {success_count}/{len(results)} successful · {failure_count} failed")
 
     if failure_count > 0 and not dry_run:
         raise typer.Exit(code=1)

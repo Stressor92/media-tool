@@ -104,8 +104,7 @@ class SubtitleStep(BaseStep):
             step_name=self.name,
             status=status,
             message=(
-                f"{len(processed)} Dateien mit Untertiteln versehen. "
-                f"{len(whisper_needed)} noch ohne (Whisper TODO)."
+                f"{len(processed)} Dateien mit Untertiteln versehen. {len(whisper_needed)} noch ohne (Whisper TODO)."
             ),
             output_files=processed,
             details={"whisper_fallback_needed": whisper_needed},

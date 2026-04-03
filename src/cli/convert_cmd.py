@@ -98,8 +98,7 @@ def batch_command(
         "--output-dir",
         "-o",
         help=(
-            "Root directory for output subfolders. "
-            "Defaults to the source directory (files placed next to originals)."
+            "Root directory for output subfolders. Defaults to the source directory (files placed next to originals)."
         ),
     ),
     language: str = typer.Option(
@@ -175,7 +174,7 @@ def single_command(
         None,
         "--target",
         "-t",
-        help=("Explicit output path for the .mkv file. " "Defaults to <source_parent>/<stem>/<stem>.mkv"),
+        help=("Explicit output path for the .mkv file. Defaults to <source_parent>/<stem>/<stem>.mkv"),
     ),
     language: str = typer.Option(
         "deu",

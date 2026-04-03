@@ -27,7 +27,7 @@ class UnlabeledAudioCheck(BaseCheck):
                         kind=FindingKind.UNLABELED_AUDIO,
                         severity=CheckSeverity.HIGH,
                         path=f,
-                        message=(f"{len(unlabeled)} von {len(audio_streams)} " "Audiospuren ohne Sprachkennzeichnung."),
+                        message=(f"{len(unlabeled)} von {len(audio_streams)} Audiospuren ohne Sprachkennzeichnung."),
                         details={"unlabeled_count": len(unlabeled)},
                         suggested_command=(f'media-tool audio tag "{f}" --detect-language'),
                     )

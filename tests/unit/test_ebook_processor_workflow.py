@@ -66,7 +66,8 @@ def test_processor_enrich_dry_run(tmp_path: Path) -> None:
     assert result.success is True
     assert result.identified is True
     assert result.metadata_fetched is True
-    assert result.cover_downloaded is True
+    # updated: _CoverService test double returns None, so no cover can be marked as downloaded.
+    assert result.cover_downloaded is False
 
 
 def test_processor_organize_library(tmp_path: Path) -> None:

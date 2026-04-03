@@ -58,5 +58,5 @@ def extract_audio_sample(
     result = run_ffmpeg(args)
     if not result.success or not out_path.exists():
         out_path.unlink(missing_ok=True)
-        raise RuntimeError(f"Audio-Extraktion fehlgeschlagen für {video_path.name}: " f"{result.stderr[:200]}")
+        raise RuntimeError(f"Audio-Extraktion fehlgeschlagen für {video_path.name}: {result.stderr[:200]}")
     return out_path

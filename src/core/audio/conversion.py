@@ -42,7 +42,7 @@ def convert_audio(
         ValueError: If format is not supported.
     """
     if format.lower() not in SUPPORTED_FORMATS:
-        raise ValueError(f"Unsupported format '{format}'. " f"Supported: {', '.join(sorted(SUPPORTED_FORMATS))}")
+        raise ValueError(f"Unsupported format '{format}'. Supported: {', '.join(sorted(SUPPORTED_FORMATS))}")
 
     logger.info("Converting %s to %s (%s)", input_file.name, output_file.name, format.upper())
 

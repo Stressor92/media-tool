@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
 from pathlib import Path
 
 
-class DetectionMethod(str, Enum):
+class DetectionMethod(StrEnum):
     HEURISTIC = "heuristic"  # Stufe 1: Pfad / Container-Tags
     ACOUSTID = "acoustid"  # Stufe 2: Audio-Fingerprint
     WHISPER = "whisper"  # Stufe 3: Speech Recognition

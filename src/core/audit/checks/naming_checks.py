@@ -33,7 +33,7 @@ class BadMovieNamingCheck(BaseCheck):
                         kind=FindingKind.BAD_MOVIE_NAMING,
                         severity=CheckSeverity.HIGH,
                         path=f,
-                        message=(f"'{f.name}' entspricht nicht dem Jellyfin-Schema " "'Titel (Jahr).mkv'."),
+                        message=(f"'{f.name}' entspricht nicht dem Jellyfin-Schema 'Titel (Jahr).mkv'."),
                     )
                 )
         return findings
@@ -64,8 +64,7 @@ class DuplicateMovieCheck(BaseCheck):
                             severity=CheckSeverity.MEDIUM,
                             path=f,
                             message=(
-                                f"'{title}' existiert {len(dupes)}× im Verzeichnis. "
-                                f"Pfade: {[str(d) for d in dupes]}"
+                                f"'{title}' existiert {len(dupes)}× im Verzeichnis. Pfade: {[str(d) for d in dupes]}"
                             ),
                             details={"duplicate_paths": [str(d) for d in dupes]},
                         )
@@ -89,7 +88,7 @@ class FileInRootCheck(BaseCheck):
                         kind=FindingKind.FILE_IN_ROOT,
                         severity=CheckSeverity.MEDIUM,
                         path=f,
-                        message=(f"'{f.name}' liegt direkt im Wurzelordner " "statt in eigenem Unterordner."),
+                        message=(f"'{f.name}' liegt direkt im Wurzelordner statt in eigenem Unterordner."),
                     )
                 )
         return findings
@@ -150,7 +149,7 @@ class NameTooLongCheck(BaseCheck):
                         kind=FindingKind.NAME_TOO_LONG,
                         severity=CheckSeverity.LOW,
                         path=f,
-                        message=(f"Dateiname ist {len(f.name)} Zeichen lang " f"(Limit: {_MAX_NAME_LEN})."),
+                        message=(f"Dateiname ist {len(f.name)} Zeichen lang (Limit: {_MAX_NAME_LEN})."),
                         details={"name_length": len(f.name)},
                     )
                 )

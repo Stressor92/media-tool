@@ -33,7 +33,7 @@ class MissingDeSubtitleCheck(BaseCheck):
                         kind=FindingKind.MISSING_DE_SUBTITLE,
                         severity=CheckSeverity.HIGH,
                         path=f,
-                        message=(f"Keine deutsche Untertitelspur. " f"Vorhandene: {langs or 'keine'}"),
+                        message=(f"Keine deutsche Untertitelspur. Vorhandene: {langs or 'keine'}"),
                         suggested_command=(f'media-tool subtitle download "{f}" --languages de'),
                     )
                 )
@@ -54,7 +54,7 @@ class MissingEnSubtitleCheck(BaseCheck):
                         kind=FindingKind.MISSING_EN_SUBTITLE,
                         severity=CheckSeverity.MEDIUM,
                         path=f,
-                        message=(f"Keine englische Untertitelspur. " f"Vorhandene: {langs or 'keine'}"),
+                        message=(f"Keine englische Untertitelspur. Vorhandene: {langs or 'keine'}"),
                         suggested_command=(f'media-tool subtitle download "{f}" --languages en'),
                     )
                 )

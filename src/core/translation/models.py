@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class SubtitleFormat(str, Enum):
+class SubtitleFormat(StrEnum):
     SRT = "srt"
     ASS = "ass"
     SSA = "ssa"
@@ -49,7 +49,7 @@ class SubtitleFormat(str, Enum):
         return not self.is_bitmap and self != SubtitleFormat.UNKNOWN
 
 
-class TranslationStatus(str, Enum):
+class TranslationStatus(StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"  # e.g. target language already present

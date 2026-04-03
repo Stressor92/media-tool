@@ -229,7 +229,8 @@ class LibraryManager:
     def _parse_item(raw: Mapping[str, object]) -> JellyfinItem:
         image_tags = raw.get("ImageTags") or {}
         backdrop_tags = raw.get("BackdropImageTags") or []
-        raw_type = raw.get("Type", "Unknown")
+        raw_type_obj = raw.get("Type", "Unknown")
+        raw_type = raw_type_obj if isinstance(raw_type_obj, str) else "Unknown"
         if raw_type in ItemType._value2member_map_:
             item_type = ItemType(raw_type)
         else:

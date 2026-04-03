@@ -47,7 +47,7 @@ class AuditReporter:
     def render_summary(report: AuditReport) -> str:
         lines = [
             f"\n── Audit-Report: {report.root_dir} ──────────────────────",
-            f"   Dateien geprüft: {report.total_files}  |  " f"Dauer: {report.duration_seconds:.1f}s",
+            f"   Dateien geprüft: {report.total_files}  |  Dauer: {report.duration_seconds:.1f}s",
             "",
         ]
 
@@ -83,7 +83,7 @@ class AuditReporter:
                 if f.suggested_command:
                     lines.append(f"       → {f.suggested_command}")
             if len(findings) > max_per_kind:
-                lines.append(f"  … und {len(findings) - max_per_kind} weitere " "(--export für vollständige Liste)")
+                lines.append(f"  … und {len(findings) - max_per_kind} weitere (--export für vollständige Liste)")
         return "\n".join(lines)
 
     # ── CSV ─────────────────────────────────────────────────────────────

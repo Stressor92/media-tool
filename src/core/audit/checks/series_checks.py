@@ -81,7 +81,7 @@ class BadEpisodeNamingCheck(BaseCheck):
                         kind=FindingKind.BAD_EPISODE_NAMING,
                         severity=CheckSeverity.HIGH,
                         path=f,
-                        message=(f"Datei liegt in Serien-Ordner, " f"enthält aber kein S##E##-Muster: '{f.name}'"),
+                        message=(f"Datei liegt in Serien-Ordner, enthält aber kein S##E##-Muster: '{f.name}'"),
                     )
                 )
         return findings

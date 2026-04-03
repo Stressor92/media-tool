@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
 from typing import Any
 
 
-class ItemType(str, Enum):
+class ItemType(StrEnum):
     MOVIE = "Movie"
     SERIES = "Series"
     SEASON = "Season"
@@ -21,7 +21,7 @@ class ScanState(Enum):
     FAILED = auto()
 
 
-class MetadataIssueKind(str, Enum):
+class MetadataIssueKind(StrEnum):
     MISSING_OVERVIEW = "missing_overview"
     MISSING_YEAR = "missing_year"
     MISSING_POSTER = "missing_poster"

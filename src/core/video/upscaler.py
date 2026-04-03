@@ -31,6 +31,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
+from core.video.encoder_profile_builder import EncoderProfileBuilder
+from core.video.hardware_detector import HardwareDetector
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 from utils.ffprobe_runner import probe_cropdetect, probe_file
 from utils.progress import ProgressEvent, emit_progress
@@ -68,6 +70,10 @@ class UpscaleOptions:
     crf: int = 21
     preset: str = "medium"
     codec: str = "libx265"
+    # Hardware encoder options
+    use_hardware: bool = True  # Enable hardware encoding if available
+    preferred_encoder: str | None = None  # "nvenc", "amf", "qsv", or None for auto
+    hw_fallback_on_error: bool = True  # Retry with software if HW fails
 
     # Filter chain tweaks
     gradfun_strength: float = 4.0
@@ -261,9 +267,7 @@ def _build_filter_chain(
     filters.append(f"scale={opts.target_width}:{opts.target_height}:flags=lanczos")
 
     # Colour correction
-    filters.append(
-        f"eq=contrast={opts.eq_contrast}:" f"brightness={opts.eq_brightness}:" f"saturation={opts.eq_saturation}"
-    )
+    filters.append(f"eq=contrast={opts.eq_contrast}:brightness={opts.eq_brightness}:saturation={opts.eq_saturation}")
 
     # Very light sharpening (luma only) — keep low to avoid ringing on soft DVD edges.
     filters.append(f"unsharp=5:5:{opts.unsharp_luma}:5:5:0.0")
@@ -285,6 +289,56 @@ def _resolve_output_path(source: Path) -> Path:
     """
     stem = source.stem.strip()
     return source.parent / stem / f"{stem} - {OUTPUT_SUFFIX}.mkv"
+
+
+def _build_encoder_args(opts: UpscaleOptions, source_name: str) -> tuple[list[str], str]:
+    """
+    Build encoder-specific ffmpeg arguments.
+
+    Attempts to use hardware encoders if available and enabled.
+    Falls back to software encoding if requested or if hardware is unavailable.
+
+    Args:
+        opts: Upscale options
+        source_name: Source filename (for logging)
+
+    Returns:
+        Tuple of (ffmpeg_args_list, encoder_type_str)
+    """
+    if not opts.use_hardware:
+        # Software encoding explicitly requested
+        logger.debug(f"{source_name} — Hardware encoding disabled, using libx265")
+        return (
+            ["-c:v", "libx265", "-crf", str(opts.crf), "-preset", opts.preset, "-pix_fmt", "yuv420p"],
+            "software",
+        )
+
+    try:
+        # Detect available hardware and build profile-specific args
+        hw_caps = HardwareDetector.detect()
+        builder = EncoderProfileBuilder(
+            profile="dvd-hq",  # TODO: use opts profile when available
+            hw_caps=hw_caps,
+            force_software=False,
+            preferred_encoder=opts.preferred_encoder,
+        )
+        params = builder.build()
+
+        # Override CRF/preset if user customized them (compatibility mode)
+        if opts.crf != 21 or opts.preset != "medium":
+            logger.debug(
+                f"{source_name} — Custom CRF/preset overrides hardware params (CRF={opts.crf}, preset={opts.preset})"
+            )
+
+        logger.info(f"{source_name} — Using {params.encoder_type.value} encoder")
+        return (params.base_args, params.encoder_type.value)
+
+    except Exception as e:
+        logger.warning(f"{source_name} — Hardware detection failed: {e}, using software fallback")
+        return (
+            ["-c:v", "libx265", "-crf", str(opts.crf), "-preset", opts.preset, "-pix_fmt", "yuv420p"],
+            "software",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -418,6 +472,9 @@ def upscale_dvd(
 
     size_before = round(source.stat().st_size / 1_073_741_824, 3)
 
+    # Build encoder args (hardware-aware)
+    encoder_args, encoder_type = _build_encoder_args(opts, source.name)
+
     ffmpeg_args = [
         "-y",
         "-i",
@@ -426,22 +483,21 @@ def upscale_dvd(
         "0",
         "-vf",
         vf,
-        "-c:v",
-        opts.codec,
-        "-crf",
-        str(opts.crf),
-        "-preset",
-        opts.preset,
-        "-c:a",
-        "copy",
-        "-c:s",
-        "copy",
-        "-map_metadata",
-        "0",
-        "-map_chapters",
-        "0",
-        str(resolved_target),
     ]
+    ffmpeg_args.extend(encoder_args)
+    ffmpeg_args.extend(
+        [
+            "-c:a",
+            "copy",
+            "-c:s",
+            "copy",
+            "-map_metadata",
+            "0",
+            "-map_chapters",
+            "0",
+            str(resolved_target),
+        ]
+    )
 
     logger.info(
         "Starting upscale: %s → %s  [CRF=%d, %s, preset=%s]",
@@ -451,10 +507,28 @@ def upscale_dvd(
         opts.codec,
         opts.preset,
     )
+    logger.info(
+        "Encoder: %s (hardware: %s)",
+        encoder_type,
+        "yes" if opts.use_hardware else "no",
+    )
 
     start = time.monotonic()
     ffmpeg_result = run_ffmpeg(ffmpeg_args)
     elapsed = round(time.monotonic() - start, 1)
+
+    # If hardware encoding failed and fallback is enabled, retry with software
+    if not ffmpeg_result.success and opts.use_hardware and opts.hw_fallback_on_error and encoder_type != "software":
+        logger.warning(
+            "%s — Hardware encoder (%s) failed, retrying with libx265 software encoder",
+            source.name,
+            encoder_type,
+        )
+        resolved_target.unlink(missing_ok=True)  # Clean up partial output
+        sw_encoder_args, _ = _build_encoder_args(UpscaleOptions(**{**vars(opts), "use_hardware": False}), source.name)
+        ffmpeg_args_sw = ffmpeg_args[:6] + ffmpeg_args[6:8] + sw_encoder_args + ffmpeg_args[6 + len(encoder_args) :]
+        ffmpeg_result = run_ffmpeg(ffmpeg_args_sw)
+        elapsed = round(time.monotonic() - start, 1)
 
     if ffmpeg_result.success and resolved_target.exists():
         size_after = round(resolved_target.stat().st_size / 1_073_741_824, 3)
@@ -484,7 +558,7 @@ def upscale_dvd(
         status=UpscaleStatus.FAILED,
         source=source,
         target=resolved_target,
-        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}) " f"after {elapsed:.1f}s."),
+        message=(f"ffmpeg failed (exit {ffmpeg_result.return_code}) after {elapsed:.1f}s."),
         duration_seconds=elapsed,
         size_before_gb=size_before,
         ffmpeg_result=ffmpeg_result,

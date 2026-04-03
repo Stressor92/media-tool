@@ -105,8 +105,7 @@ class AudioTagger:
                         confidence=detection.confidence,
                         method=detection.method,
                         error=(
-                            f"Konfidenz zu niedrig: {detection.confidence:.0%} "
-                            f"(Minimum: {self._min_confidence:.0%})"
+                            f"Konfidenz zu niedrig: {detection.confidence:.0%} (Minimum: {self._min_confidence:.0%})"
                         ),
                     )
                 )
