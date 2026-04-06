@@ -3,14 +3,18 @@ from __future__ import annotations
 from core.download.models import DownloadRequest, MediaType
 
 
+def _wants_audio_only(request: DownloadRequest) -> bool:
+    return request.media_type == MediaType.MUSIC or request.extract_audio
+
+
 def build_format_string(request: DownloadRequest) -> str:
     """
     Build yt-dlp format selector based on media type.
 
     VIDEO/SERIES -> best video+audio up to max resolution.
-    MUSIC -> best available audio.
+    MUSIC or explicit audio extraction -> best available audio.
     """
-    if request.media_type == MediaType.MUSIC:
+    if _wants_audio_only(request):
         return "bestaudio/best"
 
     height = request.max_resolution
@@ -25,7 +29,7 @@ def build_postprocessors(request: DownloadRequest) -> list[dict[str, object]]:
     """Build yt-dlp postprocessor chain for a request."""
     processors: list[dict[str, object]] = []
 
-    if request.media_type == MediaType.MUSIC:
+    if _wants_audio_only(request):
         processors.append(
             {
                 "key": "FFmpegExtractAudio",

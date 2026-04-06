@@ -35,10 +35,17 @@ class DownloadRequest:
     max_resolution: int = 1080
     audio_format: str = "mp3"
     audio_quality: str = "320k"
+    extract_audio: bool = False
+    expected_playlist_items: int | None = None
     overwrite: bool = False
     dry_run: bool = False
     cookies_from_browser: str | None = None
     cookies_file: Path | None = None
+    youtube_player_client: str | None = None
+    youtube_po_token: str | None = None
+    youtube_visitor_data: str | None = None
+    youtube_fetch_pot: str | None = None
+    youtube_use_po_token_provider: bool = False
     sponsorblock_remove: tuple[str, ...] = ("sponsor",)
     extra_yt_dlp_opts: dict[str, object] = field(default_factory=dict)
 

@@ -31,6 +31,10 @@ class TestBuildFormatString:
         value = build_format_string(_make_request(MediaType.SERIES, max_resolution=480))
         assert "480" in value
 
+    def test_series_audio_only_uses_bestaudio(self) -> None:
+        value = build_format_string(_make_request(MediaType.SERIES, extract_audio=True))
+        assert value == "bestaudio/best"
+
 
 class TestBuildPostprocessors:
     def test_music_has_audio_extraction(self) -> None:
@@ -57,3 +61,9 @@ class TestBuildPostprocessors:
         processors = build_postprocessors(_make_request(MediaType.MUSIC, audio_format="flac"))
         extract = next(item for item in processors if item["key"] == "FFmpegExtractAudio")
         assert extract["preferredcodec"] == "flac"
+
+    def test_series_audio_only_has_audio_extraction(self) -> None:
+        processors = build_postprocessors(_make_request(MediaType.SERIES, extract_audio=True, audio_format="opus"))
+        keys = [entry["key"] for entry in processors]
+        assert "FFmpegExtractAudio" in keys
+        assert "FFmpegEmbedSubtitle" not in keys

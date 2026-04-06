@@ -17,6 +17,34 @@ app = typer.Typer(help="Download media from supported platforms with yt-dlp.")
 _URL = Annotated[str, typer.Argument(help="Media URL (YouTube, SoundCloud, etc.).")]
 _DRY = Annotated[bool, typer.Option("--dry-run", help="Fetch metadata only; do not download.")]
 _OVR = Annotated[bool, typer.Option("--overwrite", help="Overwrite existing files.")]
+_YT_CLIENT = Annotated[
+    str | None,
+    typer.Option("--youtube-client", help="yt-dlp YouTube player client (for example: mweb, web, ios)."),
+]
+_YT_PO_TOKEN = Annotated[
+    str | None,
+    typer.Option(
+        "--youtube-po-token",
+        "--po-token",
+        help="Manual YouTube PO token. Use full form 'mweb.gvs+TOKEN' or just TOKEN (defaults to mweb.gvs+TOKEN).",
+    ),
+]
+_YT_VISITOR = Annotated[
+    str | None,
+    typer.Option("--youtube-visitor-data", help="Optional YouTube visitor data for advanced troubleshooting."),
+]
+_YT_FETCH_POT = Annotated[
+    str | None,
+    typer.Option("--youtube-fetch-pot", help="PO-token fetch policy for yt-dlp plugins: auto, never, or always."),
+]
+_YT_POT_PROVIDER = Annotated[
+    bool,
+    typer.Option(
+        "--youtube-use-po-token-provider",
+        "--po-token-provider",
+        help="Enable the recommended mweb + automatic PO-token provider flow for harder YouTube cases.",
+    ),
+]
 
 
 def _resolve_subtitle_languages(raw: str) -> tuple[str, ...]:
@@ -36,6 +64,14 @@ def _validate_cookie_inputs(cookies_from_browser: str | None, cookies_file: Path
         raise typer.Exit(code=2)
 
 
+def _validate_youtube_inputs(youtube_fetch_pot: str | None) -> None:
+    if youtube_fetch_pot is None:
+        return
+    if youtube_fetch_pot not in {"auto", "never", "always"}:
+        typer.echo("--youtube-fetch-pot must be one of: auto, never, always.", err=True)
+        raise typer.Exit(code=2)
+
+
 @app.command("video")
 def download_video(
     url: _URL,
@@ -52,14 +88,23 @@ def download_video(
     ] = None,
     cookies_file: Annotated[
         Path | None,
-        typer.Option("--cookies-file", help="Path to cookie file (Netscape format)."),
+        typer.Option(
+            "--cookies-file",
+            help="Path to an exported cookie file (Netscape format). For YouTube, use a fresh private/incognito export.",
+        ),
     ] = None,
+    youtube_client: _YT_CLIENT = None,
+    youtube_po_token: _YT_PO_TOKEN = None,
+    youtube_visitor_data: _YT_VISITOR = None,
+    youtube_fetch_pot: _YT_FETCH_POT = None,
+    youtube_use_po_token_provider: _YT_POT_PROVIDER = False,
     dry_run: _DRY = False,
     overwrite: _OVR = False,
 ) -> None:
     """Download a single video."""
     _require_url(url)
     _validate_cookie_inputs(cookies_from_browser, cookies_file)
+    _validate_youtube_inputs(youtube_fetch_pot)
     cfg = get_config().download
     request = DownloadRequest(
         url=url,
@@ -76,6 +121,11 @@ def download_video(
         max_resolution=resolution if resolution is not None else cfg.max_resolution,
         cookies_from_browser=cookies_from_browser,
         cookies_file=cookies_file,
+        youtube_player_client=youtube_client,
+        youtube_po_token=youtube_po_token,
+        youtube_visitor_data=youtube_visitor_data,
+        youtube_fetch_pot=youtube_fetch_pot,
+        youtube_use_po_token_provider=youtube_use_po_token_provider,
         sponsorblock_remove=tuple(cfg.sponsorblock_remove) if sponsorblock else (),
         dry_run=dry_run,
         overwrite=overwrite,
@@ -95,14 +145,23 @@ def download_music(
     ] = None,
     cookies_file: Annotated[
         Path | None,
-        typer.Option("--cookies-file", help="Path to cookie file (Netscape format)."),
+        typer.Option(
+            "--cookies-file",
+            help="Path to an exported cookie file (Netscape format). For YouTube, use a fresh private/incognito export.",
+        ),
     ] = None,
+    youtube_client: _YT_CLIENT = None,
+    youtube_po_token: _YT_PO_TOKEN = None,
+    youtube_visitor_data: _YT_VISITOR = None,
+    youtube_fetch_pot: _YT_FETCH_POT = None,
+    youtube_use_po_token_provider: _YT_POT_PROVIDER = False,
     dry_run: _DRY = False,
     overwrite: _OVR = False,
 ) -> None:
     """Download music/audio."""
     _require_url(url)
     _validate_cookie_inputs(cookies_from_browser, cookies_file)
+    _validate_youtube_inputs(youtube_fetch_pot)
     cfg = get_config().download
     request = DownloadRequest(
         url=url,
@@ -112,6 +171,11 @@ def download_music(
         audio_quality=quality or cfg.audio_quality,
         cookies_from_browser=cookies_from_browser,
         cookies_file=cookies_file,
+        youtube_player_client=youtube_client,
+        youtube_po_token=youtube_po_token,
+        youtube_visitor_data=youtube_visitor_data,
+        youtube_fetch_pot=youtube_fetch_pot,
+        youtube_use_po_token_provider=youtube_use_po_token_provider,
         embed_thumbnail=cfg.embed_thumbnail,
         sponsorblock_remove=tuple(cfg.sponsorblock_remove),
         dry_run=dry_run,
@@ -125,6 +189,14 @@ def download_series(
     url: _URL,
     output: Annotated[Path | None, typer.Option("--output", "-o", help="Output directory.")] = None,
     resolution: Annotated[int | None, typer.Option(help="Max resolution.")] = None,
+    fmt: Annotated[
+        str | None,
+        typer.Option("--format", help="Optional audio-only output format: mp3/flac/m4a/opus."),
+    ] = None,
+    quality: Annotated[
+        str | None,
+        typer.Option(help="Audio quality when --format is used (e.g. 320k)."),
+    ] = None,
     lang: Annotated[str | None, typer.Option(help="Preferred language.")] = None,
     subtitles: Annotated[bool | None, typer.Option(help="Embed subtitles.")] = None,
     subtitle_languages: Annotated[str | None, typer.Option(help="Comma-separated subtitle languages (de,en).")] = None,
@@ -134,14 +206,23 @@ def download_series(
     ] = None,
     cookies_file: Annotated[
         Path | None,
-        typer.Option("--cookies-file", help="Path to cookie file (Netscape format)."),
+        typer.Option(
+            "--cookies-file",
+            help="Path to an exported cookie file (Netscape format). For YouTube, use a fresh private/incognito export.",
+        ),
     ] = None,
+    youtube_client: _YT_CLIENT = None,
+    youtube_po_token: _YT_PO_TOKEN = None,
+    youtube_visitor_data: _YT_VISITOR = None,
+    youtube_fetch_pot: _YT_FETCH_POT = None,
+    youtube_use_po_token_provider: _YT_POT_PROVIDER = False,
     dry_run: _DRY = False,
     overwrite: _OVR = False,
 ) -> None:
     """Download playlist/series with season/episode path template."""
     _require_url(url)
     _validate_cookie_inputs(cookies_from_browser, cookies_file)
+    _validate_youtube_inputs(youtube_fetch_pot)
     cfg = get_config().download
     request = DownloadRequest(
         url=url,
@@ -156,8 +237,16 @@ def download_series(
         embed_subtitles=cfg.embed_subtitles if subtitles is None else subtitles,
         embed_thumbnail=cfg.embed_thumbnail,
         max_resolution=resolution if resolution is not None else cfg.max_resolution,
+        audio_format=fmt or cfg.audio_format,
+        audio_quality=quality or cfg.audio_quality,
+        extract_audio=fmt is not None or quality is not None,
         cookies_from_browser=cookies_from_browser,
         cookies_file=cookies_file,
+        youtube_player_client=youtube_client,
+        youtube_po_token=youtube_po_token,
+        youtube_visitor_data=youtube_visitor_data,
+        youtube_fetch_pot=youtube_fetch_pot,
+        youtube_use_po_token_provider=youtube_use_po_token_provider,
         sponsorblock_remove=tuple(cfg.sponsorblock_remove),
         dry_run=dry_run,
         overwrite=overwrite,
