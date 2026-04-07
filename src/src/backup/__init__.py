@@ -12,8 +12,9 @@ _REAL_PACKAGE_DIR = Path(__file__).resolve().parents[2] / "backup"
 if str(_REAL_PACKAGE_DIR) not in __path__:
     __path__.append(str(_REAL_PACKAGE_DIR))
 
-from .backup_manager import BackupManager  # noqa: E402
-from .models import BackupEntry, BackupStatus, MediaType  # noqa: E402
+# Pylance can't statically follow the `__path__` mutation used by this shim.
+from .backup_manager import BackupManager  # noqa: E402  # pyright: ignore[reportMissingImports]
+from .models import BackupEntry, BackupStatus, MediaType  # noqa: E402  # pyright: ignore[reportMissingImports]
 
 logger = logging.getLogger(__name__)
 

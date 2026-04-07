@@ -8,8 +8,9 @@ _REAL_PACKAGE_DIR = Path(__file__).resolve().parents[2] / "statistics"
 if str(_REAL_PACKAGE_DIR) not in __path__:
     __path__.append(str(_REAL_PACKAGE_DIR))
 
-from .stats_collector import StatsCollector  # noqa: E402
-from .stats_manager import StatsManager  # noqa: E402
+# Pylance can't statically follow the `__path__` mutation used by this shim.
+from .stats_collector import StatsCollector  # noqa: E402  # pyright: ignore[reportMissingImports]
+from .stats_manager import StatsManager  # noqa: E402  # pyright: ignore[reportMissingImports]
 
 _manager: StatsManager | None = None
 _collector: StatsCollector | None = None

@@ -1,5 +1,6 @@
 # tests/unit/test_translation_models.py
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -41,5 +42,6 @@ def test_segment_defaults() -> None:
 
 def test_language_pair_frozen() -> None:
     pair = LanguagePair.en_to_de()
+    # updated: cast to Any so mypy allows the runtime immutability assertion.
     with pytest.raises((AttributeError, TypeError)):
-        pair.source = "fr"
+        cast(Any, pair).source = "fr"

@@ -2,6 +2,7 @@
 
 from dataclasses import FrozenInstanceError
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -39,8 +40,9 @@ class TestDownloadRequest:
             media_type=MediaType.MUSIC,
             output_dir=Path("out"),
         )
+        # updated: cast to Any so mypy allows the runtime immutability assertion.
         with pytest.raises(FrozenInstanceError):
-            request.url = "https://changed.example"
+            cast(Any, request).url = "https://changed.example"
 
     def test_subtitle_languages_tuple(self) -> None:
         request = DownloadRequest(
