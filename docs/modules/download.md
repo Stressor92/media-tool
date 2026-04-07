@@ -1,43 +1,105 @@
 # Download Module
 
-## Scope
+## Responsibilities
 
-The download domain provides search and retrieval orchestration for remote media sources, primarily through yt-dlp wrappers.
+The download domain orchestrates **remote media retrieval** using yt-dlp and converts provider-specific failure modes into user-meaningful result objects.
 
-## Main Components
+It supports:
 
-- `download_manager`: higher-level orchestration and policy
-- `models`: typed results and request/response structures
-- `utils.ytdlp_runner`: subprocess adapter to yt-dlp command execution
+- single URL downloads
+- playlist/series-style downloads
+- dry-run inspection
+- cookie-aware retry logic for restricted providers
+- normalization of authentication, geo-blocking, and rate-limit errors
 
-## Execution Model
+---
 
-Download operations generally:
+## Core Components
 
-1. Build a query or target URL.
-2. Run yt-dlp command path through wrapper.
-3. Parse success/failure output into typed model.
-4. Return result to CLI or pipeline caller.
+| File | Role |
+|---|---|
+| `download_manager.py` | high-level orchestration and retry policy |
+| `models.py` | immutable request/result models such as `DownloadRequest` and `DownloadResult` |
+| `format_selector.py` | build yt-dlp format strings and post-processor configuration |
+| `yt_dlp_runner.py` | low-level runner and info parsing |
+| `post_processor.py` | post-download adjustments where needed |
 
-## Design Choices
+---
 
-Using a wrapper instead of inline subprocess calls centralizes:
+## `DownloadManager` Flow
 
-- Error normalization
-- Timeout/exit-code handling
-- Command argument construction
+`DownloadManager.download(request)` performs one complete download cycle:
 
-Trade-off:
+1. log the requested URL and media type
+2. short-circuit for `dry_run`
+3. extract remote info without downloading where needed
+4. enrich the request using the extracted metadata
+5. perform the actual download, optionally retrying with browser cookies
+6. resolve an output path and return a typed `DownloadResult`
 
-- Additional abstraction layer
-- Better reliability and testability for command assembly
+### Playlist-tolerant behavior
+
+The manager intentionally switches into a playlist-friendly mode when:
+
+- `request.media_type == MediaType.SERIES`, or
+- the URL looks like a playlist/album/set (`list=`, `/sets/`, `/playlist`, `/album/`)
+
+In that mode it requests flattened metadata and logs per-item progress instead of assuming a single-track response.
+
+---
+
+## Error Normalization Strategy
+
+One of the most important responsibilities in this module is **turning raw yt-dlp/provider failures into actionable messages**.
+
+The manager explicitly classifies errors such as:
+
+- authentication/login requirements
+- stale browser cookies
+- missing PO token cases for harder YouTube scenarios
+- provider rate limiting
+- geo restrictions
+- general availability failures (`private video`, `unsupported URL`, etc.)
+
+This keeps the CLI behavior predictable even though the upstream providers are volatile.
+
+---
+
+## Cookie and Retry Policy
+
+If an authentication error occurs and the caller did not already provide cookies, the manager may retry using browser cookies from:
+
+1. `chrome`
+2. `firefox`
+
+This is intentionally limited and conservative. The system stops automatic retries when it detects rate-limiting or a non-auth-related failure.
+
+---
+
+## Result Modeling
+
+The download layer uses frozen request models and structured results so later stages can safely consume them.
+
+| Type | Purpose |
+|---|---|
+| `DownloadRequest` | captures desired URL, media type, output directory, subtitle/language preferences, cookies, yt-dlp extras |
+| `TrackInfo` | normalized metadata extracted from yt-dlp info |
+| `DownloadResult` | reports `SUCCESS`, `FAILED`, or `SKIPPED` plus output path or error message |
+
+---
+
+## External Dependencies
+
+- **yt-dlp** for extraction and downloading
+- remote providers such as YouTube and SoundCloud through yt-dlp extractors
+- browser-cookie or Netscape cookie-file workflows for restricted content
+
+The module itself does not hardcode provider-specific scraping logic; it relies on yt-dlp and then adds policy around it.
+
+---
 
 ## Integration Points
 
-- Used by download-focused CLI commands
-- Can feed later conversion/workflow stages depending on command path
-- Shares logging and configuration behavior with other utility-backed domains
+The download module is primarily used by the `download` CLI command group, but its outputs are also suitable as inputs to later local processing such as conversion or workflow-based organization.
 
-## Failure Characteristics
-
-Network/provider volatility is expected. The module treats many failures as operational outcomes, returning rich error context rather than hard process termination.
+Because remote failure is expected, the module treats many failures as **operational outcomes** rather than programmer errors.

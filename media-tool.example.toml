@@ -1,12 +1,12 @@
 # Copy this file to media-tool.toml and fill in your local values.
 # The real media-tool.toml file is ignored by Git.
+# This template mirrors the currently implemented typed config model in `src/utils/config.py`.
 
 [api]
 opensubtitles_api_key = ""
 acoustid_api_key = ""
 tmdb_api_key = ""
 googlebooks_api_key = ""
-# Kostenlos unter: https://www.themoviedb.org/settings/api
 opensubtitles_user_agent = "media-tool v1.0"
 
 [tools]
@@ -20,7 +20,7 @@ incoming_root = ""
 temp_dir = ""
 
 [defaults.subtitles]
-languages = ["en"]
+languages = ["de", "en"]
 embed = true
 auto = true
 
@@ -40,126 +40,25 @@ embed_subtitles = true
 embed_thumbnail = true
 sponsorblock_remove = ["sponsor"]
 
-# ---------------------------------------------------------------------------
-# Hardware Encoder Configuration (H.265 Upscaling)
-# Automatic detection of available GPU encoders (NVENC, AMF, QSV)
-# ---------------------------------------------------------------------------
+# Hardware encoder selection for the upscale commands.
 [upscale]
-# "auto" = use best available hardware, or "nvenc", "amf", "qsv", "software"
-encoder = "auto"
-
-# Automatically retry with software encoding if hardware encoding fails
+encoder = "auto"            # auto | nvenc | amf | qsv | software
 hw_fallback_on_error = true
-
-# NVENC-specific tuning
-nvenc_max_vram_mb = 0          # 0 = unlimited; consumer GPUs: ~11GB (RTX 3080)
-nvenc_max_sessions = 2         # Consumer GPUs allow max 3 sessions; use 2 to stay safe
-
-# Encoder probe timeout (seconds)
+nvenc_max_vram_mb = 0
+nvenc_max_sessions = 2
 hw_probe_timeout_sec = 10
 
-[ebook]
-preferred_format = "epub"
-download_cover = true
-metadata_providers = ["openlibrary", "googlebooks"]
-
-# Optional: set [api].googlebooks_api_key for higher Google Books quota.
-
-[ebook.organization]
-structure = "{author}/{series}/{title}"
-
-[ebook.conversion]
-target_format = "epub"
-
-# yt-dlp is used by the Python download subsystem.
-# Keep [tools].yt_dlp aligned with your shell setup for manual usage or legacy scripts.
-
-[workflow.movies]
-stop_on_failure          = true
-dvd_upscale_profile      = "dvd-hq"
-bluray_crf               = 18
-bluray_preset            = "slow"
-subtitle_languages       = ["de", "en"]
-subtitle_fallback_whisper = false   # true sobald Whisper integriert
-organize_naming          = "jellyfin"  # jellyfin | flat
-
-[workflow.movies.skip_steps]
-# Einzelne Steps deaktivieren (z. B. im NAS-Nachtlauf):
-# merge_language_dupes = true
-# mp4_to_mkv           = true
-# upscale_dvd          = true
-# encode_bluray        = true
-# subtitles            = true
-# organize             = true
-
-[translation]
-# Offline subtitle translation (no cloud, no API key required)
-# Install GPU backend:  pip install ctranslate2 transformers sentencepiece
-# Install CPU fallback: pip install argostranslate
-# Install lang-detect:  pip install langdetect
-backend    = "opus-mt"   # "opus-mt" (GPU, recommended) | "argos" (CPU fallback)
-model_size = "big"       # "standard" (~300 MB, BLEU ~35) | "big" (~900 MB, BLEU ~44, empfohlen)
-                         #   en→de big: gsarti/opus-mt-tc-big-en-de
-                         #   de→en big: same as standard (no tc-big variant exists)
-device     = "auto"      # "auto" | "cuda" | "cpu"
-batch_size = 32
-
-# Context-aware chunking
-chunk_size        = 4    # segments per translation chunk (more = better grammar)
-max_chars_per_chunk = 250
-
-# Tag preservation (HTML <i> <b> and ASS {\an8} tags)
-preserve_tags = true
-
-# Post-translation line wrapping
-line_wrap       = true
-max_line_length = 40
-max_lines       = 2
-
-# Auto language detection (requires: pip install langdetect)
-auto_detect_language = false
-
-# Optional: use in-memory translation cache (avoids re-translating repeated lines)
-use_cache = true
-
-# Custom local model cache (default: src/utils/translate_models — populated by 'media-tool subtitle download-models')
-# model_cache_dir = "D:\\models\\translation"
-
-[jellyfin]
-base_url = "http://192.168.1.100:8096"   # or https://
-api_key  = ""                             # Dashboard → Advanced → API Keys
-wait_for_scan = false                     # Block until scan finishes after refresh
-scan_timeout  = 300                       # Seconds
-
-[jellyfin.auto_trigger]
-enabled          = true    # Automatically refresh after a successful workflow
-on_success_only  = true    # Only trigger on successful workflow completion
-
-[jellyfin.inspect]
-check_missing_poster   = true
-check_missing_overview = true
-check_missing_year     = true
-check_unmatched        = true
-check_duplicates       = true
-check_series_matching  = true
-
-# ---------------------------------------------------------------------------
-# Automatische Audio-Spracherkennung (A04 Audit-Fix)
-# Erkennt unlabeled Audio-Tracks (und/leer) und schreibt das ISO 639-2 Kürzel
-# via FFmpeg Remux — kein Re-Encoding.
-# Stufen: Heuristik (< 1ms) → Whisper (2–30s)
-# ---------------------------------------------------------------------------
+# Audio-language tagging for unlabeled tracks.
 [language_detection]
-min_confidence  = 0.85       # Schwellwert für Akzeptanz (0.0–1.0)
-whisper_model   = "medium"   # "tiny" | "base" | "medium" | "large-v3"
-device          = "auto"     # "auto" | "cuda" | "cpu"
-sample_duration = 30         # Sekunden Audio für Whisper
-sample_offset   = 120        # Sekunden vom Anfang überspringen (Intro)
-create_backup   = false      # Backup (.bak) vor In-Place-Schreiben
+min_confidence = 0.85
+whisper_model = "medium"
+device = "auto"
+sample_duration = 30
+sample_offset = 120
+create_backup = false
+hint_languages = ["de", "en"]
 
-# Hint-Sprachen beschleunigen Whisper (Suchraum einschränken)
-hint_languages  = ["de", "en"]
-
+# TMDB-backed movie metadata defaults.
 [metadata]
 language = "de-DE"
 fallback_language = "en-US"
@@ -178,33 +77,38 @@ download_logo = false
 [metadata.cast]
 max_actors = 20
 
+# E-book defaults for identify/enrich/organize/convert commands.
+[ebook]
+preferred_format = "epub"
+download_cover = true
+metadata_providers = ["openlibrary", "googlebooks"]
+
+[ebook.organization]
+structure = "{author}/{series}/{title}"
+
+[ebook.conversion]
+target_format = "epub"
+
+# Jellyfin is optional; fill these only if you use the jellyfin commands.
+[jellyfin]
+base_url = "http://localhost:8096"
+api_key = ""
+wait_for_scan = false
+scan_timeout = 300
+
+# Statistics and backup/rollback are enabled by default.
 [statistics]
-# Directory for stats.json
-# Default: ~/.media-tool/
 data_dir = ""
-
-# Maximum number of history entries (days)
 history_max_days = 365
-
-# Disable statistics collection (e.g. in CI/tests)
 enabled = true
 
 [backup]
 enabled = true
-
-# Directory for backup files and backup_index.json
-# Default: ~/.media-tool/backups/
 backup_dir = ""
-
-# Maximum combined backup size in GB
 max_size_gb = 50
-
-# Maximum age in days before entries are considered for eviction (0 = disabled)
 max_age_days = 30
 
 [backup.auto_cleanup]
-# 0 = delete immediately after successful validation
-# -1 = keep forever unless manually purged
 after_days = 0
 video = true
 audio = true
@@ -223,3 +127,8 @@ require_epub_metadata = true
 require_cover = true
 require_isbn_if_present = false
 require_chapters = true
+
+# Note:
+# Subtitle translation is currently configured mainly through CLI options plus optional
+# extras from `pyproject.toml`; there is no stable top-level [translation] section in
+# the typed config model yet.

@@ -1,310 +1,281 @@
 # Media Tool Architecture
 
-## Purpose and Scope
+## System Overview
 
-Media Tool is a CLI-driven media processing system that combines format conversion, enrichment, auditing, and library organization for multiple domains:
+`media-tool` is a modular Typer-based CLI for **safe, batch-oriented media processing**. The codebase combines local file transformations, metadata enrichment, download orchestration, and library hygiene checks for video, audio, subtitles, ebooks, and Jellyfin-managed libraries.
 
-- Video
-- Audio and audiobooks
-- Subtitles and translation
-- Ebooks
-- Downloads
-- Jellyfin metadata operations
+The architecture deliberately separates:
 
-The architecture favors a layered design where command entry points stay thin and most behavior lives in domain services.
+- **command handling** in `src/cli`
+- **domain orchestration** in `src/core`
+- **tooling and infrastructure wrappers** in `src/utils`
+- **cross-cutting safety and telemetry** in `src/backup` and `src/statistics`
 
-## Layered Structure
+This separation keeps the entrypoints thin while concentrating operational logic in reusable services and typed result models.
 
-### CLI Layer (`src/cli`)
+---
 
-Responsibilities:
+## Layer Model
 
-- Parse command-line arguments and options
-- Build concrete service objects
-- Trigger domain workflows
-- Render progress and human-readable output
+| Layer | Location | Primary responsibility | What it should not do |
+|---|---|---|---|
+| CLI | `src/cli` | Parse arguments, assemble services, render output | Contain media-processing logic |
+| Core domain | `src/core` | Implement workflows, orchestration, heuristics, result models | Talk directly to terminal UI |
+| Utilities | `src/utils` | Wrap external tools, config, logging, common helpers | Encode domain policy |
+| Cross-cutting | `src/backup`, `src/statistics` | Safety, rollback, telemetry | Own user interaction |
 
-Characteristics:
+### CLI layer
 
-- Typer command groups per domain
-- Minimal business logic
-- Transforms user flags to strongly typed parameters used by core services
+The root entrypoint is `src/cli/main.py`. It mounts all subcommands and performs process-level setup:
 
-### Core Domain Layer (`src/core`)
+1. `setup_logging(...)`
+2. `get_config()`
+3. optional backup initialization via `src.backup.init()`
+4. optional statistics session lifecycle via `StatsManager`, `statistics.init(...)`, and `atexit`
 
-Responsibilities:
+This means most command handlers act as adapters from **CLI flags → typed core calls**.
 
-- Domain orchestration and rules
-- Pipeline composition
-- Operation-specific result models
-- Provider abstractions
+### Core domain layer
 
-Patterns:
+The core layer is split by problem domain:
 
-- Service classes for orchestration (for example workflow runner, ebook processor)
-- Dataclasses and typed dicts for operation outputs
-- Protocol/provider interfaces for external integrations
+- `video`, `audio`, `audiobook`
+- `subtitles`, `translation`
+- `metadata`, `download`, `jellyfin`
+- `ebook`, `workflow`, `audit`
 
-### Infrastructure Utilities (`src/utils`)
+A typical core service:
 
-Responsibilities:
+- accepts `Path` objects and typed options
+- performs precondition checks
+- delegates shell-level work to utilities
+- returns a structured result object instead of printing
 
-- Subprocess wrappers (ffmpeg, ffprobe, yt-dlp)
-- Configuration loading and override merging
-- Logging setup
-- File/name helper utilities
+### Utilities layer
 
-Characteristics:
+`src/utils` contains the infrastructure adapters that make the system predictable:
 
-- Explicit wrappers around external binaries
-- Mostly stateless helper modules
-- Shared by several domains
+- `config.py` → TOML + environment-based configuration
+- `logging_config.py` → Rich console logging and rotating file logging
+- `ffmpeg_runner.py`, `ffprobe_runner.py`, `ytdlp_runner.py` → subprocess wrappers
+- `fuzzy_matcher.py`, `jellyfin_naming.py`, `file_operations.py` → shared helper logic
 
-### Cross-Cutting Layers
+These modules are intentionally low-level and mostly stateless.
 
-#### Statistics (`src/statistics`)
+---
 
-Collects event-level operational telemetry and persists aggregates with atomic write behavior.
+## Dependency Boundaries
 
-#### Backup and Rollback (`src/backup`)
+The intended dependency direction is:
 
-Creates backups before destructive operations, validates post-state, and can rollback on failure.
+```text
+CLI -> Core -> Utils
+         |      
+         +-> Backup / Statistics
+```
 
-## Control Flow Model
+### Practical boundary rules
 
-Typical command flow:
+- `src/cli/*` may import from `core`, `utils`, `src.statistics`, and `src.backup`
+- `src/core/*` may import from `utils` and the cross-cutting packages
+- `src/utils/*` should remain independent of CLI concerns
+- `src/statistics` and `src/backup` expose services used by core flows but do not depend on Typer command handlers
 
-1. CLI command resolves config and options.
-2. CLI creates or wires domain service(s).
-3. Core service executes steps and calls utility wrappers.
-4. Cross-cutting systems record statistics and/or create backup checkpoints.
-5. Results are surfaced to CLI for progress/status rendering.
+Some compatibility shims exist for the `src.*` import layout. Those are runtime packaging details rather than a separate architectural layer.
+
+---
+
+## Runtime Control Flow
+
+### Typical command lifecycle
+
+```mermaid
+flowchart TD
+    A[Typer command] --> B[Global callback setup]
+    B --> C[Load config]
+    B --> D[Configure logging]
+    B --> E[Init backup/statistics]
+    A --> F[Build core service]
+    F --> G[Run domain operation]
+    G --> H[Use ffmpeg / ffprobe / yt-dlp / HTTP providers]
+    G --> I[Record statistics events]
+    G --> J[Validate outputs / rollback if needed]
+    J --> K[Typed result returned to CLI]
+    K --> L[Rich console rendering / exit code]
+```
+
+### Shared result model strategy
+
+The project uses dataclasses and enums to make operations explicit:
+
+- `ConversionResult`, `MergeResult`, `UpscaleResult`
+- `DownloadRequest`, `DownloadResult`
+- `PipelineResult` for metadata enrichment
+- `WorkflowContext`, `StepResult`, `WorkflowResult`
+- `BackupEntry`, `ValidationResult`
+
+This avoids “stringly typed” command outcomes and keeps failure handling testable.
+
+---
+
+## Design Principles
+
+### 1. Thin CLI, rich core
+
+Typer commands mostly translate user input into service calls. The actual behavior lives in modules like:
+
+- `core.video.converter`
+- `core.download.download_manager`
+- `core.ebook.workflow.ebook_processor`
+- `core.workflow.runner`
+
+### 2. Batch safety first
+
+Mutation-heavy operations prefer **safe defaults**:
+
+- skip existing outputs unless `overwrite=True`
+- support `dry_run` in orchestration layers
+- validate post-state after transforms where feasible
+- wrap destructive rewrites in backup/rollback mechanisms
+
+### 3. Idempotent-by-default behavior
+
+Many operations intentionally short-circuit when the desired result already exists:
+
+- metadata generation skips existing NFO files unless overwrite is enabled
+- conversion/remux steps skip existing targets
+- organization layers avoid replacing targets unless explicitly requested
+
+This matters for interrupted batch runs and repeatable NAS workflows.
+
+### 4. Best-effort telemetry, not hard dependency
+
+Statistics recording is intentionally non-blocking. Failures in telemetry should not break media processing. This pattern appears throughout the codebase via guarded `get_collector().record(...)` calls inside `try/except` blocks.
+
+### 5. Explicit extension points
+
+Provider contracts and factories isolate external variability:
+
+- `SubtitleProvider`
+- translation backends via `TranslatorProtocol`
+- ebook metadata and cover providers
+
+This makes integrations replaceable without rewriting orchestrators.
+
+---
 
 ## Workflow Engine Architecture
 
-The workflow subsystem (`src/core/workflow`) runs staged processing with explicit step contracts:
+The `src/core/workflow` package provides the highest-level automation skeleton.
 
-- `should_run(context)`: cheap precondition check
-- `run(context)`: perform the operation
-- `post_check(context, result)`: optional output verification
+### Execution model
 
-The runner executes numbered steps in sequence (merge/remux, upscale/re-encode, subtitles, organization), and each step updates a shared context object.
+- `WorkflowRunner` executes a fixed ordered list of `BaseStep` instances
+- each step implements `precondition(ctx)`, `run(ctx)`, and optional `post_check(ctx, result)`
+- `WorkflowContext` carries `working_files`, `metadata`, `dry_run`, and `stop_on_failure`
+- `WorkflowResult` aggregates all per-step outcomes
 
-This gives the project a stable orchestration skeleton while keeping step internals isolated.
+### Default movie workflow
 
-## Data and Result Modeling
+`build_movie_pipeline()` currently wires **six** concrete steps:
 
-The codebase uses typed result objects rather than implicit status values:
+1. `s01_merge_language_dupes`
+2. `s02_mp4_to_mkv`
+3. `s03_upscale_dvd`
+4. `s04_encode_bluray`
+5. `s05_subtitles`
+6. `s06_organize`
 
-- Dataclasses for rich outcomes and metadata
-- Typed dicts where lightweight serialization-friendly output is needed
-- Enumerations for event and status categories
+> Metadata enrichment is currently a separate module/CLI flow and is **not** part of the default workflow runner.
 
-Benefits:
+---
 
-- Easier CLI rendering and report generation
-- Less ambiguity around partial success states
-- Better testability of domain decisions
+## Cross-Cutting Systems
 
-## Dependency Direction
+### Backup and rollback
 
-The intended dependency direction is mostly one-way:
+`BackupManager` creates a copy of the original file, persists a `BackupEntry`, validates the transformed output, and then either:
 
-- CLI -> Core -> Utils
-- Core -> Statistics and Backup
-- Statistics/Backup do not depend on CLI
+- marks the backup as validated and cleans it up, or
+- rolls back on validation failure or runtime failure
 
-Some modules still import shared helpers via absolute package paths while others use relative imports. This is implementation-dependent but functionally aligned with the same runtime boundaries.
+This pattern is used by video conversion, merge/upscale, and ebook normalization flows.
 
-## Error Handling and Recovery Strategy
+### Statistics
 
-Common strategies across domains:
+`StatsCollector` captures `StatEvent` items during the process lifetime. `StatsManager` later aggregates them into a persisted `StatsSnapshot` using specialized aggregators for:
 
-- Return structured failure result instead of raising for expected operational failures
-- Raise exceptions for invalid inputs or unrecoverable programming/runtime errors
-- Use backup checkpoints around mutation-heavy operations
-- Validate post-conditions and rollback where feasible
+- video
+- audio
+- subtitles
+- ebooks
+- system events
 
-## Concurrency and Throughput
+The session lifecycle is started in the CLI callback and flushed at process exit.
 
-Concurrency is used selectively:
+---
 
-- Audio library scanning parallelizes metadata extraction via thread pool
-- Most mutation pipelines remain sequential to preserve deterministic side effects and ordering
+## Concurrency Model
 
-Trade-off:
+The project mixes sequential and concurrent behavior deliberately.
 
-- Improves throughput for read-heavy extraction
-- Avoids difficult rollback and ordering issues in write-heavy stages
+| Pattern | Where used | Why |
+|---|---|---|
+| Sequential mutation pipelines | workflow, remux, upscale, organization | safer rollback and deterministic side effects |
+| Thread-pool scanning | `core.audio.library_scanner`, ffprobe caching | higher throughput for read-heavy operations |
+| HTTP retry/backoff | subtitle and Jellyfin/TMDB integrations | resilience to transient remote failures |
 
-## External Tool Integration
+The dominant rule is: **read-heavy tasks may parallelize; write-heavy tasks prefer determinism**.
 
-Major integrations are shell-based wrappers:
+---
 
-- FFmpeg/FFprobe for media transformation and inspection
-- yt-dlp for download/search workflows
-- Jellyfin API operations through dedicated client/manager abstractions
+## External Integration Model
 
-Wrappers normalize process execution and return typed results to keep core modules independent of raw subprocess details.
+| Integration | Adapter | Role |
+|---|---|---|
+| `ffmpeg` | `utils.ffmpeg_runner` | transforms, muxing, re-encoding |
+| `ffprobe` | `utils.ffprobe_runner` | technical inspection and stream analysis |
+| `yt-dlp` | `core.download.yt_dlp_runner` / `utils.ytdlp_runner` | downloads and remote media extraction |
+| OpenSubtitles API | `core.subtitles.opensubtitles_provider` | subtitle search/download |
+| TMDB API | `core.metadata.tmdb_provider` | movie metadata and artwork discovery |
+| Jellyfin REST API | `core.jellyfin.client` | server-side library maintenance |
+| Ebook sources | provider interfaces under `core.ebook.*.providers` | metadata and cover enrichment |
 
-## Known Implementation-Dependent Areas
+The wrappers normalize subprocess and HTTP behavior into predictable Python-level outcomes.
 
-Some behavior is intentionally best-effort or heuristic-driven:
+---
 
-- Provider ranking/matching quality for metadata and subtitles
-- File naming extraction/parsing heuristics
-- Hardware encoder availability and profile choice
-- Subtitle acquisition fallback details when providers fail
+## Project Map
 
-Documentation in this folder marks such areas explicitly and avoids guaranteeing behavior not enforced by code contracts.
-
-
-```
+```text
 src/
-├── cli/                      # Typer command groups (user-facing interface)
-│   ├── main.py              # Root CLI dispatcher and global options
-│   ├── audio_cmd.py         # Music: scan, organize, convert, improve, identify, tag, detect-language
-│   ├── video_cmd.py         # Video: convert, inspect, merge, subtitle, subtitle-auto, 
-│   │                         #        download-trailers, upscale, subtitle-translate, subtitle-translate-mkv
-│   ├── audiobook_cmd.py     # Audiobook: scan, organize, merge
-│   ├── subtitle_cmd.py      # Subtitles: download, search, translate, download-models, convert, formats
-│   ├── download_cmd.py      # Download: video, music, series (yt-dlp backend)
-│   ├── convert_cmd.py       # Convert: batch, single (MP4 → MKV)
-│   ├── upscale_cmd.py       # Upscale: profiles, batch, single (DVD → 720p/1080p H.265)
-│   ├── merge_cmd.py         # Merge: auto, manual (language variant merging)
-│   ├── inspect_cmd.py       # Inspect: scan (media library CSV export)
-│   ├── metadata_cmd.py      # Metadata: fetch, search (TMDB integration)
-│   ├── jellyfin_cmd.py      # Jellyfin: ping, refresh, scan-status, libraries, inspect, fix-series, search
-│   ├── audit_cmd.py         # Audit: run, checks (library quality analysis)
-│   ├── workflow_cmd.py      # Workflow: movies (end-to-end automation pipeline)
-│   ├── ebook_cmd.py         # Ebook: (startup config display), config
-│   └── progress_display.py  # Rich progress reporting utilities
-│
-├── core/                     # Domain logic (UI-independent business rules)
-│   ├── audio/               # Music processing
-│   │   ├── scanner.py       # Parallel metadata extraction (tags, codec info)
-│   │   ├── organizer.py     # Library organization (Artist/Album/Track structure)
-│   │   ├── converter.py     # Audio format conversion (FLAC, MP3, M4A, etc.)
-│   │   ├── enhancer.py      # Silence removal, normalization, quality enhancement
-│   │   ├── tagger.py        # AcoustID + MusicBrainz tagging
-│   │   └── models.py        # AudioFileMetadata, ConversionResult
-│   │
-│   ├── video/               # Video processing
-│   │   ├── converter.py     # MP4 → MKV lossless remuxing
-│   │   ├── merger.py        # Dual-audio merging (German + English)
-│   │   ├── upscaler.py      # DVD → 720p/1080p H.265 encoding with CRF/preset profiles
-│   │   ├── inspector.py     # Library scanning and CSV export (resolution, codec, duration)
-│   │   ├── trailer.py       # Trailer download + MKV embedding
-│   │   └── models.py        # Conversion/Upscale/Trailer results
-│   │
-│   ├── audiobook/           # Audiobook-specific processing
-│   │   ├── scanner.py       # Audiobook library scanning
-│   │   ├── organizer.py     # Folder reorganization
-│   │   ├── merger.py        # Chapter file merging
-│   │   └── models.py        # AudiobookMetadata
-│   │
-│   ├── subtitles/           # Subtitle acquisition
-│   │   ├── opensubtitles_provider.py # OpenSubtitles.org API client
-│   │   ├── subtitle_provider.py     # Provider abstraction
-│   │   ├── subtitle_downloader.py   # Download + MKV embedding orchestration
-│   │   └── models.py               # SubtitleMatch, DownloadResult
-│   │
-│   ├── translation/         # Offline subtitle conversion + translation
-│   │   ├── converter.py     # Format conversion dispatcher
-│   │   ├── format_registry.py # Format detection + lazy loading
-│   │   ├── style_mapper.py  # ASS ↔ HTML tag mapping
-│   │   ├── translator/      # OPUS-MT (GPU) + Argos (CPU) backends
-│   │   ├── formats/         # SRT, VTT, ASS, TTML, SCC, STL, LRC, SBV readers/writers
-│   │   └── models.py        # SubtitleSegment, StyleTag
-│   │
-│   ├── metadata/            # TMDB movie metadata scraping
-│   │   ├── tmdb_client.py   # HTTP wrapper with retry/cache
-│   │   ├── tmdb_provider.py # Search + detailed metadata mapping
-│   │   ├── title_parser.py  # Title/year extraction from filenames
-│   │   ├── match_selector.py # Auto/interactive selection
-│   │   ├── nfo_writer.py    # Jellyfin/Kodi-compatible .nfo generation
-│   │   ├── artwork_downloader.py # Parallel poster/fanart/banner downloading
-│   │   ├── metadata_pipeline.py  # Orchestration
-│   │   └── models.py        # MovieMetadata, ArtworkType, PipelineResult
-│   │
-│   ├── jellyfin/            # Jellyfin REST API integration
-│   │   ├── client.py        # HTTP client with retries + structured exceptions
-│   │   ├── library_manager.py # Refresh, scan status, item lookup
-│   │   ├── metadata_inspector.py # Missing/wrong metadata detection
-│   │   ├── metadata_fixer.py # Auto-repair (refresh trigger for fixable issues)
-│   │   └── auto_trigger.py  # Workflow hook → library refresh
-│   │
-│   ├── download/            # yt-dlp media downloading
-│   │   ├── download_manager.py # Request orchestration + retry
-│   │   ├── format_selector.py # Video/audio/subtitle format selection
-│   │   ├── yt_dlp_runner.py # Process wrapper + cookie handling
-│   │   └── models.py        # DownloadRequest, DownloadResult, DownloadStatus
-│   │
-│   ├── ebook/               # E-book processing (identification, metadata, covers, normalization)
-│   │   ├── models.py        # BookIdentity, BookMetadata
-│   │   ├── identification/  # ISBN extraction, filename parsing, confidence scoring
-│   │   │   ├── isbn_extractor.py    # Pattern matching + ISBN13 normalization
-│   │   │   ├── book_identifier.py   # Multi-strategy (ISBN, metadata, filename)
-│   │   │   └── confidence_scorer.py # Match scoring
-│   │   ├── metadata/        # Metadata retrieval from providers
-│   │   │   ├── metadata_service.py     # Provider orchestration + fuzzy matching
-│   │   │   └── providers/              # OpenLibrary, Google Books API integrations
-│   │   ├── cover/           # Cover image acquisition + embedding
-│   │   │   ├── cover_service.py       # Fetch + embed orchestration
-│   │   │   ├── cover_selector.py      # Resolution/aspect-ratio based ranking
-│   │   │   └── providers/             # OpenLibrary, Google Books cover APIs
-│   │   └── normalization/   # EPUB metadata embedding, cover insertion, TOC generation
-│   │       ├── metadata_embedder.py # OPF field updates
-│   │       ├── epub_validator.py    # Archive + metadata validation
-│   │       ├── toc_generator.py     # Navigation document generation
-│   │       └── normalizer.py        # Full workflow orchestration
-│   │
-│   ├── audit/               # Library quality auditing
-│   │   ├── auditor.py       # Orchestration engine
-│   │   ├── check_registry.py # Check discovery (A01–Z99 IDs)
-│   │   ├── reporter.py      # Terminal + CSV/JSON output
-│   │   └── models.py        # Check, Finding, AuditReport
-│   │
-│   ├── workflow/            # Automation pipeline orchestration
-│   │   ├── runner.py        # Movie pipeline builder + executor (merge → convert → upscale → subtitle → organize)
-│   │   └── models.py        # WorkflowContext, StepResult
-│   │
-│   ├── language_detection/  # Audio language identification (heuristic + Whisper)
-│   │   ├── detector.py      # Multi-strategy detection
-│   │   └── models.py        # DetectionResult
-│   │
-│   ├── naming/              # Jellyfin-compatible file path generation
-│   │   └── namer.py         # Naming template engine
-│   │
-│   └── __init__.py
-│
-├── utils/                    # Shared utilities and low-level wrappers
-│   ├── config.py            # TOML loader + environment overrides (API keys, tool paths, defaults)
-│   ├── logging_config.py    # Rich console + rotating file logging setup
-│   ├── ffmpeg_runner.py     # FFmpeg subprocess wrapper (container conversion, codec re-encoding)
-│   ├── ffprobe_runner.py    # FFprobe JSON wrapper (media inspection, metadata extraction)
-│   ├── ytdlp_runner.py      # yt-dlp subprocess wrapper (format selection, cookies)
-│   ├── video_hasher.py      # Opensubtitles.org-compatible video file hashing
-│   ├── url_validator.py     # URL validation + platform classification (YouTube, Soundcloud, etc.)
-│   ├── audio_analyzer.py    # Audio metadata extraction using ffprobe
-│   ├── audio_processor.py   # Audio manipulation utilities (ffmpeg-based)
-│   ├── epub_reader.py       # EPUB container reading and metadata extraction (OPF parsing)
-│   ├── epub_writer.py       # EPUB metadata updates, cover embedding, navigation generation
-│   ├── pdf_reader.py        # PDF metadata and text extraction (optional pypdf dependency)
-│   ├── image_processor.py   # Image resizing + quality optimization (Pillow)
-│   ├── fuzzy_matcher.py     # String similarity scoring (difflib)
-│   ├── ffprobe_cache.py     # Parallel ffprobe caching for batch operations
-│   └── __init__.py
-│
-├── gui/                      # (Future) Graphical user interface (PySide6/Qt)
-│
-└── obsolet_ps_scrips/        # Legacy PowerShell scripts (deprecated, replaced by Python)
-
-tests/
-├── unit/                     # Unit tests for isolated functions and classes
-├── integration/              # Integration tests for full workflows
-├── fixtures/                 # Test data and helper functions
-├── conftest.py              # Pytest configuration and shared fixtures
-├── ebook_test_support.py    # E-book test helpers (EPUB creation, image generation)
-└── cleanup_test_artifacts.py # Test artifact cleanup
+├── cli/            Typer commands and rich presentation
+├── core/           Domain orchestration and typed models
+│   ├── video/      remux, merge, upscale, inspection, trailers, whisper
+│   ├── audio/      scan, tag, enhance, organize, convert
+│   ├── subtitles/  provider-backed subtitle acquisition
+│   ├── translation/format-preserving subtitle translation
+│   ├── metadata/   TMDB lookup, title parsing, NFO/artwork generation
+│   ├── ebook/      identify, enrich, normalize, organize, convert, deduplicate
+│   ├── download/   yt-dlp orchestration and error normalization
+│   ├── jellyfin/   server inspection and metadata repair
+│   ├── audit/      quality/compliance checks over libraries
+│   └── workflow/   staged automation over media folders
+├── backup/         backup index, validation, rollback, quota protection
+├── statistics/     event collection, aggregation, persistence
+└── utils/          config, logging, subprocess wrappers, helper utilities
 ```
+
+---
+
+## Implementation-Dependent Areas
+
+A few behaviors are intentionally heuristic or environment-sensitive and should be treated as such in extensions:
+
+- filename parsing for title/year extraction
+- provider ranking quality from TMDB / OpenSubtitles / ebook metadata sources
+- hardware encoder availability on the current host
+- subtitle fallback behavior when third-party services are unavailable
+- exact organization quality when metadata is incomplete
+
+When extending the system, prefer **new typed result models and new provider implementations** over embedding more logic into CLI commands.

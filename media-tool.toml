@@ -109,3 +109,70 @@ download_logo = false
 
 [metadata.cast]
 max_actors = 20
+
+# ---------------------------------------------------------------------------
+# Hardware encoder defaults for the upscale commands
+# ---------------------------------------------------------------------------
+[upscale]
+encoder = "auto"
+hw_fallback_on_error = true
+nvenc_max_vram_mb = 0
+nvenc_max_sessions = 2
+hw_probe_timeout_sec = 10
+
+# ---------------------------------------------------------------------------
+# Ebook workflows
+# ---------------------------------------------------------------------------
+[ebook]
+preferred_format = "epub"
+download_cover = true
+metadata_providers = ["openlibrary", "googlebooks"]
+
+[ebook.organization]
+structure = "{author}/{series}/{title}"
+
+[ebook.conversion]
+target_format = "epub"
+
+# ---------------------------------------------------------------------------
+# Jellyfin integration (optional)
+# ---------------------------------------------------------------------------
+[jellyfin]
+base_url = ""
+api_key = ""
+wait_for_scan = false
+scan_timeout = 300
+
+# ---------------------------------------------------------------------------
+# Statistics + backup / rollback defaults
+# ---------------------------------------------------------------------------
+[statistics]
+data_dir = ""
+history_max_days = 365
+enabled = true
+
+[backup]
+enabled = true
+backup_dir = ""
+max_size_gb = 50
+max_age_days = 30
+
+[backup.auto_cleanup]
+after_days = 0
+video = true
+audio = true
+ebook = true
+audiobook = true
+
+[backup.validation]
+video_duration_tolerance = 0.05
+audio_duration_tolerance = 0.03
+audiobook_duration_tolerance = 0.05
+require_audio_tracks = true
+require_subtitles_if_present = true
+require_tags = true
+min_audio_bitrate_kbps = 0
+require_epub_metadata = true
+require_cover = true
+require_isbn_if_present = false
+require_chapters = true

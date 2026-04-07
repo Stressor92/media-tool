@@ -1,3 +1,4 @@
+# Runtime dependencies (mirrors `[project].dependencies` in `pyproject.toml`)
 typer[all]>=0.12
 rich>=13
 ffmpeg-python>=0.2
@@ -11,6 +12,8 @@ pyacoustid>=1.1
 musicbrainzngs>=0.7
 yt-dlp>=2024.11.0
 Pillow>=11.0
+
+# Development tooling
 pytest>=9.0
 mypy>=1.11
 ruff>=0.6
@@ -30,5 +33,5 @@ types-requests>=2.32
 # Optional: offline subtitle translation (CPU fallback, no CUDA required)
 # argostranslate>=1.9
 
-# Optional: automatic source language detection
+# Optional: automatic source-language detection
 # langdetect>=1.0.9

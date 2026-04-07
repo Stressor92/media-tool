@@ -5,7 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "media-tool"
 version = "0.1.0"
-description = "Automated media processing for Jellyfin / NAS storage (video, audio, music, audiobooks)."
+description = "Modular CLI for preparing Jellyfin/NAS media libraries (video, audio, subtitles, downloads, metadata, and ebooks)."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "typer[all]>=0.12",

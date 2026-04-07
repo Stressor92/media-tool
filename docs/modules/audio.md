@@ -1,65 +1,116 @@
 # Audio Module
 
-## Scope
+## Responsibilities
 
-The audio domain provides conversion, metadata extraction/tagging, enhancement, and recursive library scanning.
+The audio domain covers **music-library oriented processing**:
 
-## Main Components
+- recursive scanning and metadata extraction
+- metadata identification and tag writing
+- format conversion and enhancement
+- organization helpers shared with audiobook-adjacent flows
 
-- `conversion`: format/codec transformation
-- `metadata` and extractors: read technical and tag information
-- `audio_tagger`: metadata identification and write-back orchestration
-- `enhancement`: silence removal, normalization, and quality filter chains
-- `library_scanner`: parallel recursive scan over supported extensions
+The design separates **read-heavy discovery** from **write-heavy mutation**, which allows safe batch operation without mixing UI concerns into the core logic.
 
-## Core Design
+---
 
-Audio logic is split between:
+## Key Components
 
-- Read-oriented operations (metadata extraction/scanning)
-- Write-oriented operations (convert, tag, enhance)
+| File | Role |
+|---|---|
+| `library_scanner.py` | recursive discovery and parallel extraction of audio metadata |
+| `metadata_extractor.py` | technical and tag-level inspection per file |
+| `audio_tagger.py` | identify candidate track metadata and write tags |
+| `conversion.py` | codec/container conversion workflows |
+| `enhancement.py` | loudness, cleanup, and ffmpeg-based enhancement filters |
+| `organization.py` | filesystem organization of audio collections |
+| `workflow.py` | higher-level orchestration across audio operations |
 
-Read operations prioritize throughput and parallelism. Write operations prioritize deterministic output and explicit success/failure reporting.
+---
 
-## Metadata Tagging Flow
+## Scan Path vs Mutation Path
 
-`AudioTagger` orchestrates provider-based identification and mutagen-based metadata write.
+### Read-heavy path
 
-High-level behavior:
+`LibraryScanner.scan()` is optimized for throughput:
 
-1. Query provider for candidate matches.
-2. Select best match subject to confidence threshold.
-3. Write tags only when confidence is sufficient.
-4. Record statistics event on success.
+- discovers files by supported extension
+- uses a `ThreadPoolExecutor` for per-file metadata extraction
+- converts extractor failures into result objects instead of aborting the whole scan
 
-Trade-off:
+This is appropriate for large libraries where one broken file should not block inventory generation.
 
-- Prevents low-confidence tag pollution
-- May skip valid but uncertain matches
+### Write-heavy path
 
-## Enhancement Pipeline Notes
+Conversion, enhancement, and tagging are intentionally more conservative:
 
-Enhancement functions construct ffmpeg audio filter chains dynamically.
+- explicit per-file success/failure results
+- predictable ffmpeg invocation through wrappers
+- optional statistics emission on success
+- safer defaults for batch runs
 
-Common operations:
+---
 
-- Silence trimming via `silenceremove`
-- Loudness normalization via `loudnorm`
-- Optional cleanup/equalization filters
+## Metadata and Tagging Flow
 
-The module uses re-encode paths when filters are active; pure copy paths are used where no filtering is required.
+The tagging path combines provider-backed identification with local metadata writes.
 
-## Concurrency Model
+High-level sequence:
 
-`LibraryScanner` parallelizes metadata extraction via `ThreadPoolExecutor`.
+1. inspect the file and existing tags
+2. search providers for likely matches
+3. apply a confidence threshold before writing
+4. write normalized metadata through mutagen-backed helpers
+5. emit `EventType.AUDIO_TAGGED` on success
 
-Design choice:
+This design reduces accidental tag pollution in ambiguous cases.
 
-- Failures for individual files do not abort full scan
-- Per-file error details are represented in result metadata
+### Trade-off
+
+A conservative threshold means some valid matches may be skipped, but the system avoids silently writing low-confidence metadata into a curated library.
+
+---
+
+## Enhancement and Conversion
+
+The audio processing layer builds ffmpeg filter chains dynamically depending on the requested operation.
+
+Common transformations include:
+
+- silence trimming
+- loudness normalization
+- optional cleanup or EQ-like filters
+- codec/container conversion
+
+When filters are active, the path becomes a **re-encode**. When no transformation is necessary, simpler copy-like behavior can be used.
+
+---
+
+## External Dependencies
+
+- **ffmpeg / ffprobe** for signal analysis and transformations
+- **mutagen** for tag read/write support
+- **AcoustID / MusicBrainz** integration in the identification flow
+- optional utility helpers such as Chromaprint wrappers in the broader audio toolchain
+
+---
+
+## Operational Characteristics
+
+| Characteristic | Current behavior |
+|---|---|
+| Parallelism | used for metadata extraction and scanning |
+| Batch safety | one broken file does not abort a full scan |
+| Result modeling | failures represented per item rather than as global exceptions |
+| Telemetry | successful operations can record audio-related statistics events |
+
+---
 
 ## Integration Points
 
-- Consumed by CLI audio commands and audiobook support flows
-- Uses statistics collector for selected success events
-- Uses ffmpeg wrapper for transformations
+The audio module is consumed by:
+
+- the `audio` CLI command group
+- audiobook-adjacent processing where tagging/organization logic overlaps
+- statistics aggregation for conversion, normalization, and tagging events
+
+Where exact provider behavior varies by backend or available credentials, the result should be treated as **implementation-dependent** rather than guaranteed.
