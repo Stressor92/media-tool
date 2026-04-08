@@ -97,6 +97,15 @@ class TestSubtitleDownloadManagerErrors:
 
         assert result.success is True
 
+    def test_parse_filename_removes_bracket_tags_and_trims_after_year(self) -> None:
+        provider = MagicMock(spec=SubtitleProvider)
+        manager = SubtitleDownloadManager(provider, MagicMock())
+
+        title, year = manager._parse_filename("Movie Name [Directors Cut] (2017) [DVD]_subtitled")
+
+        assert title == "Movie Name"
+        assert year == 2017
+
 
 class TestSubtitleValidationErrors:
     def test_validate_srt_utf8_valid(self, tmp_path: Path) -> None:

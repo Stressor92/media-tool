@@ -9,6 +9,7 @@ if str(_REAL_PACKAGE_DIR) not in __path__:
     __path__.append(str(_REAL_PACKAGE_DIR))
 
 # Pylance can't statically follow the `__path__` mutation used by this shim.
+from .event_types import EventType as EventType  # noqa: E402  # pyright: ignore[reportMissingImports]
 from .stats_collector import StatsCollector  # noqa: E402  # pyright: ignore[reportMissingImports]
 from .stats_manager import StatsManager  # noqa: E402  # pyright: ignore[reportMissingImports]
 

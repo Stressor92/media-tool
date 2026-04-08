@@ -14,7 +14,13 @@ from typing import Any
 
 import requests
 
-from .subtitle_provider import MovieInfo, SubtitleMatch, SubtitleProvider
+from .subtitle_provider import (
+    MovieInfo,
+    SubtitleMatch,
+    SubtitleProvider,
+    extract_title_year_from_filename,
+    normalize_title_for_subtitle_search,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +37,22 @@ class OpenSubtitlesProvider(SubtitleProvider):
     """
 
     API_BASE = "https://api.opensubtitles.com/api/v1"
+    _KNOWN_SUBTITLE_FORMATS = {
+        "srt",
+        "ass",
+        "ssa",
+        "sub",
+        "vtt",
+        "txt",
+        "smi",
+        "smil",
+        "ttml",
+        "dfxp",
+        "stl",
+        "scc",
+        "sbv",
+        "lrc",
+    }
 
     def __init__(self, api_key: str, user_agent: str = "media-tool v1.0", timeout: int = 30, max_retries: int = 3):
         """
@@ -67,10 +89,10 @@ class OpenSubtitlesProvider(SubtitleProvider):
         Strategy:
         1. Primary: Search by file hash (most accurate)
         2. Fallback: Search by IMDB ID if available
-        3. Fallback: Search by filename/title
+        3. Fallback: Search by a normalized title/year derived from the file name
 
         API Endpoint: GET /subtitles
-        Query params: moviehash, languages, imdb_id, order_by
+        Query params: moviehash, languages, imdb_id, order_by, query, year
         """
 
         self._rate_limit()
@@ -82,50 +104,87 @@ class OpenSubtitlesProvider(SubtitleProvider):
             "limit": limit,
         }
 
-        # Add optional metadata for better matching
         if movie_info.imdb_id:
             params["imdb_id"] = movie_info.imdb_id.replace("tt", "")
 
         if movie_info.tmdb_id:
             params["tmdb_id"] = movie_info.tmdb_id
 
-        logger.debug(f"Searching OpenSubtitles with params: {params}")
+        logger.debug("Searching OpenSubtitles with params: %s", params)
+        matches = self._search_with_params(movie_info, params, limit)
+        if matches:
+            logger.info("Found %d subtitle matches for %s", len(matches), movie_info.file_path.name)
+            return matches
 
+        fallback_title = normalize_title_for_subtitle_search(movie_info.title or movie_info.file_path.stem)
+        fallback_year = movie_info.year
+        if fallback_year is None:
+            _, fallback_year = extract_title_year_from_filename(movie_info.file_path.stem)
+
+        if not fallback_title:
+            logger.info("Found 0 subtitle matches for %s", movie_info.file_path.name)
+            return []
+
+        fallback_params = {
+            "query": fallback_title,
+            "languages": ",".join(languages),
+            "order_by": "download_count",
+            "limit": limit,
+        }
+        if fallback_year is not None:
+            fallback_params["year"] = fallback_year
+
+        logger.debug("Retrying OpenSubtitles search with normalized title fallback: %s", fallback_params)
+        matches = self._search_with_params(movie_info, fallback_params, limit)
+        logger.info("Found %d subtitle matches for %s", len(matches), movie_info.file_path.name)
+        return matches
+
+    def _search_with_params(self, movie_info: MovieInfo, params: dict[str, Any], limit: int) -> list[SubtitleMatch]:
         response = self._make_request("GET", f"{self.API_BASE}/subtitles", params=params)
-
         if not response:
             return []
 
         data = response.json()
-        matches = []
+        matches: list[SubtitleMatch] = []
 
         for item in data.get("data", [])[:limit]:
             attributes = item.get("attributes", {})
-
-            # Extract file info (take first file)
             files = attributes.get("files", [])
             if not files:
                 continue
 
             file_info = files[0]
-
-            match = SubtitleMatch(
-                id=str(file_info["file_id"]),
-                language=attributes.get("language", "und"),
-                movie_name=attributes.get("feature_details", {}).get("movie_name", "Unknown"),
-                release_name=attributes.get("release", ""),
-                download_url=str(file_info["file_id"]),  # Will be used in download endpoint
-                rating=float(attributes.get("ratings", 0)),
-                download_count=int(attributes.get("download_count", 0)),
-                uploader=attributes.get("uploader", {}).get("name", "Unknown"),
-                hearing_impaired=bool(attributes.get("hearing_impaired", False)),
-                format=file_info.get("file_name", "").split(".")[-1].lower(),
-                provider="opensubtitles",
+            file_name = str(file_info.get("file_name", "") or "")
+            inferred_format = self._infer_subtitle_format(file_name)
+            matches.append(
+                SubtitleMatch(
+                    id=str(file_info["file_id"]),
+                    language=attributes.get("language", "und"),
+                    movie_name=attributes.get("feature_details", {}).get("movie_name", "Unknown"),
+                    release_name=attributes.get("release", ""),
+                    download_url=str(file_info["file_id"]),
+                    rating=float(attributes.get("ratings", 0)),
+                    download_count=int(attributes.get("download_count", 0)),
+                    uploader=attributes.get("uploader", {}).get("name", "Unknown"),
+                    hearing_impaired=bool(attributes.get("hearing_impaired", False)),
+                    format=inferred_format,
+                    provider="opensubtitles",
+                )
             )
-            matches.append(match)
 
-        logger.info(f"Found {len(matches)} subtitle matches for {movie_info.file_path.name}")
         return matches
+
+    def _infer_subtitle_format(self, file_name: str) -> str:
+        """Infer a trustworthy subtitle format from the provider file name."""
+        suffix = Path(file_name).suffix.lower().lstrip(".")
+        if suffix in self._KNOWN_SUBTITLE_FORMATS:
+            return suffix
+
+        logger.debug(
+            "OpenSubtitles returned an unusual subtitle filename %r; defaulting format to srt",
+            file_name,
+        )
+        return "srt"
 
     def download(self, match: SubtitleMatch, output_path: Path) -> Path:
         """

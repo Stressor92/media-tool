@@ -97,32 +97,51 @@ class DownloadManager:
                 download=False,
                 extra_opts={"extract_flat": "in_playlist", "ignoreerrors": True},
             )
+            if not isinstance(info, dict) or not info:
+                raise RuntimeError(self._nothing_to_download_message(request))
+
             self._log_playlist_summary(info)
+
+            if self._looks_like_collection_url(request.url) and self._available_playlist_items(info) == 0:
+                raise RuntimeError(self._nothing_to_download_message(request))
+
             return info
         return self._runner.extract_info(request.url, download=False)
 
+    @staticmethod
+    def _looks_like_collection_url(url: str) -> bool:
+        lowered = url.lower()
+        return any(token in lowered for token in ("list=", "/sets/", "/playlist", "/album/"))
+
     def _uses_playlist_tolerant_mode(self, request: DownloadRequest) -> bool:
-        url = request.url.lower()
-        return request.media_type == MediaType.SERIES or any(
-            token in url for token in ("list=", "/sets/", "/playlist", "/album/")
-        )
+        return request.media_type == MediaType.SERIES or self._looks_like_collection_url(request.url)
 
     @staticmethod
     def _looks_like_youtube_url(url: str) -> bool:
         lowered = url.lower()
         return "youtube.com" in lowered or "youtu.be" in lowered
 
-    def _playlist_entries(self, info: dict[str, Any]) -> list[Any]:
+    def _playlist_entries(self, info: dict[str, Any] | None) -> list[Any]:
+        if not isinstance(info, dict):
+            return []
         entries = info.get("entries")
         return entries if isinstance(entries, list) else []
 
-    def _available_playlist_items(self, info: dict[str, Any]) -> int | None:
+    def _available_playlist_items(self, info: dict[str, Any] | None) -> int | None:
         entries = self._playlist_entries(info)
         if not entries:
             return None
         return sum(1 for entry in entries if entry)
 
-    def _log_playlist_summary(self, info: dict[str, Any]) -> None:
+    def _nothing_to_download_message(self, request: DownloadRequest) -> str:
+        target = "playlist/album" if self._looks_like_collection_url(request.url) else "media URL"
+        return (
+            f"Nothing to download: the {target} returned no downloadable items or no usable metadata. "
+            "This usually means the link is empty, private, removed, geo-blocked, or the network/provider is currently unreachable. "
+            "Check your internet connection and verify the URL, then retry."
+        )
+
+    def _log_playlist_summary(self, info: dict[str, Any] | None) -> None:
         entries = self._playlist_entries(info)
         if not entries:
             return
@@ -186,6 +205,12 @@ class DownloadManager:
     def _format_error_message(self, exc: Exception, request: DownloadRequest) -> str:
         cleaned = self._clean_error_text(str(exc))
 
+        if self._is_network_error(exc):
+            return (
+                "Network connection problem: media-tool could not reach the provider or retrieve metadata/files. "
+                "Check your internet connection, DNS/VPN/firewall settings, and verify the URL before retrying."
+            )
+
         if self._is_geo_error(exc):
             return (
                 "Geo-restricted content: this media is not available from your location. "
@@ -243,9 +268,11 @@ class DownloadManager:
         return (
             self._is_auth_error(exc)
             or self._is_geo_error(exc)
+            or self._is_network_error(exc)
             or self._is_missing_po_token_error(exc)
             or self._is_rate_limit_error(exc)
             or self._is_availability_error(exc)
+            or self._is_no_downloadable_items_error(exc)
         )
 
     def _is_auth_error(self, exc: Exception) -> bool:
@@ -302,6 +329,34 @@ class DownloadManager:
             "geoblock",
         )
         return any(fragment in message for fragment in geo_fragments)
+
+    def _is_network_error(self, exc: Exception) -> bool:
+        message = self._clean_error_text(str(exc)).lower()
+        network_fragments = (
+            "temporary failure in name resolution",
+            "getaddrinfo failed",
+            "name or service not known",
+            "failed to establish a new connection",
+            "max retries exceeded",
+            "connection refused",
+            "connection reset",
+            "network is unreachable",
+            "unable to download webpage",
+            "unable to download api page",
+            "remote end closed connection",
+            "timed out",
+            "read timed out",
+        )
+        return any(fragment in message for fragment in network_fragments)
+
+    def _is_no_downloadable_items_error(self, exc: Exception) -> bool:
+        message = self._clean_error_text(str(exc)).lower()
+        no_items_fragments = (
+            "nothing to download",
+            "no downloadable items",
+            "no usable metadata",
+        )
+        return any(fragment in message for fragment in no_items_fragments)
 
     def _is_availability_error(self, exc: Exception) -> bool:
         message = self._clean_error_text(str(exc)).lower()

@@ -8,19 +8,22 @@ Coordinates search, download, and embedding operations.
 from __future__ import annotations
 
 import logging
-import re
 import time
 from collections.abc import Callable
 from pathlib import Path
 
-from src.statistics import get_collector
-from src.statistics.event_types import EventType
-
+from src.statistics import EventType, get_collector
 from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
 from utils.video_hasher import VideoHasher
 
-from .subtitle_provider import DownloadResult, MovieInfo, SubtitleMatch, SubtitleProvider
+from .subtitle_provider import (
+    DownloadResult,
+    MovieInfo,
+    SubtitleMatch,
+    SubtitleProvider,
+    extract_title_year_from_filename,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -212,23 +215,14 @@ class SubtitleDownloadManager:
 
     def _parse_filename(self, filename: str) -> tuple[str | None, int | None]:
         """
-        Extract title and year from filename.
+        Extract a cleaner title and optional year from noisy media filenames.
 
         Examples:
         - "Movie.Name.2020.1080p.BluRay.mkv" → ("Movie Name", 2020)
-        - "Movie Name (2020) [DVD].mkv" → ("Movie Name", 2020)
+        - "Movie Name [Directors Cut] (2020) [DVD]_subtitled.mkv" → ("Movie Name", 2020)
         """
 
-        # Pattern: (title) (year) [release info]
-        pattern = r"^(.+?)[\.\s]+\(?(\d{4})\)?"
-        match = re.search(pattern, filename)
-
-        if match:
-            title = match.group(1).replace(".", " ").strip()
-            year = int(match.group(2))
-            return title, year
-
-        return None, None
+        return extract_title_year_from_filename(filename)
 
     def _download_subtitle(self, match: SubtitleMatch, video_path: Path) -> Path:
         """Download subtitle file to appropriate location."""
@@ -246,12 +240,13 @@ class SubtitleDownloadManager:
         For complex formats, might need external tools.
         """
 
-        if source_format.lower() == "srt":
+        normalized_format = source_format.strip().lower()
+        if normalized_format in {"", "srt", "unknown"}:
             return subtitle_path
 
-        # For now, just log and return as-is
+        # For now, just log and return as-is for real non-SRT subtitle formats.
         # TODO: Implement format conversion (SUB, ASS, etc. to SRT)
-        logger.warning(f"Format conversion from {source_format} to SRT not implemented yet")
+        logger.warning("Format conversion from %s to SRT not implemented yet", source_format)
 
         return subtitle_path
 

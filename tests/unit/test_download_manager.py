@@ -74,7 +74,8 @@ class TestDownloadManager:
         result = manager.download(request)
 
         assert result.status == DownloadStatus.FAILED
-        assert "connection refused" in (result.error_message or "")
+        assert result.error_message is not None
+        assert "Network connection problem" in result.error_message
 
     def test_batch_download(self, manager: DownloadManager, tmp_path: Path) -> None:
         requests = [
@@ -384,3 +385,39 @@ class TestDownloadManager:
         assert "Playlist item 1/3: Song A — Artist A" in caplog.text
         assert "Playlist item 2/3: Song B" in caplog.text
         assert "Playlist item 3/3: unavailable or hidden entry" in caplog.text
+
+    def test_playlist_metadata_none_returns_actionable_message(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_runner.extract_info.return_value = None
+        request = DownloadRequest(
+            url="https://soundcloud.com/example/sets/mix",
+            media_type=MediaType.SERIES,
+            output_dir=tmp_path,
+        )
+
+        result = manager.download(request)
+
+        assert result.status == DownloadStatus.FAILED
+        assert result.error_message is not None
+        assert "Nothing to download" in result.error_message
+        assert "internet connection" in result.error_message.lower()
+
+    def test_network_error_is_user_friendly(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_runner.extract_info.side_effect = RuntimeError(
+            "ERROR: unable to download API page: [Errno 11001] getaddrinfo failed: Temporary failure in name resolution"
+        )
+        request = DownloadRequest(
+            url="https://soundcloud.com/example/sets/mix",
+            media_type=MediaType.SERIES,
+            output_dir=tmp_path,
+        )
+
+        result = manager.download(request)
+
+        assert result.status == DownloadStatus.FAILED
+        assert result.error_message is not None
+        assert "Network connection problem" in result.error_message
+        assert "Check your internet connection" in result.error_message

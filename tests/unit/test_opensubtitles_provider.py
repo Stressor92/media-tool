@@ -71,6 +71,58 @@ class TestOpenSubtitlesProvider:
         assert match.provider == "opensubtitles"
 
     @patch.object(OpenSubtitlesProvider, "_make_request")
+    def test_search_defaults_weird_release_labels_to_srt(self, mock_make_request, provider, movie_info):
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "data": [
+                {
+                    "attributes": {
+                        "language": "en",
+                        "feature_details": {"movie_name": "Jurassic World"},
+                        "release": "Jurassic.World.2015.BluRay.x264-AC3-EVO",
+                        "ratings": 8.0,
+                        "download_count": 500,
+                        "uploader": {"name": "Uploader"},
+                        "hearing_impaired": False,
+                        "files": [{"file_id": 12346, "file_name": "Jurassic.World.2015.BluRay.x264-AC3-EVO"}],
+                    }
+                }
+            ]
+        }
+        mock_make_request.return_value = mock_response
+
+        matches = provider.search(movie_info, ["en"])
+
+        assert len(matches) == 1
+        assert matches[0].format == "srt"
+
+    @patch.object(OpenSubtitlesProvider, "_make_request")
+    def test_search_preserves_real_subtitle_extension(self, mock_make_request, provider, movie_info):
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "data": [
+                {
+                    "attributes": {
+                        "language": "en",
+                        "feature_details": {"movie_name": "Test Movie"},
+                        "release": "Test.Movie.2020.1080p.BluRay.x264",
+                        "ratings": 8.5,
+                        "download_count": 1500,
+                        "uploader": {"name": "TestUploader"},
+                        "hearing_impaired": False,
+                        "files": [{"file_id": 12347, "file_name": "test.ass"}],
+                    }
+                }
+            ]
+        }
+        mock_make_request.return_value = mock_response
+
+        matches = provider.search(movie_info, ["en"])
+
+        assert len(matches) == 1
+        assert matches[0].format == "ass"
+
+    @patch.object(OpenSubtitlesProvider, "_make_request")
     def test_search_no_results(self, mock_make_request, provider, movie_info):
         """Test search with no results."""
         mock_response = Mock()
@@ -80,6 +132,46 @@ class TestOpenSubtitlesProvider:
         matches = provider.search(movie_info, ["en"])
 
         assert len(matches) == 0
+
+    @patch.object(OpenSubtitlesProvider, "_make_request")
+    def test_search_falls_back_to_clean_title_and_year(self, mock_make_request, provider):
+        empty_response = Mock()
+        empty_response.json.return_value = {"data": []}
+
+        title_response = Mock()
+        title_response.json.return_value = {
+            "data": [
+                {
+                    "attributes": {
+                        "language": "en",
+                        "feature_details": {"movie_name": "Movie Name"},
+                        "release": "Movie.Name.2017.1080p.BluRay",
+                        "ratings": 9.0,
+                        "download_count": 999,
+                        "uploader": {"name": "Uploader"},
+                        "hearing_impaired": False,
+                        "files": [{"file_id": 777, "file_name": "movie.srt"}],
+                    }
+                }
+            ]
+        }
+        mock_make_request.side_effect = [empty_response, title_response]
+
+        movie_info = MovieInfo(
+            file_path=Path("/test/Movie Name [Directors Cut] (2017) [DVD]_subtitled.mkv"),
+            file_hash="8e245d9679d31e12",
+            file_size=1000000,
+            duration=3600.0,
+            title="Movie Name [Directors Cut]",
+            year=2017,
+        )
+
+        matches = provider.search(movie_info, ["en"])
+
+        assert len(matches) == 1
+        second_call_params = mock_make_request.call_args_list[1].kwargs["params"]
+        assert second_call_params["query"] == "Movie Name"
+        assert second_call_params["year"] == 2017
 
     @patch.object(OpenSubtitlesProvider, "_make_request")
     @patch("requests.get")

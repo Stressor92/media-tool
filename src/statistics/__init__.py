@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .event_types import EventType as EventType
 from .stats_collector import StatsCollector
 from .stats_manager import StatsManager
 

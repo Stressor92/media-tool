@@ -154,7 +154,10 @@ def download(
 
                 # Suggest Whisper fallback
                 if result.fallback_suggestion == "whisper":
-                    console.print(f"  [yellow]→ Try: media-tool subtitle generate {file}[/yellow]")
+                    suggested_language = language_list[0] if language_list else "en"
+                    console.print(
+                        f'  [yellow]→ Try: media-tool video subtitle "{file}" --language {suggested_language}[/yellow]'
+                    )
 
         except Exception as e:
             console.print(f"[red]✗[/red] {file.name}: Unexpected error - {e}")
