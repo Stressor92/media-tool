@@ -8,10 +8,13 @@ Coordinates search, download, and embedding operations.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from pathlib import Path
 
+from core.translation.subtitle_parser import parse_subtitle_file
+from core.video.subtitle_processor import SubtitleTimingProcessor
 from src.statistics import EventType, get_collector
 from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
@@ -50,6 +53,7 @@ class SubtitleDownloadManager:
         self.provider = provider
         self.ffmpeg = ffmpeg_runner
         self.hasher = VideoHasher()
+        self.timing_processor = SubtitleTimingProcessor()
 
     def process(
         self,
@@ -103,8 +107,9 @@ class SubtitleDownloadManager:
             return DownloadResult(success=False, message="No subtitles found", fallback_suggestion="whisper")
 
         # Step 4: Select best match
+        release_hint = self._build_release_hint(video_path)
         if auto_select:
-            best_match = self.provider.get_best_match(matches)
+            best_match = self.provider.get_best_match(matches, release_hint=release_hint, movie_info=movie_info)
         else:
             if selection_callback is None:
                 return DownloadResult(success=False, message="Interactive selection requires a CLI selection callback")
@@ -126,6 +131,16 @@ class SubtitleDownloadManager:
             except Exception as e:
                 logger.warning(f"Format conversion failed: {e}, using original")
 
+        timing_ok, timing_note = self._validate_and_sync_subtitle(subtitle_path, movie_info.duration)
+        if not timing_ok:
+            return DownloadResult(
+                success=False,
+                message=timing_note or "Downloaded subtitle does not fit the video runtime",
+                subtitle_path=subtitle_path,
+                subtitle_info=best_match,
+                fallback_suggestion="manual",
+            )
+
         # Step 7: Embed into MKV (optional)
         if embed:
             success = self._embed_subtitle(video_path, subtitle_path, best_match.language)
@@ -142,7 +157,9 @@ class SubtitleDownloadManager:
                 # Clean up external file after embedding
                 subtitle_path.unlink()
                 return DownloadResult(
-                    success=True, message=f"Embedded {best_match.language} subtitle", subtitle_info=best_match
+                    success=True,
+                    message=f"Embedded {best_match.language} subtitle{timing_note or ''}",
+                    subtitle_info=best_match,
                 )
             else:
                 logger.warning("Embedding failed, keeping external subtitle file")
@@ -159,7 +176,7 @@ class SubtitleDownloadManager:
 
         return DownloadResult(
             success=True,
-            message=f"Downloaded to {subtitle_path}",
+            message=f"Downloaded to {subtitle_path}{timing_note or ''}",
             subtitle_path=subtitle_path,
             subtitle_info=best_match,
         )
@@ -224,6 +241,14 @@ class SubtitleDownloadManager:
 
         return extract_title_year_from_filename(filename)
 
+    def _build_release_hint(self, video_path: Path) -> str:
+        """Combine file and folder names into a better hint for provider-side release matching."""
+        parent_name = video_path.parent.name.strip()
+        stem = video_path.stem.strip()
+        if parent_name and parent_name.lower() != stem.lower():
+            return f"{stem} {parent_name}"
+        return stem
+
     def _download_subtitle(self, match: SubtitleMatch, video_path: Path) -> Path:
         """Download subtitle file to appropriate location."""
 
@@ -249,6 +274,86 @@ class SubtitleDownloadManager:
         logger.warning("Format conversion from %s to SRT not implemented yet", source_format)
 
         return subtitle_path
+
+    def _validate_and_sync_subtitle(self, subtitle_path: Path, video_duration: float) -> tuple[bool, str | None]:
+        """Check whether subtitle runtime plausibly fits the video and auto-correct small drift."""
+        if video_duration <= 0 or not subtitle_path.exists():
+            return True, None
+
+        subtitle_duration = self._estimate_subtitle_duration(subtitle_path)
+        if subtitle_duration is None or subtitle_duration <= 0:
+            return True, None
+
+        drift_seconds = abs(video_duration - subtitle_duration)
+        drift_ratio = drift_seconds / max(video_duration, 1.0)
+
+        # Close enough already: both absolute drift and relative drift must be tiny.
+        if drift_seconds <= 3.0 and drift_ratio <= 0.01:
+            return True, None
+
+        # Common PAL/NTSC drift can be fixed by uniform rescaling.
+        if subtitle_path.suffix.lower() == ".srt" and drift_ratio <= 0.08:
+            sync_result = self.timing_processor.sync_to_video(
+                subtitle_path,
+                video_duration=video_duration,
+                wav_duration=subtitle_duration,
+            )
+            if sync_result.success:
+                return True, f" (timing adjusted {sync_result.scale_factor:.4f}x to fit runtime)"
+            logger.warning("Subtitle timing sync failed for %s: %s", subtitle_path, sync_result.error_message)
+
+        # Very large drift is a strong signal that the wrong cut/release was downloaded.
+        if drift_ratio > 0.20 and drift_seconds > 120.0:
+            return (
+                False,
+                "Downloaded subtitle appears to be for a different cut/release "
+                f"(video {video_duration / 60:.1f} min vs subtitle {subtitle_duration / 60:.1f} min). "
+                "Try `media-tool subtitle download --interactive`.",
+            )
+
+        return True, f" (warning: runtime differs by {drift_seconds:.0f}s; manual sync may still be needed)"
+
+    def _estimate_subtitle_duration(self, subtitle_path: Path) -> float | None:
+        """Estimate the subtitle runtime from the last cue end timestamp."""
+        try:
+            text = subtitle_path.read_text(encoding="utf-8-sig", errors="replace")
+        except Exception as exc:
+            logger.debug("Failed to read subtitle timing for %s: %s", subtitle_path, exc)
+            return None
+
+        # Be permissive: downloaded SRTs sometimes contain leading whitespace.
+        timestamp_matches = re.findall(
+            r"(?m)^\s*(\d{1,2}:\d{2}:\d{2}[,.]\d{2,3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[,.]\d{2,3})",
+            text,
+        )
+        if timestamp_matches:
+            try:
+                return max(self._timestamp_to_seconds(end) for _start, end in timestamp_matches)
+            except Exception as exc:
+                logger.debug("Failed to inspect raw subtitle timestamps for %s: %s", subtitle_path, exc)
+
+        try:
+            document = parse_subtitle_file(subtitle_path)
+        except Exception as exc:
+            logger.debug("Failed to parse subtitle timing for %s: %s", subtitle_path, exc)
+            return None
+
+        if not document.segments:
+            return None
+
+        try:
+            return max(self._timestamp_to_seconds(segment.end) for segment in document.segments)
+        except Exception as exc:
+            logger.debug("Failed to inspect subtitle timestamps for %s: %s", subtitle_path, exc)
+            return None
+
+    @staticmethod
+    def _timestamp_to_seconds(value: str) -> float:
+        """Convert normalized SRT/VTT-style timestamps to seconds."""
+        normalized = value.strip().replace(".", ",")
+        hours, minutes, rest = normalized.split(":")
+        seconds, millis = rest.split(",")
+        return int(hours) * 3600.0 + int(minutes) * 60.0 + int(seconds) + (int(millis[:3].ljust(3, "0")) / 1000.0)
 
     def _embed_subtitle(self, video_path: Path, subtitle_path: Path, language: str) -> bool:
         """

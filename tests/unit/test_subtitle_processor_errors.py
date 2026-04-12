@@ -87,6 +87,7 @@ class TestSubtitleDownloadManagerErrors:
         manager_any._should_process_file = MagicMock(return_value=True)
         manager_any._extract_movie_info = MagicMock()
         manager_any._download_subtitle = MagicMock(return_value=tmp_path / "movie.en.srt")
+        manager_any._validate_and_sync_subtitle = MagicMock(return_value=(True, None))
 
         result = manager.process(
             video,

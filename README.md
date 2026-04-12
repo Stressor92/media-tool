@@ -132,8 +132,12 @@ media-tool inspect scan "Y:\Jellyfin\Movies" --recursive --output after_audit.cs
 
 Merge multiple audio tracks (typically German + English) into a single file with all tracks preserved.
 
-- `media-tool merge auto "C:\Movies" --recursive` — Auto-detect + merge German/English pairs
-- `media-tool merge manual "movie_german.mkv" "movie_english.mkv" --output movie_merged.mkv` — Merge specific files
+- `media-tool merge batch "C:\Movies"` — Process many MP4 files in one folder:
+  - `<title>-de.mp4` + `<title>-en.mp4` -> `<title>/<title>.mkv` with DE+EN audio
+  - only one file for a title -> `<title>/<title>.mkv` with German audio metadata
+- `media-tool merge batch "C:\Movies" --output-dir "D:\MergedMovies"` — Write output MKVs to another drive
+- `media-tool merge auto "C:\Movies"` — Auto-detect and merge one DE/EN pair in a folder
+- `media-tool merge manual "movie_german.mp4" "movie_english.mp4" --target movie_merged.mkv` — Merge specific files
 
 **Use case:** You downloaded a German movie and English audio separately; merge them into one MKV with selectable audio tracks.
 

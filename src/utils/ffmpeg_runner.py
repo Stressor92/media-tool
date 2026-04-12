@@ -14,6 +14,7 @@ Rules:
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,7 +83,12 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
     except FileNotFoundError as exc:
         raise FileNotFoundError(f"ffmpeg executable not found: {command[0]}") from exc
 
-    success = result.returncode == 0
+    # Windows may expose 32-bit unsigned exit codes (e.g. -28 -> 4294967268).
+    return_code = result.returncode
+    if return_code > 0x7FFFFFFF:
+        return_code -= 0x100000000
+
+    success = return_code == 0
 
     if not success:
         # Decode stderr safely for logging
@@ -91,7 +97,7 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
             "ffmpeg process failed",
             extra={
                 "context": {
-                    "return_code": result.returncode,
+                    "return_code": return_code,
                     "executable": command[0],
                     "arg_count": len(args),
                     "stderr_tail": stderr_str[-1000:],
@@ -111,11 +117,25 @@ def run_ffmpeg(args: list[str]) -> FFmpegResult:
 
     return FFmpegResult(
         success=success,
-        return_code=result.returncode,
+        return_code=return_code,
         command=command,
         stderr_bytes=result.stderr,
         stdout_bytes=result.stdout,
     )
+
+
+def _ffmpeg_input_path(path: Path) -> str:
+    """Return a string path safe for use as an ffmpeg ``-i`` argument.
+
+    ffmpeg interprets ``[`` and ``]`` in unquoted file arguments as glob
+    patterns on certain platforms, causing ``Invalid data found when
+    processing input`` errors for filenames like ``Movie [en].mkv``.
+    Prefixing with ``file:`` and using forward-slash POSIX notation tells
+    ffmpeg to treat the string as a literal local-file URL.
+    """
+    if not re.search(r"[\[\]?*]", path.name):
+        return str(path)
+    return "file:" + path.as_posix()
 
 
 @dataclass(frozen=True)
@@ -151,9 +171,9 @@ class FFmpegMuxer:
             cmd = [
                 "-y",
                 "-i",
-                str(backup_file),
+                _ffmpeg_input_path(backup_file),
                 "-i",
-                str(srt_path),
+                _ffmpeg_input_path(srt_path),
                 "-map",
                 "0",
                 "-map",

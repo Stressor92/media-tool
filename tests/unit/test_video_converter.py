@@ -11,6 +11,8 @@ Test video conversion logic including:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from core.video.converter import (
@@ -462,6 +464,23 @@ class TestConvertMp4ToMkv:
         # Output should be cleaned up onFailure
         assert result.failed
         # File might be deleted by the function (behavior depends on implementation)
+
+    def test_convert_fails_early_on_low_disk_space(self, tmp_media_dir, patch_run_ffmpeg, monkeypatch):
+        """Should fail before ffmpeg starts when free disk space is insufficient."""
+        source = tmp_media_dir / "input.mp4"
+        target = tmp_media_dir / "output.mkv"
+        source.write_bytes(b"0" * 1024)
+
+        monkeypatch.setattr(
+            "core.video.converter.shutil.disk_usage",
+            lambda _path: SimpleNamespace(total=1024, used=1023, free=1),
+        )
+
+        result = convert_mp4_to_mkv(source, target)
+
+        assert result.failed
+        assert "Insufficient free disk space" in result.message
+        patch_run_ffmpeg.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

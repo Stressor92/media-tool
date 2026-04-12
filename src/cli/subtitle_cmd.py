@@ -12,6 +12,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape as _escape
 
 from core.subtitles.opensubtitles_provider import OpenSubtitlesProvider
 from core.subtitles.subtitle_downloader import SubtitleDownloadManager
@@ -147,10 +148,10 @@ def download(
             )
 
             if result.success:
-                console.print(f"[green]✓[/green] {file.name}: {result.message}")
+                console.print(f"[green]✓[/green] {_escape(file.name)}: {result.message}")
                 success_count += 1
             else:
-                console.print(f"[red]✗[/red] {file.name}: {result.message}")
+                console.print(f"[red]✗[/red] {_escape(file.name)}: {result.message}")
 
                 # Suggest Whisper fallback
                 if result.fallback_suggestion == "whisper":
@@ -248,7 +249,7 @@ def search(
     console.print(f"\n[yellow]Found {len(matches)} subtitle(s)[/yellow]")
 
     # Show best match
-    best = provider.get_best_match(matches)
+    best = provider.get_best_match(matches, release_hint=path.stem, movie_info=movie_info)
     if best:
         console.print(
             f"[green]Best match:[/green] {best.release_name} ({best.rating:.1f}★, {best.download_count:,} downloads)"

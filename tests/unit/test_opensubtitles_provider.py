@@ -276,6 +276,48 @@ class TestOpenSubtitlesProvider:
         best = provider.get_best_match(matches, "BluRay")
         assert best.id == "2"  # Exact release match wins despite lower rating
 
+    def test_get_best_match_prefers_duration_compatible_release(self, provider):
+        """Prefer subtitles whose runtime is closer to the video duration."""
+        movie_info = MovieInfo(
+            file_path=Path("/test/movie.mkv"),
+            file_hash="8e245d9679d31e12",
+            file_size=1000000,
+            duration=6000.0,
+        )
+        matches = [
+            SubtitleMatch(
+                id="1",
+                language="en",
+                movie_name="Test",
+                release_name="Movie.1080p.BluRay",
+                download_url="",
+                rating=8.0,
+                download_count=200,
+                uploader="A",
+                hearing_impaired=False,
+                format="srt",
+                provider="opensubtitles",
+                duration=6005.0,
+            ),
+            SubtitleMatch(
+                id="2",
+                language="en",
+                movie_name="Test",
+                release_name="Movie.1080p.WEB-DL",
+                download_url="",
+                rating=9.5,
+                download_count=5000,
+                uploader="B",
+                hearing_impaired=False,
+                format="srt",
+                provider="opensubtitles",
+                duration=5400.0,
+            ),
+        ]
+
+        best = provider.get_best_match(matches, "Movie.1080p", movie_info=movie_info)
+        assert best.id == "1"
+
     def test_get_best_match_all_hearing_impaired(self, provider):
         """Test selection when all matches are hearing impaired."""
         matches = [

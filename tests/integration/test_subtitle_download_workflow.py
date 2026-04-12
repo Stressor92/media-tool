@@ -123,6 +123,33 @@ More subtitle text
         assert subtitle_path.exists()
         assert subtitle_path.read_text() == subtitle_content
 
+    def test_download_external_subtitle_scales_small_timing_drift(self, tmp_path, manager, mock_provider):
+        """Slight PAL/NTSC-style drift should be auto-scaled to video duration."""
+
+        video_file = create_test_video(tmp_path / "test_movie.mkv", resolution="1920x1080", duration=60)
+        subtitle_path = tmp_path / "test_movie.en.srt"
+        subtitle_content = """1
+00:00:01,000 --> 00:00:03,000
+Intro
+
+2
+00:00:55,000 --> 00:00:57,500
+Ending
+"""
+
+        def mock_download(match, output_path):
+            output_path.write_text(subtitle_content)
+            return output_path
+
+        mock_provider.download.side_effect = mock_download
+
+        result = manager.process(video_file, languages=["en"], auto_select=True, embed=False)
+
+        assert result.success
+        assert result.subtitle_path == subtitle_path
+        synced_text = subtitle_path.read_text()
+        assert "00:01:00," in synced_text
+
     def test_no_subtitles_found(self, tmp_path, manager, mock_provider):
         """Test handling when no subtitles are found."""
 

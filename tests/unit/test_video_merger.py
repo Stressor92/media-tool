@@ -10,6 +10,8 @@ Test video merging logic including:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from core.video.merger import (
@@ -169,6 +171,7 @@ class TestDeriveOutputName:
         """Should preserve year in title when removing language."""
         file_path = tmp_media_dir / "Movie (2022)-de.mp4"
         assert "2022" in derive_output_name(file_path)
+        assert derive_output_name(file_path).endswith(")")
         assert "-de" not in derive_output_name(file_path).lower()
 
     def test_derive_with_multiple_parts(self, tmp_media_dir):
@@ -400,6 +403,25 @@ class TestMergeDualAudio:
 
         assert result.message  # Should have a message
         assert len(result.message) > 0
+
+    def test_merge_fails_early_on_low_disk_space(self, tmp_media_dir, patch_merge_ffmpeg, monkeypatch):
+        """Should fail before ffmpeg starts when free disk space is insufficient."""
+        german = tmp_media_dir / "input" / "Movie-de.mp4"
+        english = tmp_media_dir / "input" / "Movie-en.mp4"
+        target = tmp_media_dir / "output" / "Movie.mkv"
+        german.write_bytes(b"0" * 1024)
+        english.write_bytes(b"1" * 1024)
+
+        monkeypatch.setattr(
+            "core.video.merger.shutil.disk_usage",
+            lambda _path: SimpleNamespace(total=1024, used=1023, free=1),
+        )
+
+        result = merge_dual_audio(german, english, target)
+
+        assert result.failed
+        assert "Insufficient free disk space" in result.message
+        patch_merge_ffmpeg.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

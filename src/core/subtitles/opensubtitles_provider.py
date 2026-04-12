@@ -18,6 +18,7 @@ from .subtitle_provider import (
     MovieInfo,
     SubtitleMatch,
     SubtitleProvider,
+    extract_release_tokens,
     extract_title_year_from_filename,
     normalize_title_for_subtitle_search,
 )
@@ -153,6 +154,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
             if not files:
                 continue
 
+            feature_details = attributes.get("feature_details", {}) or {}
             file_info = files[0]
             file_name = str(file_info.get("file_name", "") or "")
             inferred_format = self._infer_subtitle_format(file_name)
@@ -160,7 +162,7 @@ class OpenSubtitlesProvider(SubtitleProvider):
                 SubtitleMatch(
                     id=str(file_info["file_id"]),
                     language=attributes.get("language", "und"),
-                    movie_name=attributes.get("feature_details", {}).get("movie_name", "Unknown"),
+                    movie_name=feature_details.get("movie_name", "Unknown"),
                     release_name=attributes.get("release", ""),
                     download_url=str(file_info["file_id"]),
                     rating=float(attributes.get("ratings", 0)),
@@ -169,6 +171,11 @@ class OpenSubtitlesProvider(SubtitleProvider):
                     hearing_impaired=bool(attributes.get("hearing_impaired", False)),
                     format=inferred_format,
                     provider="opensubtitles",
+                    file_name=file_name,
+                    duration=self._coerce_duration(
+                        attributes.get("duration") or feature_details.get("duration") or feature_details.get("runtime")
+                    ),
+                    fps=self._coerce_float(attributes.get("fps") or attributes.get("frame_rate")),
                 )
             )
 
@@ -185,6 +192,43 @@ class OpenSubtitlesProvider(SubtitleProvider):
             file_name,
         )
         return "srt"
+
+    def _coerce_float(self, value: Any) -> float | None:
+        """Best-effort conversion for optional numeric metadata returned by the provider."""
+        if value in (None, ""):
+            return None
+
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _coerce_duration(self, value: Any) -> float | None:
+        """Normalize provider runtime metadata to seconds when it is available."""
+        if value in (None, ""):
+            return None
+
+        numeric = self._coerce_float(value)
+        if numeric is not None:
+            if numeric > 100_000:
+                return numeric / 1000.0
+            return numeric
+
+        if isinstance(value, str):
+            raw = value.strip().lower()
+            if ":" in raw:
+                try:
+                    parts = [float(part) for part in raw.replace(",", ".").split(":")]
+                except ValueError:
+                    parts = []
+                if len(parts) == 3:
+                    hours, minutes, seconds = parts
+                    return (hours * 3600.0) + (minutes * 60.0) + seconds
+                if len(parts) == 2:
+                    minutes, seconds = parts
+                    return (minutes * 60.0) + seconds
+
+        return None
 
     def download(self, match: SubtitleMatch, output_path: Path) -> Path:
         """
@@ -222,32 +266,69 @@ class OpenSubtitlesProvider(SubtitleProvider):
 
         return output_path
 
-    def get_best_match(self, matches: list[SubtitleMatch], release_hint: str | None = None) -> SubtitleMatch | None:
+    def get_best_match(
+        self,
+        matches: list[SubtitleMatch],
+        release_hint: str | None = None,
+        movie_info: MovieInfo | None = None,
+    ) -> SubtitleMatch | None:
         """
-        Select best subtitle based on:
-        1. Exact release name match (if provided)
-        2. Highest rating (>7.0 preferred)
-        3. Highest download count
-        4. Not hearing impaired (unless specifically wanted)
+        Select the best subtitle using a weighted score:
+        1. Release/file-name similarity to the local video file
+        2. Runtime closeness (when provider metadata includes it)
+        3. Provider rating and popularity
+        4. Prefer non-hearing-impaired subtitles by default
         """
 
         if not matches:
             return None
 
-        # Filter out hearing impaired by default
         filtered = [m for m in matches if not m.hearing_impaired]
         if not filtered:
-            filtered = matches  # Fallback if all are HI
+            filtered = matches
 
-        # If release name provided, prioritize exact match
-        if release_hint:
-            exact_matches = [m for m in filtered if release_hint.lower() in m.release_name.lower()]
-            if exact_matches:
-                # Sort by rating, then downloads
-                return sorted(exact_matches, key=lambda x: (x.rating, x.download_count), reverse=True)[0]
+        ranked = sorted(
+            filtered,
+            key=lambda match: self._score_match(match, release_hint=release_hint, movie_info=movie_info),
+            reverse=True,
+        )
+        return ranked[0]
 
-        # Otherwise, select by rating + downloads
-        return sorted(filtered, key=lambda x: (x.rating, x.download_count), reverse=True)[0]
+    def _score_match(
+        self,
+        match: SubtitleMatch,
+        release_hint: str | None = None,
+        movie_info: MovieInfo | None = None,
+    ) -> float:
+        """Compute a weighted score for auto-selecting the most plausible subtitle match."""
+        score = (match.rating * 20.0) + min(match.download_count / 200.0, 40.0)
+
+        if match.hearing_impaired:
+            score -= 12.0
+
+        release_text = " ".join(part for part in (match.release_name, match.file_name) if part).strip()
+        if release_hint and release_text:
+            release_hint_lower = release_hint.lower()
+            release_text_lower = release_text.lower()
+            if release_hint_lower in release_text_lower:
+                score += 60.0
+
+            hint_tokens = extract_release_tokens(release_hint)
+            release_tokens = extract_release_tokens(release_text)
+            overlap = hint_tokens & release_tokens
+            if overlap:
+                score += min(len(overlap) * 8.0, 48.0)
+                score += (len(overlap) / max(len(hint_tokens), 1)) * 25.0
+
+        if movie_info and movie_info.duration > 0 and match.duration and match.duration > 0:
+            drift_ratio = abs(movie_info.duration - match.duration) / movie_info.duration
+            score += max(0.0, 35.0 - (drift_ratio * 500.0))
+            if drift_ratio > 0.08:
+                score -= 40.0
+            if drift_ratio > 0.15:
+                score -= 80.0
+
+        return score
 
     def _rate_limit(self) -> None:
         """Implement client-side rate limiting."""

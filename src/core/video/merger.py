@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
 import time
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -25,10 +26,24 @@ from src.backup import get_backup_manager
 from src.backup.models import MediaType
 from src.statistics import get_collector
 from src.statistics.event_types import EventType
-
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 
 logger = logging.getLogger(__name__)
+
+
+def _format_bytes(byte_count: int) -> str:
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    size = float(max(0, byte_count))
+    for unit in units:
+        if size < 1024.0 or unit == units[-1]:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{byte_count} B"
+
+
+def _required_space_for_dual_audio_merge(german_file: Path, english_file: Path) -> int:
+    # Conservative estimate: combined source sizes plus a 256 MiB safety margin.
+    return german_file.stat().st_size + english_file.stat().st_size + (256 * 1024 * 1024)
 
 
 # ---------------------------------------------------------------------------
@@ -183,6 +198,21 @@ def merge_dual_audio(
         )
 
     target.parent.mkdir(parents=True, exist_ok=True)
+
+    required_bytes = _required_space_for_dual_audio_merge(german_file, english_file)
+    free_bytes = shutil.disk_usage(target.parent).free
+    if free_bytes < required_bytes:
+        return MergeResult(
+            status=MergeStatus.FAILED,
+            german_source=german_file,
+            english_source=english_file,
+            target=target,
+            message=(
+                "Insufficient free disk space for merge: "
+                f"required about {_format_bytes(required_bytes)}, "
+                f"available {_format_bytes(free_bytes)}."
+            ),
+        )
 
     ffmpeg_args = [
         "-y",

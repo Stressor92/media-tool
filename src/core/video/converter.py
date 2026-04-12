@@ -14,6 +14,7 @@ Rules:
 from __future__ import annotations
 
 import logging
+import shutil
 import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -23,10 +24,25 @@ from src.backup import get_backup_manager
 from src.backup.models import MediaType
 from src.statistics import get_collector
 from src.statistics.event_types import EventType
-
 from utils.ffmpeg_runner import FFmpegResult, run_ffmpeg
 
 logger = logging.getLogger(__name__)
+
+
+def _format_bytes(byte_count: int) -> str:
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    size = float(max(0, byte_count))
+    for unit in units:
+        if size < 1024.0 or unit == units[-1]:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{byte_count} B"
+
+
+def _required_space_for_remux(source: Path) -> int:
+    # Conservative estimate: source size plus 10% container overhead and 256 MiB safety margin.
+    source_size = source.stat().st_size
+    return int(source_size * 1.10) + (256 * 1024 * 1024)
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +159,20 @@ def convert_mp4_to_mkv(
 
     # Ensure output directory exists
     target.parent.mkdir(parents=True, exist_ok=True)
+
+    required_bytes = _required_space_for_remux(source)
+    free_bytes = shutil.disk_usage(target.parent).free
+    if free_bytes < required_bytes:
+        return ConversionResult(
+            status=ConversionStatus.FAILED,
+            source=source,
+            target=target,
+            message=(
+                "Insufficient free disk space for remux: "
+                f"required about {_format_bytes(required_bytes)}, "
+                f"available {_format_bytes(free_bytes)}."
+            ),
+        )
 
     ffmpeg_args = [
         "-y",  # overwrite target without asking

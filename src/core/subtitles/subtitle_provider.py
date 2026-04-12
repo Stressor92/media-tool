@@ -28,6 +28,9 @@ class SubtitleMatch:
     hearing_impaired: bool  # SDH/CC flag
     format: str  # "srt", "ass", "sub"
     provider: str  # "opensubtitles", "whisper", etc.
+    file_name: str = ""  # Provider-reported subtitle filename when available
+    duration: float | None = None  # Provider-reported runtime in seconds when available
+    fps: float | None = None  # Provider-reported FPS hint when available
 
 
 @dataclass
@@ -95,6 +98,14 @@ def extract_title_year_from_filename(filename: str) -> tuple[str | None, int | N
     return (title or None), year
 
 
+def extract_release_tokens(raw: str) -> set[str]:
+    """Return normalized tokens for release matching (title/year/1080p/BluRay/etc.)."""
+    stem = Path(raw).stem.lower()
+    tokens = re.findall(r"[a-z0-9]+", stem)
+    stopwords = {"the", "a", "an", "and", "of", "der", "die", "das"}
+    return {token for token in tokens if len(token) >= 2 and token not in stopwords}
+
+
 class SubtitleProvider(ABC):
     """Abstract interface for subtitle sources"""
 
@@ -109,6 +120,11 @@ class SubtitleProvider(ABC):
         pass
 
     @abstractmethod
-    def get_best_match(self, matches: list[SubtitleMatch], release_hint: str | None = None) -> SubtitleMatch | None:
-        """Select best match based on rating/downloads/release"""
+    def get_best_match(
+        self,
+        matches: list[SubtitleMatch],
+        release_hint: str | None = None,
+        movie_info: MovieInfo | None = None,
+    ) -> SubtitleMatch | None:
+        """Select best match based on release similarity, runtime fit, rating, and downloads."""
         pass
