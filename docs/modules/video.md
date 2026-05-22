@@ -21,6 +21,7 @@ The module is intentionally split into small services that return typed results 
 | `converter.py` | lossless container remux with backup/validation |
 | `merger.py` | combine German and English sources into a dual-audio MKV |
 | `upscaler.py` | H.265 DVD upscale pipeline with filter-chain construction |
+| `transcoder.py` | source-resolution H.265 transcode for BR rip style workflows |
 | `upscale_profiles.py` | named encoding presets such as `dvd`, `dvd-hq`, `archive`, `anime` |
 | `hardware_detector.py` | probe NVENC / AMF / QSV availability and choose the best encoder |
 | `encoder_profile_builder.py` | translate profile intent into ffmpeg argument fragments |
@@ -70,6 +71,18 @@ The helper `detect_language_files()` identifies the pair from filename suffix pa
 
 The workflow step `s04_encode_bluray.py` uses a simpler HEVC re-encode policy for high-bitrate Blu-ray or remux-like inputs.
 
+### 5. Source-resolution H.265 transcode
+
+`transcode_to_h265()` in `transcoder.py` is designed for BR rip style conversion where you want to:
+
+1. keep source resolution unchanged
+2. transcode only video to H.265
+3. copy all non-video streams (`-c:a copy -c:s copy -c:d copy -c:t copy`)
+4. preserve metadata and chapters (`-map_metadata 0 -map_chapters 0`)
+5. use hardware encoding when available with software fallback support
+
+Batch operation is exposed by `batch_transcode_to_h265()` and preserves directory structure when an output root is provided.
+
 ---
 
 ## Data Models and Result Semantics
@@ -81,7 +94,9 @@ The module uses explicit status/result types rather than raw booleans.
 | `ConversionResult` | one remux attempt |
 | `MergeResult` | one dual-audio merge attempt |
 | `UpscaleResult` | one upscale/re-encode attempt |
+| `TranscodeResult` | one source-resolution H.265 transcode attempt |
 | `BatchConversionSummary`, `BatchUpscaleSummary` | aggregated batch views |
+| `BatchTranscodeSummary` | aggregated BR rip transcode view |
 | `HardwareCapabilities` | detected encoder support and selected fallback |
 
 This makes the video layer easy to consume from both CLI commands and workflow steps.

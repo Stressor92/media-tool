@@ -15,12 +15,17 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from core.video import (
+    BatchTranscodeSummary,
+    TranscodeOptions,
+    TranscodeStatus,
     TrailerDownloadResult,
     TrailerDownloadService,
     TrailerSearchService,
+    batch_transcode_to_h265,
     convert_mp4_to_mkv,
     merge_directory,
     scan_directory,
+    transcode_to_h265,
     upscale_dvd,
 )
 from core.video.movie_folder_scanner import MovieFolderScanner
@@ -31,6 +36,38 @@ from utils.ytdlp_runner import YtDlpNotFoundError, YtDlpRunner
 app = typer.Typer(help="Process video files.")
 console = Console()
 err_console = Console(stderr=True, style="bold red")
+
+
+def _transcode_status_label(status: TranscodeStatus) -> str:
+    if status == TranscodeStatus.SUCCESS:
+        return "[green]OK[/green]"
+    if status == TranscodeStatus.SKIPPED:
+        return "[yellow]Skipped[/yellow]"
+    return "[red]Failed[/red]"
+
+
+def _print_transcode_summary(summary: BatchTranscodeSummary) -> None:
+    table = Table(title="H.265 Batch Encode Summary", box=box.ROUNDED, show_lines=True, expand=True)
+    table.add_column("File", style="cyan", no_wrap=True)
+    table.add_column("Status", justify="center")
+    table.add_column("Encoder", justify="center")
+    table.add_column("Message")
+
+    for result in summary.results:
+        table.add_row(
+            result.source.name,
+            _transcode_status_label(result.status),
+            result.encoder_used or "-",
+            result.message,
+        )
+
+    console.print(table)
+    console.print(
+        f"\n[bold]Total:[/bold] {summary.total}  "
+        f"[green]Success: {len(summary.succeeded)}[/green]  "
+        f"[yellow]Skipped: {len(summary.skipped)}[/yellow]  "
+        f"[red]Failed: {len(summary.failed)}[/red]"
+    )
 
 
 @app.command("convert")
@@ -116,6 +153,21 @@ def convert_command(
         )
     except Exception as e:
         err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    if result.status.name == "SUCCESS":
+        console.print(f"\n[green]✓[/green] Successfully upscaled to {result.target}")
+        console.print(f"[dim]Duration:[/dim] {result.duration_seconds:.1f}s")
+        console.print(
+            f"[dim]Size change:[/dim] {result.size_before_gb:.2f}GB → {result.size_after_gb:.2f}GB ({result.size_delta_gb:+.2f}GB)"
+        )
+    elif result.status.name == "SKIPPED":
+        console.print(f"\n[yellow]⏭️[/yellow] Skipped: {result.message}")
+    else:
+        err_console.print(f"\n[red]✘  Upscaling failed:[/red] {result.message}")
+        if result.ffmpeg_result and result.ffmpeg_result.stderr:
+            stderr_tail = "\n".join(result.ffmpeg_result.stderr.splitlines()[-20:])
+            console.print(f"\n[dim]ffmpeg stderr (tail):[/dim]\n{stderr_tail}", highlight=False)
         raise typer.Exit(code=1)
 
     if result.status.name == "SUCCESS":
@@ -898,19 +950,154 @@ def upscale_command(
         err_console.print(f"Error: {e}")
         raise typer.Exit(code=1)
 
-    if result.status.name == "SUCCESS":
-        console.print(f"\n[green]✓[/green] Successfully upscaled to {result.target}")
-        console.print(f"[dim]Duration:[/dim] {result.duration_seconds:.1f}s")
-        console.print(
-            f"[dim]Size change:[/dim] {result.size_before_gb:.2f}GB → {result.size_after_gb:.2f}GB ({result.size_delta_gb:+.2f}GB)"
-        )
-    elif result.status.name == "SKIPPED":
-        console.print(f"\n[yellow]⏭️[/yellow] Skipped: {result.message}")
-    else:
-        err_console.print(f"\n[red]✘  Upscaling failed:[/red] {result.message}")
-        if result.ffmpeg_result and result.ffmpeg_result.stderr:
-            stderr_tail = "\n".join(result.ffmpeg_result.stderr.splitlines()[-20:])
-            console.print(f"\n[dim]ffmpeg stderr (tail):[/dim]\n{stderr_tail}", highlight=False)
+
+@app.command("encode")
+def encode_command(
+    input_file: Path = typer.Argument(
+        ...,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help="Input video file to transcode to H.265.",
+    ),
+    output_file: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Output file path (default: <stem>.h265.mkv next to input).",
+    ),
+    profile: str = typer.Option(
+        "brrip",
+        "--profile",
+        "-p",
+        help="Encoding profile (default: brrip).",
+    ),
+    encoder: str = typer.Option(
+        "auto",
+        "--encoder",
+        help="Encoder selection: auto, nvenc, amf, qsv, software.",
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite", "-y", help="Overwrite output if it already exists."),
+    reencode_hevc: bool = typer.Option(
+        False,
+        "--reencode-hevc",
+        help="Re-encode files that are already H.265/HEVC.",
+    ),
+    no_hw_fallback: bool = typer.Option(
+        False,
+        "--no-hw-fallback",
+        help="Do not fallback to software encoding when hardware encoding fails.",
+    ),
+) -> None:
+    """Transcode one video file to H.265 while copying all non-video streams."""
+    console.rule("[bold cyan]media-tool · video encode[/bold cyan]")
+    console.print(f"[dim]Input:[/dim]  {input_file}")
+    if output_file:
+        console.print(f"[dim]Output:[/dim] {output_file}")
+    console.print(f"[dim]Profile:[/dim] {profile}")
+    console.print(f"[dim]Encoder:[/dim] {encoder}")
+
+    preferred_encoder = None if encoder == "auto" else encoder
+    opts = TranscodeOptions(
+        profile=profile,
+        overwrite=overwrite,
+        recursive=False,
+        skip_if_hevc=not reencode_hevc,
+        force_software=encoder == "software",
+        preferred_encoder=preferred_encoder,
+        hw_fallback_on_error=not no_hw_fallback,
+    )
+    result = transcode_to_h265(input_file, target=output_file, opts=opts)
+
+    if result.succeeded:
+        console.print(f"\n[green]✓[/green] {result.message}")
+        console.print(f"[dim]Encoder used:[/dim] {result.encoder_used}")
+        return
+
+    if result.skipped:
+        console.print(f"\n[yellow]⏭[/yellow] {result.message}")
+        raise typer.Exit(code=0)
+
+    err_console.print(f"\n[red]✘[/red] {result.message}")
+    if result.ffmpeg_result and result.ffmpeg_result.stderr:
+        stderr_tail = "\n".join(result.ffmpeg_result.stderr.splitlines()[-20:])
+        console.print(f"\n[dim]ffmpeg stderr (tail):[/dim]\n{stderr_tail}", highlight=False)
+    raise typer.Exit(code=1)
+
+
+@app.command("encode-batch")
+def encode_batch_command(
+    directory: Path = typer.Argument(
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        help="Directory containing video files to batch-transcode to H.265.",
+    ),
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Optional output root. Preserves relative folder structure.",
+    ),
+    profile: str = typer.Option(
+        "brrip",
+        "--profile",
+        "-p",
+        help="Encoding profile (default: brrip).",
+    ),
+    encoder: str = typer.Option(
+        "auto",
+        "--encoder",
+        help="Encoder selection: auto, nvenc, amf, qsv, software.",
+    ),
+    recursive: bool = typer.Option(True, "--recursive/--no-recursive", "-r", help="Scan subdirectories."),
+    overwrite: bool = typer.Option(False, "--overwrite", "-y", help="Overwrite existing output files."),
+    reencode_hevc: bool = typer.Option(
+        False,
+        "--reencode-hevc",
+        help="Re-encode files that are already H.265/HEVC.",
+    ),
+    no_hw_fallback: bool = typer.Option(
+        False,
+        "--no-hw-fallback",
+        help="Do not fallback to software encoding when hardware encoding fails.",
+    ),
+) -> None:
+    """Batch-transcode video files to H.265 while preserving all non-video streams."""
+    console.rule("[bold cyan]media-tool · video encode batch[/bold cyan]")
+    console.print(f"[dim]Directory:[/dim] {directory}")
+    if output_dir:
+        console.print(f"[dim]Output root:[/dim] {output_dir}")
+    console.print(f"[dim]Profile:[/dim] {profile}")
+    console.print(f"[dim]Encoder:[/dim] {encoder}")
+
+    preferred_encoder = None if encoder == "auto" else encoder
+    opts = TranscodeOptions(
+        profile=profile,
+        overwrite=overwrite,
+        recursive=recursive,
+        skip_if_hevc=not reencode_hevc,
+        force_software=encoder == "software",
+        preferred_encoder=preferred_encoder,
+        hw_fallback_on_error=not no_hw_fallback,
+    )
+
+    try:
+        summary = batch_transcode_to_h265(directory=directory, output_root=output_dir, opts=opts)
+    except NotADirectoryError as exc:
+        err_console.print(str(exc))
+        raise typer.Exit(code=1)
+
+    if summary.total == 0:
+        console.print("[yellow]No supported video files found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    _print_transcode_summary(summary)
+
+    if summary.failed:
         raise typer.Exit(code=1)
 
 

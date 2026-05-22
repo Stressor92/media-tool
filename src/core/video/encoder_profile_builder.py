@@ -206,6 +206,26 @@ class EncoderProfileBuilder:
                 "preset": "medium",
             },
         },
+        # brrip: Balanced quality/speed for BluRay rips at source resolution
+        "brrip": {
+            EncoderType.NVENC: {
+                "preset": "p5",
+                "cq": "22",
+            },
+            EncoderType.AMF: {
+                "quality": "balanced",
+                "qp_i": "24",
+                "qp_p": "26",
+            },
+            EncoderType.QSV: {
+                "preset": "medium",
+                "global_quality": "22",
+            },
+            EncoderType.SOFTWARE: {
+                "crf": "21",
+                "preset": "slow",
+            },
+        },
     }
 
     def __init__(

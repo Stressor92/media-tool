@@ -145,11 +145,11 @@ Merge multiple audio tracks (typically German + English) into a single file with
 
 Scan, organize, tag, convert, and enhance audio files.
 
-- `media-tool audio scan "M:\Music"` — Discover metadata
+- `media-tool audio scan "D:\Musik\Unsortiert"` — Discover metadata
 - `media-tool audio organize "M:\Music" --output "M:\Music_Organized" --structure "{artist}/{album}/{title}"` — Reorganize by metadata
 - `media-tool audio convert "M:\Music" --recursive --format mp3 --bitrate 320k` — Convert FLAC to MP3
 - `media-tool audio improve "song.flac"` — Remove silence, normalize loudness
-- `media-tool audio auto-tag "M:\Music" --recursive` — Tag with AcoustID + MusicBrainz
+- `media-tool audio auto-tag "D:\Musik\Unsortiert" --recursive` — Tag with AcoustID + MusicBrainz
 - `media-tool audio detect-language "song.mp3"` — Identify language (heuristic or Whisper)
 
 **Common workflow:**
@@ -172,6 +172,8 @@ Convert, inspect, merge, add/translate subtitles, download trailers, upscale.
 - `media-tool video subtitle-auto "E:\Movies" --recursive --languages en,de` — Auto-download and embed missing subtitles
 - `media-tool video download-trailers "movie.mkv"` — Fetch trailer from TMDB and embed
 - `media-tool video upscale "dvd.mp4" --profile dvd-balanced` — Upscale to 720p/1080p
+- `media-tool video encode "movie.mkv" --profile brrip --encoder auto` — Re-encode video to H.265, keep all other streams
+- `media-tool video encode-batch "E:\BRRips" --recursive --profile brrip --encoder auto` — Batch H.265 transcode without resolution changes
 - `media-tool video subtitle-translate "movie.mkv" --from de --to en` — Translate existing subtitles
 - `media-tool video subtitle-translate-mkv "movie.mkv" --language de --target-language en` — Translate in-place
 

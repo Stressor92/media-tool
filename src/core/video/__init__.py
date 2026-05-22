@@ -57,6 +57,14 @@ from .trailer_search import (
     TrailerSearchResult,
     TrailerSearchService,
 )
+from .transcoder import (
+    BatchTranscodeSummary,
+    TranscodeOptions,
+    TranscodeResult,
+    TranscodeStatus,
+    batch_transcode_to_h265,
+    transcode_to_h265,
+)
 from .upscale_profiles import (
     BUILTIN_PROFILES,
     UpscaleProfile,
@@ -138,4 +146,11 @@ __all__ = [
     "TrailerSearchService",
     "TrailerDownloadResult",
     "TrailerDownloadService",
+    # H.265 Transcoder
+    "BatchTranscodeSummary",
+    "TranscodeOptions",
+    "TranscodeResult",
+    "TranscodeStatus",
+    "batch_transcode_to_h265",
+    "transcode_to_h265",
 ]
