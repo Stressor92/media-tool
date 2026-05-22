@@ -297,7 +297,7 @@ class TestOpenSubtitlesProvider:
                 hearing_impaired=False,
                 format="srt",
                 provider="opensubtitles",
-                duration=6005.0,
+                duration=6001.5,
             ),
             SubtitleMatch(
                 id="2",
@@ -317,6 +317,49 @@ class TestOpenSubtitlesProvider:
 
         best = provider.get_best_match(matches, "Movie.1080p", movie_info=movie_info)
         assert best.id == "1"
+
+    def test_get_best_match_prefers_best_scored_when_all_durations_drift(self, provider):
+        """Duration drift penalizes scoring but should still pick a best candidate."""
+        movie_info = MovieInfo(
+            file_path=Path("/test/movie.mkv"),
+            file_hash="8e245d9679d31e12",
+            file_size=1000000,
+            duration=6000.0,
+        )
+        matches = [
+            SubtitleMatch(
+                id="1",
+                language="en",
+                movie_name="Test",
+                release_name="Movie.1080p.BluRay",
+                download_url="",
+                rating=9.0,
+                download_count=2000,
+                uploader="A",
+                hearing_impaired=False,
+                format="srt",
+                provider="opensubtitles",
+                duration=5997.0,
+            ),
+            SubtitleMatch(
+                id="2",
+                language="en",
+                movie_name="Test",
+                release_name="Movie.1080p.WEB-DL",
+                download_url="",
+                rating=9.5,
+                download_count=5000,
+                uploader="B",
+                hearing_impaired=False,
+                format="srt",
+                provider="opensubtitles",
+                duration=6003.5,
+            ),
+        ]
+
+        best = provider.get_best_match(matches, "Movie.1080p", movie_info=movie_info)
+        assert best is not None
+        assert best.id == "2"
 
     def test_get_best_match_all_hearing_impaired(self, provider):
         """Test selection when all matches are hearing impaired."""
