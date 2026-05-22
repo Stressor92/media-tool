@@ -121,6 +121,10 @@ class DownloadManager:
         lowered = url.lower()
         return "youtube.com" in lowered or "youtu.be" in lowered
 
+    @staticmethod
+    def _looks_like_soundcloud_url(url: str) -> bool:
+        return "soundcloud.com" in url.lower()
+
     def _playlist_entries(self, info: dict[str, Any] | None) -> list[Any]:
         if not isinstance(info, dict):
             return []
@@ -168,6 +172,8 @@ class DownloadManager:
     def _should_retry_with_browser_cookies(self, request: DownloadRequest, exc: Exception) -> bool:
         if request.cookies_from_browser or request.cookies_file is not None:
             return False
+        if self._looks_like_soundcloud_url(request.url):
+            return True
         return self._is_auth_error(exc)
 
     def _youtube_cookie_refresh_help(self, *, from_browser_retry: bool) -> str:
@@ -439,6 +445,11 @@ class DownloadManager:
             extra.setdefault("max_sleep_interval", 10)
             extra.setdefault("sleep_interval_requests", 1)
             self._apply_youtube_extractor_args(request, extra)
+
+        if self._looks_like_soundcloud_url(request.url):
+            extra.setdefault("format", "bestaudio/best")
+            soundcloud_args = self._ensure_extractor_args(extra, "soundcloud")
+            soundcloud_args.setdefault("formats", ["hls_mp3_128", "http_mp3_128"])
 
         expected_items = self._available_playlist_items(info)
 

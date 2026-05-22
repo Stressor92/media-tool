@@ -105,6 +105,39 @@ class TestDownloadManager:
         fmt = enriched_request.extra_yt_dlp_opts.get("format", "")
         assert "bestaudio" in str(fmt)
 
+    def test_soundcloud_request_prefers_full_audio_and_sets_extractor_args(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        request = DownloadRequest(
+            url="https://soundcloud.com/track",
+            media_type=MediaType.MUSIC,
+            output_dir=tmp_path,
+        )
+        manager.download(request)
+
+        enriched_request: DownloadRequest = mock_runner.download.call_args[0][0]
+        assert enriched_request.extra_yt_dlp_opts.get("format") == "bestaudio/best"
+        extractor_args = enriched_request.extra_yt_dlp_opts.get("extractor_args")
+        assert isinstance(extractor_args, dict)
+        assert extractor_args.get("soundcloud") == {"formats": ["hls_mp3_128", "http_mp3_128"]}
+
+    def test_soundcloud_url_retries_with_browser_cookies_on_silent_preview_failure(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_runner.download.side_effect = [RuntimeError("Downloaded preview stream too short"), Path("out")]
+        request = DownloadRequest(
+            url="https://soundcloud.com/example/track",
+            media_type=MediaType.MUSIC,
+            output_dir=tmp_path,
+        )
+
+        result = manager.download(request)
+
+        assert result.status == DownloadStatus.SUCCESS
+        assert mock_runner.download.call_count == 2
+        retried_request: DownloadRequest = mock_runner.download.call_args_list[1][0][0]
+        assert retried_request.cookies_from_browser == "chrome"
+
     def test_series_request_sets_outtmpl(
         self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
     ) -> None:
