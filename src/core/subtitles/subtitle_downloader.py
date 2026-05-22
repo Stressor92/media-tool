@@ -20,6 +20,7 @@ from utils.ffmpeg_runner import FFmpegMuxer
 from utils.ffprobe_runner import probe_file
 from utils.video_hasher import VideoHasher
 
+from .subtitle_match_verifier import SubtitleMatchVerifier
 from .subtitle_provider import (
     DownloadResult,
     MovieInfo,
@@ -32,6 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 class SubtitleDownloadManager:
+    MAX_RUNTIME_DRIFT_SECONDS = 2.0
+
     """
     Orchestrates complete subtitle download workflow.
 
@@ -54,6 +57,7 @@ class SubtitleDownloadManager:
         self.ffmpeg = ffmpeg_runner
         self.hasher = VideoHasher()
         self.timing_processor = SubtitleTimingProcessor()
+        self.match_verifier = SubtitleMatchVerifier()
 
     def process(
         self,
@@ -62,6 +66,8 @@ class SubtitleDownloadManager:
         auto_select: bool = True,
         embed: bool = True,
         overwrite: bool = False,
+        verify_with_whisper: bool = False,
+        verify_model: str = "tiny",
         selection_callback: Callable[[list[SubtitleMatch]], SubtitleMatch | None] | None = None,
     ) -> DownloadResult:
         """
@@ -131,14 +137,21 @@ class SubtitleDownloadManager:
             except Exception as e:
                 logger.warning(f"Format conversion failed: {e}, using original")
 
-        timing_ok, timing_note = self._validate_and_sync_subtitle(subtitle_path, movie_info.duration)
+        timing_ok, timing_note, timing_fallback = self._validate_and_sync_subtitle(
+            subtitle_path=subtitle_path,
+            video_path=video_path,
+            video_duration=movie_info.duration,
+            language=best_match.language,
+            verify_with_whisper=verify_with_whisper,
+            verify_model=verify_model,
+        )
         if not timing_ok:
             return DownloadResult(
                 success=False,
                 message=timing_note or "Downloaded subtitle does not fit the video runtime",
                 subtitle_path=subtitle_path,
                 subtitle_info=best_match,
-                fallback_suggestion="manual",
+                fallback_suggestion=timing_fallback or "manual",
             )
 
         # Step 7: Embed into MKV (optional)
@@ -275,43 +288,103 @@ class SubtitleDownloadManager:
 
         return subtitle_path
 
-    def _validate_and_sync_subtitle(self, subtitle_path: Path, video_duration: float) -> tuple[bool, str | None]:
-        """Check whether subtitle runtime plausibly fits the video and auto-correct small drift."""
-        if video_duration <= 0 or not subtitle_path.exists():
-            return True, None
+    def _validate_and_sync_subtitle(
+        self,
+        subtitle_path: Path,
+        video_path: Path,
+        video_duration: float,
+        language: str,
+        verify_with_whisper: bool,
+        verify_model: str,
+    ) -> tuple[bool, str | None, str | None]:
+        """Validate runtime fit and optionally verify suspicious matches with Whisper."""
+
+        if not subtitle_path.exists():
+            return False, "Downloaded subtitle file is missing", "manual"
+
+        if video_duration <= 0:
+            return True, " (warning: video duration unavailable for runtime checks)", None
 
         subtitle_duration = self._estimate_subtitle_duration(subtitle_path)
         if subtitle_duration is None or subtitle_duration <= 0:
-            return True, None
+            return False, "Could not determine subtitle runtime", "manual"
 
         drift_seconds = abs(video_duration - subtitle_duration)
-        drift_ratio = drift_seconds / max(video_duration, 1.0)
+        if drift_seconds <= self.MAX_RUNTIME_DRIFT_SECONDS:
+            return True, None, None
 
-        # Close enough already: both absolute drift and relative drift must be tiny.
-        if drift_seconds <= 3.0 and drift_ratio <= 0.01:
-            return True, None
+        if not verify_with_whisper:
+            # Legacy fallback mode: try to sync moderate runtime drift and keep throughput high.
+            drift_ratio = drift_seconds / max(video_duration, 1.0)
+            if subtitle_path.suffix.lower() == ".srt" and drift_ratio <= 0.08:
+                sync_result = self.timing_processor.sync_to_video(
+                    subtitle_path,
+                    video_duration=video_duration,
+                    wav_duration=subtitle_duration,
+                )
+                if sync_result.success:
+                    return True, f" (timing adjusted {sync_result.scale_factor:.4f}x to fit runtime)", None
+            return True, f" (warning: runtime differs by {drift_seconds:.0f}s)", None
 
-        # Common PAL/NTSC drift can be fixed by uniform rescaling.
-        if subtitle_path.suffix.lower() == ".srt" and drift_ratio <= 0.08:
+        try:
+            verification = self.match_verifier.verify(
+                video_path,
+                subtitle_path,
+                video_duration=video_duration,
+                language=language,
+                model=verify_model.lower(),
+            )
+        except Exception as exc:
+            logger.warning("Whisper subtitle verification failed unexpectedly: %s", exc)
+            verification = None
+
+        if verification is None or verification.status == "skipped":
+            return (
+                True,
+                " (warning: Whisper verification unavailable; accepted without advanced validation)",
+                None,
+            )
+
+        if verification.status == "reject":
+            return (
+                False,
+                f"{verification.message} [confidence={verification.confidence_score:.2f}]",
+                "manual",
+            )
+
+        if verification.status == "uncertain":
+            return (
+                False,
+                f"{verification.message} [confidence={verification.confidence_score:.2f}]",
+                "interactive",
+            )
+
+        # Passed Whisper verification: scale only if text is strong and drift appears linear.
+        if (
+            subtitle_path.suffix.lower() == ".srt"
+            and verification.average_text_similarity >= 0.60
+            and (verification.drift_trend_seconds is not None and verification.drift_trend_seconds <= 2.5)
+        ):
             sync_result = self.timing_processor.sync_to_video(
                 subtitle_path,
                 video_duration=video_duration,
                 wav_duration=subtitle_duration,
             )
             if sync_result.success:
-                return True, f" (timing adjusted {sync_result.scale_factor:.4f}x to fit runtime)"
+                return (
+                    True,
+                    " (Whisper verified; timing adjusted "
+                    f"{sync_result.scale_factor:.4f}x, confidence={verification.confidence_score:.2f})",
+                    None,
+                )
             logger.warning("Subtitle timing sync failed for %s: %s", subtitle_path, sync_result.error_message)
+            return False, "Failed to adjust subtitle timing after Whisper verification", "manual"
 
-        # Very large drift is a strong signal that the wrong cut/release was downloaded.
-        if drift_ratio > 0.20 and drift_seconds > 120.0:
-            return (
-                False,
-                "Downloaded subtitle appears to be for a different cut/release "
-                f"(video {video_duration / 60:.1f} min vs subtitle {subtitle_duration / 60:.1f} min). "
-                "Try `media-tool subtitle download --interactive`.",
-            )
-
-        return True, f" (warning: runtime differs by {drift_seconds:.0f}s; manual sync may still be needed)"
+        return (
+            True,
+            f" (Whisper verified; confidence={verification.confidence_score:.2f})",
+            None,
+        )
 
     def _estimate_subtitle_duration(self, subtitle_path: Path) -> float | None:
         """Estimate the subtitle runtime from the last cue end timestamp."""

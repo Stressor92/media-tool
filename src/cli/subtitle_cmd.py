@@ -77,6 +77,12 @@ def download(
     interactive: bool = typer.Option(False, help="Show matches and let user choose"),
     recursive: bool = typer.Option(True, help="Process directories recursively"),
     overwrite: bool = typer.Option(False, help="Overwrite existing subtitles"),
+    verify_with_whisper: bool = typer.Option(
+        False,
+        "--verify-with-whisper/--no-verify-with-whisper",
+        help="Verify suspicious subtitle matches with sampled Whisper checks",
+    ),
+    verify_model: str = typer.Option("tiny", help="Whisper model for verification: tiny or base"),
     api_key: str | None = typer.Option(None, envvar="OPENSUBTITLES_API_KEY"),
 ) -> None:
     """
@@ -144,6 +150,8 @@ def download(
                 auto_select=not interactive,
                 embed=embed,
                 overwrite=overwrite,
+                verify_with_whisper=verify_with_whisper,
+                verify_model=verify_model,
                 selection_callback=_prompt_user_selection if interactive else None,
             )
 

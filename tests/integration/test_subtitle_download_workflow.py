@@ -11,6 +11,7 @@ import pytest
 
 from core.subtitles.opensubtitles_provider import OpenSubtitlesProvider
 from core.subtitles.subtitle_downloader import SubtitleDownloadManager
+from core.subtitles.subtitle_match_verifier import SubtitleVerificationResult
 from core.subtitles.subtitle_provider import SubtitleMatch
 from tests.integration.conftest import create_test_video
 from utils.ffmpeg_runner import FFmpegMuxer
@@ -66,7 +67,7 @@ class TestSubtitleDownloadWorkflow:
 Test subtitle text
 
 2
-00:00:05,000 --> 00:00:08,000
+    00:00:55,000 --> 00:01:00,000
 More subtitle text
 """
 
@@ -105,7 +106,9 @@ More subtitle text
         video_file = create_test_video(tmp_path / "test_movie.mkv", resolution="1920x1080", duration=30)
 
         # Mock download
-        subtitle_content = "1\n00:00:01,000 --> 00:00:04,000\nTest subtitle\n"
+        subtitle_content = (
+            "1\n00:00:01,000 --> 00:00:04,000\nTest subtitle\n\n2\n00:00:26,500 --> 00:00:29,000\nEnding\n"
+        )
         subtitle_path = tmp_path / "test_movie.en.srt"
 
         def mock_download(match, output_path):
@@ -133,7 +136,7 @@ More subtitle text
 Intro
 
 2
-00:00:55,000 --> 00:00:57,500
+    00:00:55,000 --> 00:00:57,500
 Ending
 """
 
@@ -149,6 +152,46 @@ Ending
         assert result.subtitle_path == subtitle_path
         synced_text = subtitle_path.read_text()
         assert "00:01:00," in synced_text
+
+    def test_download_rejects_suspicious_match_when_whisper_verifier_rejects(self, tmp_path, manager, mock_provider):
+        """Whisper verifier rejection should fail download in verification mode."""
+
+        video_file = create_test_video(tmp_path / "test_movie.mkv", resolution="1920x1080", duration=60)
+        subtitle_path = tmp_path / "test_movie.en.srt"
+        subtitle_content = """1
+00:00:01,000 --> 00:00:03,000
+Intro
+
+2
+00:00:53,000 --> 00:00:57,000
+Ending
+"""
+
+        def mock_download(match, output_path):
+            output_path.write_text(subtitle_content)
+            return output_path
+
+        mock_provider.download.side_effect = mock_download
+
+        manager.match_verifier.verify = Mock(
+            return_value=SubtitleVerificationResult(
+                status="reject",
+                confidence_score=0.12,
+                message="Whisper verification rejected subtitle",
+            )
+        )
+
+        result = manager.process(
+            video_file,
+            languages=["en"],
+            auto_select=True,
+            embed=False,
+            verify_with_whisper=True,
+        )
+
+        assert result.success is False
+        assert "Whisper verification rejected subtitle" in result.message
+        assert result.fallback_suggestion == "manual"
 
     def test_no_subtitles_found(self, tmp_path, manager, mock_provider):
         """Test handling when no subtitles are found."""
