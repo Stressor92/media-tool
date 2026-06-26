@@ -179,7 +179,11 @@ def convert_mp4_to_mkv(
         "-i",
         str(source),
         "-map",
-        "0",  # preserve ALL streams
+        "0:v",  # map all video streams
+        "-map",
+        "0:a",  # map all audio streams
+        "-map",
+        "0:s?",  # map all subtitle streams (? = optional, silently skip if none)
         "-c",
         "copy",  # lossless: no re-encoding
         "-metadata:s:a:0",
@@ -267,7 +271,7 @@ def resolve_output_path(source: Path, output_root: Path | None = None) -> Path:
         Path: <output_root>/<stem>/<stem>.mkv
     """
     root = output_root if output_root is not None else source.parent
-    stem = source.stem
+    stem = source.stem.strip()  # Remove leading/trailing whitespace from filename
     return root / stem / f"{stem}.mkv"
 
 

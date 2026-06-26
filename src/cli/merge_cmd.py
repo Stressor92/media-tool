@@ -24,7 +24,7 @@ err_console = Console(stderr=True, style="bold red")
 
 
 _LANG_SUFFIX_PATTERN = re.compile(
-    r"(?:[-_ \(\[](?P<lang>de|german|deutsch|en|english)[\)\]_ ]?)$",
+    r"(?:[-_ \(\[](?P<lang>de|german|deutsch|en|english|jp|jpn|japanese|nihongo)[\)\]_ ]?)$",
     re.IGNORECASE,
 )
 
@@ -37,7 +37,12 @@ def _detect_lang_and_basename(file_path: Path) -> tuple[str | None, str]:
         return None, stem
 
     lang_raw = match.group("lang").lower()
-    lang = "deu" if lang_raw in {"de", "german", "deutsch"} else "eng"
+    if lang_raw in {"de", "german", "deutsch"}:
+        lang = "deu"
+    elif lang_raw in {"jp", "jpn", "japanese", "nihongo"}:
+        lang = "jpn"
+    else:
+        lang = "eng"
     # Only trim separators, not title punctuation like closing ')' in years.
     base = _LANG_SUFFIX_PATTERN.sub("", stem).strip(" -_")
     return lang, (base or stem)
@@ -141,13 +146,15 @@ def batch_command(
         console.print("[yellow]No .mp4 files found.[/yellow]")
         raise typer.Exit(code=0)
 
-    groups: dict[str, dict[str, list[Path]]] = defaultdict(lambda: {"deu": [], "eng": [], "other": []})
+    groups: dict[str, dict[str, list[Path]]] = defaultdict(lambda: {"deu": [], "eng": [], "jpn": [], "other": []})
     for file_path in mp4_files:
         lang, base = _detect_lang_and_basename(file_path)
         if lang == "deu":
             groups[base]["deu"].append(file_path)
         elif lang == "eng":
             groups[base]["eng"].append(file_path)
+        elif lang == "jpn":
+            groups[base]["jpn"].append(file_path)
         else:
             groups[base]["other"].append(file_path)
 
@@ -166,6 +173,7 @@ def batch_command(
         group = groups[title]
         de_files = sorted(group["deu"])
         en_files = sorted(group["eng"])
+        jp_files = sorted(group["jpn"])
         other_files = sorted(group["other"])
         target = output_root / title / f"{title}.mkv"
 
@@ -177,15 +185,27 @@ def batch_command(
             status = "merged" if result.succeeded else ("skipped" if result.skipped else "failed")
             source_text = f"{de_file.name} + {en_file.name}"
             message = result.message
+        elif de_files and jp_files:
+            # Merge German + Japanese audio.
+            de_file = de_files[0]
+            jp_file = jp_files[0]
+            result = merge_dual_audio(de_file, jp_file, target, overwrite=overwrite)
+            status = "merged" if result.succeeded else ("skipped" if result.skipped else "failed")
+            source_text = f"{de_file.name} + {jp_file.name}"
+            message = result.message
         else:
-            candidates = de_files + other_files + en_files
+            candidates = de_files + jp_files + en_files + other_files
             if len(candidates) == 1:
                 source = candidates[0]
+                # Determine audio language and title based on detected language
+                lang, _ = _detect_lang_and_basename(source)
+                audio_lang = "jpn" if lang == "jpn" else ("eng" if lang == "eng" else "deu")
+                audio_title = "Japanisch" if lang == "jpn" else ("English" if lang == "eng" else "Deutsch")
                 conv = convert_mp4_to_mkv(
                     source=source,
                     target=target,
-                    audio_language="deu",
-                    audio_title="Deutsch",
+                    audio_language=audio_lang,
+                    audio_title=audio_title,
                     overwrite=overwrite,
                 )
                 status = "single" if conv.succeeded else ("skipped" if conv.skipped else "failed")
@@ -194,7 +214,7 @@ def batch_command(
             else:
                 status = "skipped"
                 source_text = ", ".join(f.name for f in candidates) if candidates else "-"
-                message = "No clear DE/EN pair and not a single-file group."
+                message = "No clear DE/EN or DE/JP pair and not a single-file group."
 
         if status in {"merged", "single"}:
             success_count += 1
