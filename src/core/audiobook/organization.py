@@ -7,6 +7,7 @@ Audiobook library organization.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -17,6 +18,14 @@ from ..audio.metadata import AudioMetadataEnhanced, extract_audio_metadata_enhan
 
 logger = logging.getLogger(__name__)
 
+LANGUAGE_CODE_MAP = {
+    "de": "de",
+    "deu": "de",
+    "ger": "de",
+    "en": "en",
+    "eng": "en",
+}
+
 
 def _sanitize_filename(name: str) -> str:
     """Sanitize filename by removing/replacing invalid characters."""
@@ -26,31 +35,61 @@ def _sanitize_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*]', "_", name)
 
 
-def _generate_audiobook_path(metadata: AudioMetadataEnhanced, base_dir: Path) -> Path:
+def _normalize_language_label(language: str | None) -> str:
+    """Normalize language tag values to short labels used in folder names."""
+    if not language:
+        return "de"
+
+    # Handle values such as "deu", "ger", "en-US", or "de,en".
+    raw_parts = re.split(r"[,;/|\\s]+", language)
+    normalized: list[str] = []
+    for part in raw_parts:
+        token = part.strip().lower()
+        if not token:
+            continue
+        token = token.split("-")[0]
+        normalized_token = LANGUAGE_CODE_MAP.get(token, token)
+        if normalized_token not in normalized:
+            normalized.append(normalized_token)
+
+    if not normalized:
+        return "de"
+
+    return "+".join(normalized)
+
+
+def _generate_audiobook_path(metadata: AudioMetadataEnhanced, base_dir: Path, extension: str) -> Path:
     """
     Generate Jellyfin-compatible path for audiobook files.
 
-    Structure: Audiobooks/Author/Book/Title.ext
+    Structure: Audiobooks/Author-Title-Year-Language/Title.ext
     """
-    # For audiobooks, use narrator as author, or artist
+    # Build folder key from one hierarchy level as requested.
     author = metadata.narrator or metadata.artist or metadata.parsed_artist or "Unknown Author"
-    book = metadata.album or metadata.parsed_album or metadata.series or "Unknown Book"
+    book = metadata.album or metadata.parsed_album or metadata.series or "Unknown Title"
     title = metadata.title or metadata.parsed_title or metadata.filename
+    year = str(metadata.year) if metadata.year else "unknown"
+    language = _normalize_language_label(getattr(metadata, "language", None))
 
     # Sanitize
     author = _sanitize_filename(author)
     book = _sanitize_filename(book)
     title = _sanitize_filename(title)
+    year = _sanitize_filename(year)
+    language = _sanitize_filename(language)
 
-    filename = f"{title}.flac"
+    folder_name = f"{author}-{book}-{year}-{language}"
 
-    return base_dir / "Audiobooks" / author / book / filename
+    filename = f"{title}.{extension}"
+
+    return base_dir / "Audiobooks" / folder_name / filename
 
 
 def organize_audiobooks(
     input_dir: Path,
     output_dir: Path,
     convert_format: str | None = "flac",
+    recursive: bool = True,
     overwrite: bool = False,
     progress_callback: Callable[[ProgressEvent], None] | None = None,
 ) -> dict[str, int]:
@@ -61,6 +100,7 @@ def organize_audiobooks(
         input_dir: Directory containing audiobook files.
         output_dir: Base directory for organized files.
         convert_format: Target format for conversion (None to skip conversion).
+        recursive: Whether to search subdirectories.
         overwrite: Whether to overwrite existing files.
 
     Returns:
@@ -70,10 +110,13 @@ def organize_audiobooks(
         raise NotADirectoryError(f"Input directory not found: {input_dir}")
 
     # Find audio files
-    extensions = {".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wma"}
+    extensions = {".mp3", ".flac", ".m4a", ".m4b", ".aac", ".ogg", ".wma"}
     audio_files: list[Path] = []
     for ext in extensions:
-        audio_files.extend(input_dir.rglob(f"*{ext}"))
+        if recursive:
+            audio_files.extend(input_dir.rglob(f"*{ext}"))
+        else:
+            audio_files.extend(input_dir.glob(f"*{ext}"))
 
     logger.info("Found %d audiobook files in %s", len(audio_files), input_dir)
 
@@ -100,7 +143,8 @@ def organize_audiobooks(
                 continue
 
             # Generate target path
-            target_path = _generate_audiobook_path(metadata, output_dir)
+            target_extension = convert_format or input_file.suffix.lower().lstrip(".")
+            target_path = _generate_audiobook_path(metadata, output_dir, target_extension)
 
             # Check if target exists
             if target_path.exists() and not overwrite:
@@ -175,3 +219,21 @@ def organize_audiobooks(
             )
 
     return counts
+
+
+def organize_audiobooks_from_subfolders(
+    input_root: Path,
+    output_dir: Path,
+    convert_format: str | None = "flac",
+    overwrite: bool = False,
+    progress_callback: Callable[[ProgressEvent], None] | None = None,
+) -> dict[str, int]:
+    """Collect audiobook files recursively from subfolders and organize into flat folder keys."""
+    return organize_audiobooks(
+        input_dir=input_root,
+        output_dir=output_dir,
+        convert_format=convert_format,
+        recursive=True,
+        overwrite=overwrite,
+        progress_callback=progress_callback,
+    )

@@ -19,6 +19,9 @@ from core.audiobook import (
     detect_chapter_files,
     merge_audiobook_library,
     organize_audiobooks,
+    organize_audiobooks_from_subfolders,
+    remove_long_silence,
+    remove_long_silence_in_library,
     scan_audiobook_library,
 )
 
@@ -187,7 +190,88 @@ def organize_command(
         "flac",
         "--format",
         "-f",
-        help="Target audio format (mp3, flac, m4a, aac, opus, ogg).",
+        help="Target audio format (mp3, flac, m4a, m4b, aac, opus, ogg).",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        "-n",
+        help="Show what would be done without making changes.",
+    ),
+    recursive: bool = typer.Option(
+        True,
+        "--recursive/--no-recursive",
+        "-r",
+        help="Search subdirectories for audiobook files (default: on).",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite existing files in target directory.",
+    ),
+) -> None:
+    """
+    Organize audiobook files into flat folder keys.
+
+    Structure: Audiobooks/Author-Title-Year-Language/Title.ext
+    """
+    console.rule("[bold cyan]media-tool · audiobook organize[/bold cyan]")
+    console.print(f"[dim]Source:[/dim] {source_dir}")
+    console.print(f"[dim]Target:[/dim] {target_dir}")
+    console.print(f"[dim]Format:[/dim] {format}")
+    console.print(f"[dim]Recursive:[/dim] {recursive}")
+
+    if dry_run:
+        console.print("[yellow]DRY RUN MODE - No files will be modified[/yellow]\n")
+
+    reporter = ConsoleProgressReporter(console)
+
+    try:
+        counts = organize_audiobooks(
+            input_dir=source_dir,
+            output_dir=target_dir,
+            convert_format=format if not dry_run else None,
+            recursive=recursive,
+            overwrite=overwrite,
+            progress_callback=reporter,
+        )
+    except ValueError as e:
+        err_console.print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    console.print(
+        f"\n[bold]Summary:[/bold] "
+        f"Processed: {counts['processed']}  "
+        f"Converted: {counts['converted']}  "
+        f"Skipped: {counts['skipped']}  "
+        f"Errors: {counts['errors']}"
+    )
+
+    if counts["errors"] > 0:
+        raise typer.Exit(code=1)
+
+
+@app.command("collect")
+def collect_command(
+    source_root: Path = typer.Argument(
+        ...,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        help="Root directory. All subfolders are scanned for audiobook files.",
+    ),
+    target_dir: Path = typer.Argument(
+        ...,
+        file_okay=False,
+        dir_okay=True,
+        help="Target directory for collected and organized files.",
+    ),
+    format: str = typer.Option(
+        "m4b",
+        "--format",
+        "-f",
+        help="Target audio format (mp3, flac, m4a, m4b, aac, opus, ogg).",
     ),
     dry_run: bool = typer.Option(
         False,
@@ -201,13 +285,9 @@ def organize_command(
         help="Overwrite existing files in target directory.",
     ),
 ) -> None:
-    """
-    Organize audiobook files into Jellyfin-compatible structure.
-
-    Structure: Audiobooks/Author/Book/Title.ext
-    """
-    console.rule("[bold cyan]media-tool · audiobook organize[/bold cyan]")
-    console.print(f"[dim]Source:[/dim] {source_dir}")
+    """Collect audiobooks from nested subfolders and organize into flat folder keys."""
+    console.rule("[bold cyan]media-tool · audiobook collect[/bold cyan]")
+    console.print(f"[dim]Source root:[/dim] {source_root}")
     console.print(f"[dim]Target:[/dim] {target_dir}")
     console.print(f"[dim]Format:[/dim] {format}")
 
@@ -217,8 +297,8 @@ def organize_command(
     reporter = ConsoleProgressReporter(console)
 
     try:
-        counts = organize_audiobooks(
-            input_dir=source_dir,
+        counts = organize_audiobooks_from_subfolders(
+            input_root=source_root,
             output_dir=target_dir,
             convert_format=format if not dry_run else None,
             overwrite=overwrite,
@@ -238,6 +318,100 @@ def organize_command(
 
     if counts["errors"] > 0:
         raise typer.Exit(code=1)
+
+
+@app.command("remove-silence")
+def remove_silence_command(
+    source: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        help="Input audiobook file or directory.",
+    ),
+    target: Path = typer.Argument(
+        ...,
+        help="Output audiobook file (single file mode) or directory (folder mode).",
+    ),
+    min_silence_seconds: float = typer.Option(
+        10.0,
+        "--min-silence-seconds",
+        "-m",
+        min=0.1,
+        help="Remove only silent sections longer than this many seconds.",
+    ),
+    silence_threshold_db: float = typer.Option(
+        -50.0,
+        "--silence-threshold-db",
+        "-t",
+        help="Silence threshold in dB.",
+    ),
+    recursive: bool = typer.Option(
+        True,
+        "--recursive/--no-recursive",
+        "-r",
+        help="Process subdirectories in folder mode (default: on).",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        "-y",
+        help="Overwrite existing outputs.",
+    ),
+) -> None:
+    """Detect and remove long silent sections (default > 10s) from audiobook audio."""
+    console.rule("[bold cyan]media-tool · audiobook remove-silence[/bold cyan]")
+    console.print(f"[dim]Source:[/dim] {source}")
+    console.print(f"[dim]Target:[/dim] {target}")
+    console.print(f"[dim]Min silence:[/dim] {min_silence_seconds:.1f}s")
+    console.print(f"[dim]Threshold:[/dim] {silence_threshold_db:.1f} dB")
+
+    reporter = ConsoleProgressReporter(console)
+
+    if source.is_file():
+        if target.exists() and target.is_dir():
+            err_console.print("Error: target must be a file path when source is a file.")
+            raise typer.Exit(code=1)
+
+        result = remove_long_silence(
+            input_file=source,
+            output_file=target,
+            min_silence_seconds=min_silence_seconds,
+            silence_threshold_db=silence_threshold_db,
+            overwrite=overwrite,
+        )
+
+        if result.success:
+            console.print(f"\n[green]✓[/green] Silence cleaned: {target}")
+            return
+
+        err_console.print("Silence cleanup failed.")
+        stderr_tail = "\n".join(result.ffmpeg_result.stderr.splitlines()[-20:])
+        console.print(f"\n[dim]ffmpeg stderr (tail):[/dim]\n{stderr_tail}", highlight=False)
+        raise typer.Exit(code=1)
+
+    if source.is_dir():
+        counts = remove_long_silence_in_library(
+            input_dir=source,
+            output_dir=target,
+            min_silence_seconds=min_silence_seconds,
+            silence_threshold_db=silence_threshold_db,
+            recursive=recursive,
+            overwrite=overwrite,
+            progress_callback=reporter,
+        )
+        console.print(
+            f"\n[bold]Summary:[/bold] "
+            f"Processed: {counts['processed']}  "
+            f"Cleaned: {counts['cleaned']}  "
+            f"Skipped: {counts['skipped']}  "
+            f"Errors: {counts['errors']}"
+        )
+        if counts["errors"] > 0:
+            raise typer.Exit(code=1)
+        return
+
+    err_console.print("Error: source must be an existing file or directory.")
+    raise typer.Exit(code=1)
 
 
 @app.command("merge")
@@ -260,7 +434,13 @@ def merge_command(
         "m4a",
         "--format",
         "-f",
-        help="Output audio format (m4a, mp3, flac, aac, ogg).",
+        help="Output audio format (m4a, m4b, mp3, flac, aac, ogg).",
+    ),
+    grouping: str = typer.Option(
+        "metadata-first",
+        "--grouping",
+        "-g",
+        help="Chapter grouping strategy: metadata-first (default) or filename.",
     ),
     dry_run: bool = typer.Option(
         False,
@@ -291,13 +471,22 @@ def merge_command(
     console.print(f"[dim]Source:[/dim] {source_dir}")
     console.print(f"[dim]Target:[/dim] {target_dir}")
     console.print(f"[dim]Format:[/dim] {format}")
+    console.print(f"[dim]Grouping:[/dim] {grouping}")
     reporter = ConsoleProgressReporter(console)
+
+    if grouping not in {"metadata-first", "filename"}:
+        err_console.print("Error: --grouping must be either 'metadata-first' or 'filename'.")
+        raise typer.Exit(code=1)
 
     if dry_run:
         console.print("[yellow]DRY RUN MODE - No files will be modified[/yellow]\n")
 
         # Show what would be merged
-        book_chapters = detect_chapter_files(source_dir)
+        book_chapters = detect_chapter_files(
+            source_dir,
+            grouping_strategy=grouping,
+            progress_callback=reporter,
+        )
 
         if not book_chapters:
             console.print("[yellow]No chapter files detected.[/yellow]")
@@ -339,6 +528,7 @@ def merge_command(
             input_dir=source_dir,
             output_dir=target_dir,
             format=format,
+            grouping_strategy=grouping,
             overwrite=overwrite,
             progress_callback=reporter,
         )

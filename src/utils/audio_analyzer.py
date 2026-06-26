@@ -74,6 +74,7 @@ class AudioMetadata:
     narrator: str | None = None
     series: str | None = None
     series_part: int | None = None
+    language: str | None = None
 
     @property
     def duration_minutes(self) -> float:
@@ -196,6 +197,8 @@ def extract_audio_metadata(filepath: Path) -> AudioMetadata | None:
 
     track_num, track_total = extract_track_info(tags.get("track"))
     disc_num, disc_total = extract_track_info(tags.get("disc"))
+    stream_tags = stream.get("tags", {})
+    language = stream_tags.get("language") or tags.get("language")
 
     return AudioMetadata(
         filepath=filepath,
@@ -223,6 +226,7 @@ def extract_audio_metadata(filepath: Path) -> AudioMetadata | None:
         narrator=tags.get("narrator"),
         series=tags.get("series"),
         series_part=safe_int(tags.get("series_part") or tags.get("part")),
+        language=language,
     )
 
 

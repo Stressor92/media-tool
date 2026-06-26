@@ -191,8 +191,33 @@ media-tool jellyfin refresh "Y:\Jellyfin\Movies"  # Refresh Jellyfin library
 Scan, organize, and merge audiobook chapter files.
 
 - `media-tool audiobook scan "M:\Audiobooks"` — Discover audiobook metadata
-- `media-tool audiobook organize "M:\Audiobooks" --output "M:\Audiobooks_Org" --structure "{author}/{series}/{title}"` — Reorganize
-- `media-tool audiobook merge "book_chapters/" --output "book_merged.m4b"` — Merge all chapters into single file
+- `media-tool audiobook organize "M:\Audiobooks" "M:\Audiobooks_Org" --format m4b` — Convert and organize to `Audiobooks/Author-Title-Year-Language/Title.m4b`
+- `media-tool audiobook collect "M:\Import_Root" "M:\Audiobooks_Org" --format m4b` — Search nested subfolders and collect into the same flat folder scheme
+- `media-tool audiobook remove-silence "book.m4b" "book.cleaned.m4b" --min-silence-seconds 10` — Remove long silent sections (>10s)
+- `media-tool audiobook merge "book_chapters" "M:\Audiobooks_Merged" --format m4b --grouping metadata-first` — Merge chapter groups into single files
+
+**Behavior highlights:**
+- Merge processes only groups with 2+ detected chapters (single files are skipped)
+- `--grouping metadata-first` uses album/series/title + track metadata first, then falls back to filename regex patterns
+- Merge writes audio-only output and uses format-compatible audio codecs (for example AAC for `m4a`/`m4b`) to avoid container errors with embedded cover streams
+- Organize uses one hierarchy level only: `Author-Title-Year-Language` (default language is `de`)
+- `remove-silence` supports single-file mode and folder mode; only silent parts longer than configured seconds are removed
+- Use `--dry-run` on merge to preview detected books and output names before writing files
+
+**Windows workflow for mixed libraries:**
+```bash
+# 1) Convert all MP3 audiobooks to M4B and organize structure
+media-tool audiobook organize "D:\Hörbucher\10_MP3" "D:\Hörbucher\10_M4B" --format m4b --overwrite
+
+# Optional: collect from deep import folder into same flat structure
+media-tool audiobook collect "D:\Hörbucher\Import" "D:\Hörbucher\10_M4B" --format m4b --overwrite
+
+# 2) Preview mixed chapter detection and ordering first
+media-tool audiobook merge "D:\Hörbucher\20_MULTI" "D:\Hörbucher\20_MERGED" --format m4b --grouping metadata-first --dry-run
+
+# 3) Run merge once preview looks correct
+media-tool audiobook merge "D:\Hörbucher\20_MULTI" "D:\Hörbucher\20_MERGED" --format m4b --grouping metadata-first
+```
 
 ### subtitle — Subtitle acquisition & conversion
 

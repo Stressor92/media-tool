@@ -14,12 +14,11 @@ from src.backup import get_backup_manager
 from src.backup.models import MediaType
 from src.statistics import get_collector
 from src.statistics.event_types import EventType
-
 from utils.audio_processor import AudioConversionResult, convert_audio_format
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_FORMATS = frozenset({"mp3", "flac", "m4a", "aac", "opus", "ogg"})
+SUPPORTED_FORMATS = frozenset({"mp3", "flac", "m4a", "m4b", "aac", "opus", "ogg"})
 
 
 def convert_audio(
@@ -36,7 +35,7 @@ def convert_audio(
     Args:
         input_file: Source audio file.
         output_file: Destination file path.
-        format: Target format (mp3, flac, m4a, aac, opus, ogg).
+        format: Target format (mp3, flac, m4a, m4b, aac, opus, ogg).
         quality: Quality setting (format-specific).
         preserve_metadata: Whether to copy metadata.
         overwrite: Whether to overwrite existing files.

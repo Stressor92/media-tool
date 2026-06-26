@@ -134,7 +134,7 @@ def convert_audio_format(
             args.extend(["-q:a", quality])  # 0-9, lower is better
         else:
             args.extend(["-q:a", "0"])  # Highest quality
-    elif codec == "aac":
+    elif codec in {"aac", "m4a", "m4b"}:
         args.extend(["-c:a", "aac"])
         if quality:
             args.extend(["-b:a", quality])  # Bitrate like "192k"
