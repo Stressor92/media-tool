@@ -448,8 +448,6 @@ class DownloadManager:
 
         if self._looks_like_soundcloud_url(request.url):
             extra.setdefault("format", "bestaudio/best")
-            soundcloud_args = self._ensure_extractor_args(extra, "soundcloud")
-            soundcloud_args.setdefault("formats", ["hls_mp3_128", "http_mp3_128"])
 
         expected_items = self._available_playlist_items(info)
 

@@ -105,7 +105,7 @@ class TestDownloadManager:
         fmt = enriched_request.extra_yt_dlp_opts.get("format", "")
         assert "bestaudio" in str(fmt)
 
-    def test_soundcloud_request_prefers_full_audio_and_sets_extractor_args(
+    def test_soundcloud_request_prefers_full_audio(
         self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
     ) -> None:
         request = DownloadRequest(
@@ -117,9 +117,7 @@ class TestDownloadManager:
 
         enriched_request: DownloadRequest = mock_runner.download.call_args[0][0]
         assert enriched_request.extra_yt_dlp_opts.get("format") == "bestaudio/best"
-        extractor_args = enriched_request.extra_yt_dlp_opts.get("extractor_args")
-        assert isinstance(extractor_args, dict)
-        assert extractor_args.get("soundcloud") == {"formats": ["hls_mp3_128", "http_mp3_128"]}
+        assert "extractor_args" not in enriched_request.extra_yt_dlp_opts
 
     def test_soundcloud_url_retries_with_browser_cookies_on_silent_preview_failure(
         self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
