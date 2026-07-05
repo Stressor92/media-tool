@@ -6,6 +6,7 @@ CLI interface for the dual-audio merge workflow (DE + EN → single MKV).
 
 from __future__ import annotations
 
+import logging
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -17,16 +18,88 @@ from rich.table import Table
 from rich.text import Text
 
 from core.video import convert_mp4_to_mkv, derive_output_name, merge_directory, merge_dual_audio
+from utils.ffprobe_runner import probe_file
 
 app = typer.Typer(help="Merge German + English MP4 files into one dual-audio MKV.")
 console = Console()
 err_console = Console(stderr=True, style="bold red")
+logger = logging.getLogger(__name__)
 
 
 _LANG_SUFFIX_PATTERN = re.compile(
-    r"(?:[-_ \(\[](?P<lang>de|german|deutsch|en|english|jp|jpn|japanese|nihongo)[\)\]_ ]?)$",
+    r"(?:[-_ \(\[](?P<lang>de|german|deutsch|en|english|es|spa|spanish|espanol|jp|jpn|japanese|nihongo)[\)\]_ ]?)$",
     re.IGNORECASE,
 )
+_SERIES_EPISODE_PATTERN = re.compile(
+    r"^(?P<series>.+?)\s*-\s*[sS](?P<season>\d{1,2})(?:[eE](?P<episode>\d{1,2})|(?P<compact_episode>\d{2}))$"
+)
+
+
+def _normalize_language_code(raw: str | None) -> str | None:
+    if not raw:
+        return None
+
+    token = raw.strip().lower()
+    if token in {"de", "deu", "ger", "german", "deutsch"}:
+        return "deu"
+    if token in {"en", "eng", "english"}:
+        return "eng"
+    if token in {"es", "spa", "spanish", "espanol", "castellano"}:
+        return "spa"
+    if token in {"jp", "jpn", "japanese", "nihongo"}:
+        return "jpn"
+    return None
+
+
+def _audio_title_for_language(lang_code: str) -> str:
+    return {
+        "deu": "Deutsch",
+        "eng": "English",
+        "spa": "Spanish",
+        "jpn": "Japanisch",
+    }.get(lang_code, "Unknown")
+
+
+def _language_filename_suffix(lang_code: str) -> str:
+    return {
+        "deu": "de",
+        "eng": "en",
+        "spa": "spa",
+        "jpn": "jp",
+    }.get(lang_code, "und")
+
+
+def _parse_series_episode(base_name: str) -> tuple[str | None, int | None, str]:
+    """Return (series_name, season_number, episode_token_or_original)."""
+    match = _SERIES_EPISODE_PATTERN.match(base_name.strip())
+    if not match:
+        return None, None, base_name
+
+    series_name = match.group("series").strip(" -_")
+    if not series_name:
+        return None, None, base_name
+
+    season = int(match.group("season"))
+    episode_raw = match.group("episode") or match.group("compact_episode")
+    episode = int(episode_raw)
+    normalized_token = f"S{season:02d}E{episode:02d}"
+    return series_name, season, normalized_token
+
+
+def _detect_audio_language_from_metadata(file_path: Path) -> str | None:
+    """Read first audio stream language from ffprobe tags and normalize to ISO-639-2 code."""
+    probe = probe_file(file_path)
+    if probe.failed:
+        logger.debug("ffprobe failed while detecting audio language for %s", file_path)
+        return None
+
+    for stream in probe.audio_streams():
+        tags = stream.get("tags")
+        if isinstance(tags, dict):
+            detected = _normalize_language_code(str(tags.get("language", "")))
+            if detected:
+                return detected
+    return None
 
 
 def _detect_lang_and_basename(file_path: Path) -> tuple[str | None, str]:
@@ -36,16 +109,10 @@ def _detect_lang_and_basename(file_path: Path) -> tuple[str | None, str]:
     if not match:
         return None, stem
 
-    lang_raw = match.group("lang").lower()
-    if lang_raw in {"de", "german", "deutsch"}:
-        lang = "deu"
-    elif lang_raw in {"jp", "jpn", "japanese", "nihongo"}:
-        lang = "jpn"
-    else:
-        lang = "eng"
+    lang = _normalize_language_code(match.group("lang"))
     # Only trim separators, not title punctuation like closing ')' in years.
     base = _LANG_SUFFIX_PATTERN.sub("", stem).strip(" -_")
-    return lang, (base or stem)
+    return (lang or None), (base or stem)
 
 
 def _status_text(status: str) -> Text:
@@ -146,17 +213,23 @@ def batch_command(
         console.print("[yellow]No .mp4 files found.[/yellow]")
         raise typer.Exit(code=0)
 
-    groups: dict[str, dict[str, list[Path]]] = defaultdict(lambda: {"deu": [], "eng": [], "jpn": [], "other": []})
+    groups: dict[str, dict[str, list[Path]]] = defaultdict(
+        lambda: {"deu": [], "eng": [], "spa": [], "jpn": [], "other": []}
+    )
     for file_path in mp4_files:
         lang, base = _detect_lang_and_basename(file_path)
+        series_name, _, episode_token = _parse_series_episode(base)
+        group_key = f"{series_name} -{episode_token}" if series_name else episode_token
         if lang == "deu":
-            groups[base]["deu"].append(file_path)
+            groups[group_key]["deu"].append(file_path)
         elif lang == "eng":
-            groups[base]["eng"].append(file_path)
+            groups[group_key]["eng"].append(file_path)
+        elif lang == "spa":
+            groups[group_key]["spa"].append(file_path)
         elif lang == "jpn":
-            groups[base]["jpn"].append(file_path)
+            groups[group_key]["jpn"].append(file_path)
         else:
-            groups[base]["other"].append(file_path)
+            groups[group_key]["other"].append(file_path)
 
     table = Table(title="Merge Batch Summary", box=box.ROUNDED, show_lines=True, expand=True)
     table.add_column("Title", style="cyan")
@@ -171,11 +244,21 @@ def batch_command(
 
     for title in sorted(groups):
         group = groups[title]
+        series_name, season_number, episode_token = _parse_series_episode(title)
         de_files = sorted(group["deu"])
         en_files = sorted(group["eng"])
+        spa_files = sorted(group["spa"])
         jp_files = sorted(group["jpn"])
         other_files = sorted(group["other"])
-        target = output_root / title / f"{title}.mkv"
+        if series_name and season_number is not None:
+            folder_name = series_name
+            season_folder = f"Season {season_number:02d}"
+            output_basename = f"{series_name} -{episode_token}"
+            target = output_root / folder_name / season_folder / f"{output_basename}.mkv"
+        else:
+            folder_name = episode_token
+            output_basename = episode_token
+            target = output_root / folder_name / f"{output_basename}.mkv"
 
         if de_files and en_files:
             # Deterministic selection if duplicates exist.
@@ -194,13 +277,26 @@ def batch_command(
             source_text = f"{de_file.name} + {jp_file.name}"
             message = result.message
         else:
-            candidates = de_files + jp_files + en_files + other_files
+            candidates = de_files + jp_files + en_files + spa_files + other_files
             if len(candidates) == 1:
                 source = candidates[0]
-                # Determine audio language and title based on detected language
-                lang, _ = _detect_lang_and_basename(source)
-                audio_lang = "jpn" if lang == "jpn" else ("eng" if lang == "eng" else "deu")
-                audio_title = "Japanisch" if lang == "jpn" else ("English" if lang == "eng" else "Deutsch")
+                # Prefer stream metadata, fallback to filename suffix, default to German.
+                audio_lang = _detect_audio_language_from_metadata(source)
+                if audio_lang is None:
+                    lang_from_name, _ = _detect_lang_and_basename(source)
+                    audio_lang = lang_from_name or "deu"
+                audio_title = _audio_title_for_language(audio_lang)
+                if series_name and season_number is not None:
+                    target = (
+                        output_root
+                        / folder_name
+                        / f"Season {season_number:02d}"
+                        / f"{output_basename} - {_language_filename_suffix(audio_lang)}.mkv"
+                    )
+                else:
+                    target = (
+                        output_root / folder_name / f"{output_basename} - {_language_filename_suffix(audio_lang)}.mkv"
+                    )
                 conv = convert_mp4_to_mkv(
                     source=source,
                     target=target,

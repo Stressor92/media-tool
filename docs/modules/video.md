@@ -56,6 +56,12 @@ This operation is optimized for **container normalization without re-encoding**.
 
 The helper `detect_language_files()` identifies the pair from filename suffix patterns such as `-de`, `_en`, `(en)`, etc.
 
+For CLI batch usage (`media-tool merge batch`), series-like names are normalized as well:
+
+- episode patterns like `Show - S01E02 - en.mp4` and `Show - S0102 - de.mp4` are treated as series episodes
+- outputs are written to `Show/Season 01/Show -S01E02.mkv`
+- single-file groups set audio metadata from probed stream language when available (fallback to filename suffix)
+
 ### 3. DVD upscale pipeline
 
 `upscale_dvd()` is the most sophisticated path in the module. It:
