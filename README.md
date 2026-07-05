@@ -134,7 +134,8 @@ Merge multiple audio tracks (typically German + English) into a single file with
 
 - `media-tool merge batch "C:\Movies"` — Process many MP4 files in one folder:
   - `<title>-de.mp4` + `<title>-en.mp4` -> `<title>/<title>.mkv` with DE+EN audio
-  - only one file for a title -> `<title>/<title>.mkv` with German audio metadata
+  - Series pattern `<name> - S01E02 - <lang>.mp4` (also `S0102`, `S1E2`) -> `<name>/Season 01/<name> -S01E02.mkv`
+  - only one file for a series episode -> `<name>/Season 01/<name> -S01E02 - <lang>.mkv` (for example `- de`, `- en`, `- spa`) with audio language from stream metadata (fallback: filename suffix)
 - `media-tool merge batch "C:\Movies" --output-dir "D:\MergedMovies"` — Write output MKVs to another drive
 - `media-tool merge auto "C:\Movies"` — Auto-detect and merge one DE/EN pair in a folder
 - `media-tool merge manual "movie_german.mp4" "movie_english.mp4" --target movie_merged.mkv` — Merge specific files
@@ -199,7 +200,10 @@ Scan, organize, and merge audiobook chapter files.
 **Behavior highlights:**
 - Merge processes only groups with 2+ detected chapters (single files are skipped)
 - `--grouping metadata-first` uses album/series/title + track metadata first, then falls back to filename regex patterns
+- Multi-disc chapter order is preserved from metadata detection (disc+track aware), even when track numbers repeat per disc
 - Merge writes audio-only output and uses format-compatible audio codecs (for example AAC for `m4a`/`m4b`) to avoid container errors with embedded cover streams
+- Merge runs automatic pre-merge deduplication per chapter key (for example `Kapitel 01`, `Kapitel 01 (1)`, `Kapitel 01 (2)` -> one chapter)
+- If same chapter key has non-identical files, merge resolves conflicts deterministically (canonical filename, quality hints) and continues with one selected candidate
 - Organize uses one hierarchy level only: `Author-Title-Year-Language` (default language is `de`)
 - `remove-silence` supports single-file mode and folder mode; only silent parts longer than configured seconds are removed
 - Use `--dry-run` on merge to preview detected books and output names before writing files
@@ -247,6 +251,10 @@ Download video, music, or entire series from YouTube, Soundcloud, and 1000+ site
 - `media-tool download video "https://url..." --output "E:\Downloads" --subtitle en,de` — Download with subtitles
 - `media-tool download music "https://soundcloud.com/..." --format mp3` — Download audio
 - `media-tool download series "https://youtube.com/playlist?list=..." --recursive` — Download entire playlist
+
+Behavior note for audio series downloads:
+
+- `media-tool download series ... --format mp3` uses a music-oriented output template: `Author/Album/Song.mp3`
 
 **Use case:** Download a movie, music video, or educational series before processing with other commands.
 
