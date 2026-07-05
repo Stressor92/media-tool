@@ -452,6 +452,16 @@ class DownloadManager:
         expected_items = self._available_playlist_items(info)
 
         if request.media_type == MediaType.SERIES:
+            if request.extract_audio:
+                # Audio-first series downloads should land in a music-like structure.
+                extra["outtmpl"] = str(
+                    request.output_dir
+                    / "%(uploader|Unknown Author)s"
+                    / "%(album|Unknown Album)s"
+                    / "%(title|Unknown Track)s.%(ext)s"
+                )
+                return replace(request, extra_yt_dlp_opts=extra, expected_playlist_items=expected_items)
+
             series = info.get("series") or info.get("playlist_title") or info.get("title") or "Unknown Series"
             season = info.get("season_number", 1)
             safe_series = str(series).strip() or "Unknown Series"

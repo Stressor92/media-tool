@@ -103,3 +103,14 @@ The module itself does not hardcode provider-specific scraping logic; it relies 
 The download module is primarily used by the `download` CLI command group, but its outputs are also suitable as inputs to later local processing such as conversion or workflow-based organization.
 
 Because remote failure is expected, the module treats many failures as **operational outcomes** rather than programmer errors.
+
+---
+
+## Output Templates
+
+For `MediaType.SERIES`, the output template depends on mode:
+
+- video-oriented series mode: `Series/Season XX/<playlist_index> - <title>.<ext>`
+- audio-oriented series mode (`extract_audio=True`, e.g. `--format mp3`): `Author/Album/Song.<ext>`
+
+This keeps playlist-as-music downloads compatible with music-library folder conventions.

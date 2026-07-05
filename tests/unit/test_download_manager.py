@@ -158,6 +158,27 @@ class TestDownloadManager:
         assert "Season" in str(outtmpl)
         assert enriched_request.extra_yt_dlp_opts.get("ignoreerrors") is True
 
+    def test_series_audio_request_uses_music_folder_structure(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_runner.extract_info.return_value = _raw_info(playlist_title="Synthwave Mix")
+        request = DownloadRequest(
+            url="https://example.com/playlist",
+            media_type=MediaType.SERIES,
+            output_dir=tmp_path,
+            extract_audio=True,
+            audio_format="mp3",
+        )
+
+        manager.download(request)
+
+        enriched_request: DownloadRequest = mock_runner.download.call_args[0][0]
+        outtmpl = str(enriched_request.extra_yt_dlp_opts.get("outtmpl", ""))
+        assert "%(uploader|Unknown Author)s" in outtmpl
+        assert "%(album|Unknown Album)s" in outtmpl
+        assert "%(title|Unknown Track)s" in outtmpl
+        assert "Season" not in outtmpl
+
     def test_youtube_playlist_enables_gentle_request_pacing(
         self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
     ) -> None:
