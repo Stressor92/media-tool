@@ -13,6 +13,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from core.audiobook.merger import (
+    _deduplicate_chapters,
     _clean_book_title,
     _sanitize_filename,
     detect_chapter_files,
@@ -271,7 +272,7 @@ class TestDetectChapterFiles:
             album="Meta Book", series=None, title="Chapter 1", track_number=1, parsed_track_number=None
         )
 
-        with patch("core.audiobook.merger.extract_audiobook_metadata_enhanced") as mock_metadata:
+        with patch("core.audiobook.merger.extract_audiobook_metadata_for_grouping") as mock_metadata:
             mock_metadata.side_effect = [metadata_a, metadata_b]
 
             result = detect_chapter_files(chapter_dir, grouping_strategy="metadata-first")
@@ -418,7 +419,7 @@ class TestMergeAudiobookChapters:
 
         with (
             patch("utils.ffmpeg_runner.run_ffmpeg") as mock_ffmpeg,
-            patch("core.audiobook.merger.extract_audiobook_metadata_enhanced") as mock_metadata,
+            patch("core.audiobook.merger.extract_audiobook_metadata_for_grouping") as mock_metadata,
         ):
             mock_ffmpeg.return_value = FFmpegResult(
                 success=True, return_code=0, command=[], stderr_bytes=b"", stdout_bytes=b""
@@ -461,7 +462,7 @@ class TestMergeAudiobookChapters:
 
         with (
             patch("utils.ffmpeg_runner.run_ffmpeg") as mock_ffmpeg,
-            patch("core.audiobook.merger.extract_audiobook_metadata_enhanced") as mock_metadata,
+            patch("core.audiobook.merger.extract_audiobook_metadata_for_grouping") as mock_metadata,
         ):
             mock_metadata.return_value = MagicMock(title="Test Book", artist="Test Author")
             mock_ffmpeg.return_value = FFmpegResult(
@@ -504,7 +505,7 @@ class TestMergeAudiobookChapters:
 
         with (
             patch("utils.ffmpeg_runner.run_ffmpeg") as mock_ffmpeg,
-            patch("core.audiobook.merger.extract_audiobook_metadata_enhanced") as mock_metadata,
+            patch("core.audiobook.merger.extract_audiobook_metadata_for_grouping") as mock_metadata,
         ):
             mock_ffmpeg.return_value = FFmpegResult(
                 success=True, return_code=0, command=[], stderr_bytes=b"", stdout_bytes=b""
@@ -682,6 +683,135 @@ class TestMergeAudiobookLibrary:
                 grouping_strategy="filename",
                 progress_callback=None,
             )
+
+    def test_merge_library_deduplicates_repeated_chapter_files(self, tmp_path):
+        """Should remove repeated chapter copies before merge."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        ch1 = input_dir / "01 - Kapitel 01.mp3"
+        ch1_copy = input_dir / "01 - Kapitel 01 (1).mp3"
+        ch2 = input_dir / "02 - Kapitel 02.mp3"
+        ch1.write_bytes(b"same-content")
+        ch1_copy.write_bytes(b"same-content")
+        ch2.write_bytes(b"chapter-two")
+
+        with (
+            patch("core.audiobook.merger.detect_chapter_files") as mock_detect,
+            patch("core.audiobook.merger.merge_audiobook_chapters") as mock_merge,
+        ):
+            mock_detect.return_value = {
+                "Book": [
+                    (ch1, 1),
+                    (ch1_copy, 1),
+                    (ch2, 2),
+                ],
+            }
+            mock_merge.return_value = {"success": True, "total_size": 1000}
+
+            merge_audiobook_library(input_dir, output_dir, format="m4b")
+
+            call_kwargs = mock_merge.call_args[1]
+            merged_files = call_kwargs["chapter_files"]
+            assert len(merged_files) == 2
+            assert ch1 in merged_files or ch1_copy in merged_files
+            assert ch2 in merged_files
+
+    def test_merge_library_keeps_detected_order_with_repeated_track_numbers(self, tmp_path):
+        """Should not re-sort detected chapters only by track number."""
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # Simulate metadata-first detection order across multiple discs where
+        # track numbers repeat per disc (1,2,1,2). The detected order is correct.
+        d1_t1 = input_dir / "disc1_track1.mp3"
+        d1_t2 = input_dir / "disc1_track2.mp3"
+        d2_t1 = input_dir / "disc2_track1.mp3"
+        d2_t2 = input_dir / "disc2_track2.mp3"
+        for file_path in (d1_t1, d1_t2, d2_t1, d2_t2):
+            file_path.write_bytes(file_path.name.encode("utf-8"))
+
+        with (
+            patch("core.audiobook.merger.detect_chapter_files") as mock_detect,
+            patch("core.audiobook.merger.merge_audiobook_chapters") as mock_merge,
+        ):
+            mock_detect.return_value = {
+                "Book": [
+                    (d1_t1, 1),
+                    (d1_t2, 2),
+                    (d2_t1, 1),
+                    (d2_t2, 2),
+                ]
+            }
+            mock_merge.return_value = {"success": True, "total_size": 1000}
+
+            merge_audiobook_library(input_dir, output_dir, format="m4b")
+
+            call_kwargs = mock_merge.call_args[1]
+            assert call_kwargs["chapter_files"] == [d1_t1, d1_t2, d2_t1, d2_t2]
+
+
+class TestDeduplicateChapters:
+    """Test chapter deduplication helper behavior."""
+
+    def test_deduplicate_exact_duplicates(self, tmp_path):
+        ch1 = tmp_path / "01 - Kapitel 01.mp3"
+        ch1_copy = tmp_path / "01 - Kapitel 01 (2).mp3"
+        ch2 = tmp_path / "02 - Kapitel 02.mp3"
+        ch1.write_bytes(b"a")
+        ch1_copy.write_bytes(b"a")
+        ch2.write_bytes(b"b")
+
+        selected, stats = _deduplicate_chapters(
+            [
+                (ch1, 1),
+                (ch1_copy, 1),
+                (ch2, 2),
+            ]
+        )
+
+        assert len(selected) == 2
+        assert stats.removed_duplicates == 1
+        assert stats.conflict_groups == 0
+
+    def test_deduplicate_conflicting_versions_prefers_canonical_name(self, tmp_path):
+        canonical = tmp_path / "01 - Kapitel 01.mp3"
+        alt = tmp_path / "01 - Kapitel 01 (1).mp3"
+        canonical.write_bytes(b"short")
+        alt.write_bytes(b"longer-content")
+
+        selected, stats = _deduplicate_chapters([(canonical, 1), (alt, 1)])
+
+        assert len(selected) == 1
+        assert selected[0][0] == canonical
+        assert stats.removed_duplicates == 1
+        assert stats.conflict_groups == 1
+
+    def test_deduplicate_preserves_input_order_for_duplicate_track_numbers(self, tmp_path):
+        """Should keep chapter order from detection when track numbers repeat across discs."""
+        d1_t1 = tmp_path / "disc1_track1.mp3"
+        d1_t2 = tmp_path / "disc1_track2.mp3"
+        d2_t1 = tmp_path / "disc2_track1.mp3"
+        d2_t2 = tmp_path / "disc2_track2.mp3"
+        for file_path in (d1_t1, d1_t2, d2_t1, d2_t2):
+            file_path.write_bytes(file_path.name.encode("utf-8"))
+
+        selected, stats = _deduplicate_chapters(
+            [
+                (d1_t1, 1),
+                (d1_t2, 2),
+                (d2_t1, 1),
+                (d2_t2, 2),
+            ]
+        )
+
+        assert [path for path, _ in selected] == [d1_t1, d1_t2, d2_t1, d2_t2]
+        assert stats.removed_duplicates == 0
+        assert stats.conflict_groups == 0
 
 
 # ---------------------------------------------------------------------------

@@ -31,6 +31,11 @@ Ordering priority in `metadata-first` mode:
 3. Chapter number from filename regex
 4. Stable filename order
 
+Important ordering detail:
+
+- When track numbers repeat across discs (for example Disc 1: 01..20 and Disc 2: 01..18), merge keeps the detected chapter sequence and does not re-sort by plain track number later.
+- This prevents cross-disc interleaving such as `D1T01, D2T01, D1T02, D2T02`.
+
 Trade-off:
 
 - Works on heterogeneous real-world naming
@@ -45,6 +50,13 @@ Merge flow:
 3. Run concat with audio-only mapping and format-aware encoding.
 4. Optionally preserve metadata from first chapter.
 5. Cleanup temporary artifacts and validate result.
+
+Pre-merge normalization:
+
+- Chapter candidates are deduplicated before concatenation.
+- Duplicate key normalization removes trailing copy suffixes like `(1)`, `(2)`, `(3)`.
+- Exact duplicates are collapsed to one representative chapter.
+- If candidates for the same chapter key are not byte-identical, a deterministic conflict resolver selects one file and reports conflict count in progress output.
 
 Container compatibility note:
 

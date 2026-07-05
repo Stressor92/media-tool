@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 from ..audio.metadata import AudioMetadataEnhanced, extract_audio_metadata_enhanced
+from utils.audio_analyzer import AudioMetadata, extract_audio_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,11 @@ def extract_audiobook_metadata_enhanced(file_path: Path) -> AudioMetadataEnhance
                 pass
 
     return metadata
+
+
+def extract_audiobook_metadata_for_grouping(file_path: Path) -> AudioMetadata | None:
+    """Extract local-only metadata for fast merge grouping (no online lookup)."""
+    return extract_audio_metadata(file_path)
 
 
 def scan_audiobook_library(directory: Path, recursive: bool = True) -> list[AudioMetadataEnhanced]:

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
+from hashlib import sha1
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, TypedDict
@@ -16,7 +18,7 @@ from src.backup import get_backup_manager
 from src.backup.models import MediaType
 from utils.progress import ProgressEvent, emit_progress
 
-from .metadata import extract_audiobook_metadata_enhanced
+from .metadata import extract_audiobook_metadata_for_grouping
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,14 @@ class MergeLibraryResult(TypedDict):
     total_chapters: int
     merged_books: list[MergedBookInfo]
     errors: list[str]
+
+
+@dataclass(frozen=True)
+class ChapterDedupStats:
+    """Summary of automatic deduplication for one book."""
+
+    removed_duplicates: int
+    conflict_groups: int
 
 
 def _extract_chapter_from_filename(filename_stem: str) -> tuple[str, int] | None:
@@ -174,7 +184,7 @@ def detect_chapter_files(
     )
 
     for index, file_path in enumerate(candidate_files, start=1):
-        if total_candidates <= 20 or index == 1 or index % 25 == 0 or index == total_candidates:
+        if total_candidates <= 20 or index == 1 or index % 10 == 0 or index == total_candidates:
             emit_progress(
                 progress_callback,
                 ProgressEvent(
@@ -190,7 +200,7 @@ def detect_chapter_files(
         metadata = None
         if grouping_strategy == "metadata-first":
             try:
-                metadata = extract_audiobook_metadata_enhanced(file_path)
+                metadata = extract_audiobook_metadata_for_grouping(file_path)
             except Exception:
                 logger.debug("Metadata extraction failed for %s", file_path, exc_info=True)
 
@@ -243,6 +253,85 @@ def _clean_book_title(title: str) -> str:
     title = re.sub(r"\s+\d+$", "", title)
 
     return title
+
+
+def _normalize_chapter_duplicate_stem(stem: str) -> str:
+    """Normalize stem for duplicate detection, e.g. "Chapter 01 (2)" -> "Chapter 01"."""
+    return re.sub(r"\s+\(\d+\)$", "", stem).strip().casefold()
+
+
+def _candidate_preference_score(path: Path) -> tuple[int, int, int, str]:
+    """Score candidates so deterministic selection prefers canonical and higher quality files."""
+    stem = path.stem
+    has_copy_suffix = bool(re.search(r"\s+\(\d+\)$", stem))
+    try:
+        size = path.stat().st_size
+    except OSError:
+        size = 0
+
+    # Prefer canonical names without "(n)", then larger files, then stable lexical fallback.
+    return (0 if not has_copy_suffix else 1, -size, len(path.name), path.name.casefold())
+
+
+def _file_fingerprint(path: Path, cache: dict[Path, tuple[int, str]]) -> tuple[int, str]:
+    """Fast fingerprint using size and partial SHA1 to identify exact duplicates."""
+    cached = cache.get(path)
+    if cached is not None:
+        return cached
+
+    size = path.stat().st_size
+    window = 1_048_576
+    digest = sha1()
+    with path.open("rb") as handle:
+        head = handle.read(window)
+        digest.update(head)
+        if size > window:
+            seek_pos = max(size - window, 0)
+            handle.seek(seek_pos)
+            digest.update(handle.read(window))
+
+    fp = (size, digest.hexdigest())
+    cache[path] = fp
+    return fp
+
+
+def _deduplicate_chapters(chapters: list[tuple[Path, int]]) -> tuple[list[tuple[Path, int]], ChapterDedupStats]:
+    """Deduplicate near-identical chapter candidates while keeping deterministic ordering."""
+    by_key: dict[tuple[int, str], list[tuple[Path, int]]] = {}
+    first_seen_index: dict[tuple[int, str], int] = {}
+    for index, (chapter_path, chapter_num) in enumerate(chapters):
+        key = (chapter_num, _normalize_chapter_duplicate_stem(chapter_path.stem))
+        by_key.setdefault(key, []).append((chapter_path, chapter_num))
+        first_seen_index.setdefault(key, index)
+
+    fingerprint_cache: dict[Path, tuple[int, str]] = {}
+    selected_with_order: list[tuple[int, tuple[Path, int]]] = []
+    removed_duplicates = 0
+    conflict_groups = 0
+
+    for key, candidates in by_key.items():
+        order_index = first_seen_index[key]
+        if len(candidates) == 1:
+            selected_with_order.append((order_index, candidates[0]))
+            continue
+
+        fingerprints = {_file_fingerprint(path, fingerprint_cache) for path, _ in candidates}
+        if len(fingerprints) == 1:
+            # Exact duplicate set: keep best canonical filename only.
+            chosen = min(candidates, key=lambda item: _candidate_preference_score(item[0]))
+            selected_with_order.append((order_index, chosen))
+            removed_duplicates += len(candidates) - 1
+            continue
+
+        # Conflicting versions of same chapter key: choose best candidate deterministically.
+        conflict_groups += 1
+        chosen = min(candidates, key=lambda item: _candidate_preference_score(item[0]))
+        selected_with_order.append((order_index, chosen))
+        removed_duplicates += len(candidates) - 1
+
+    selected_with_order.sort(key=lambda item: item[0])
+    selected = [item[1] for item in selected_with_order]
+    return selected, ChapterDedupStats(removed_duplicates=removed_duplicates, conflict_groups=conflict_groups)
 
 
 def merge_audiobook_chapters(
@@ -325,7 +414,7 @@ def merge_audiobook_chapters(
 
         if preserve_metadata:
             # Try to extract metadata from first file
-            first_metadata = extract_audiobook_metadata_enhanced(chapter_files[0])
+            first_metadata = extract_audiobook_metadata_for_grouping(chapter_files[0])
             if first_metadata:
                 # Set basic metadata
                 if first_metadata.title:
@@ -478,9 +567,38 @@ def merge_audiobook_library(
             )
             continue
 
-        # Sort chapters by chapter number
-        chapters.sort(key=lambda x: x[1])
-        chapter_files = [chapter[0] for chapter in chapters]
+        deduped_chapters, dedup_stats = _deduplicate_chapters(chapters)
+        if dedup_stats.removed_duplicates > 0:
+            detail = f"Removed {dedup_stats.removed_duplicates} duplicate chapter file(s)"
+            if dedup_stats.conflict_groups > 0:
+                detail += f"; resolved {dedup_stats.conflict_groups} conflicting chapter group(s)"
+            emit_progress(
+                progress_callback,
+                ProgressEvent("merge-audiobook", index, total, book_title, "info", detail),
+            )
+
+        if len(deduped_chapters) < 2:
+            logger.info(
+                "Skipping '%s' after deduplication - only %d chapter(s)",
+                book_title,
+                len(deduped_chapters),
+            )
+            emit_progress(
+                progress_callback,
+                ProgressEvent(
+                    "merge-audiobook",
+                    index,
+                    total,
+                    book_title,
+                    "skipped",
+                    f"Only {len(deduped_chapters)} chapter(s) after dedup",
+                ),
+            )
+            continue
+
+        # Keep detected chapter order, which already accounts for metadata priority
+        # (disc+track, parsed track, filename chapter, lexical fallback).
+        chapter_files = [chapter[0] for chapter in deduped_chapters]
 
         # Generate output filename
         safe_title = _sanitize_filename(book_title)
@@ -493,7 +611,7 @@ def merge_audiobook_library(
             results["merged_books"].append(
                 {
                     "title": book_title,
-                    "chapters": len(chapters),
+                    "chapters": len(chapter_files),
                     "output_file": str(output_file),
                     "size_mb": None,
                     "dry_run": True,
@@ -520,7 +638,7 @@ def merge_audiobook_library(
             results["merged_books"].append(
                 {
                     "title": book_title,
-                    "chapters": len(chapters),
+                    "chapters": len(chapter_files),
                     "output_file": str(output_file),
                     "size_mb": round(merge_result.get("total_size", 0) / 1_048_576, 2),
                 }
@@ -529,7 +647,7 @@ def merge_audiobook_library(
             emit_progress(
                 progress_callback,
                 ProgressEvent(
-                    "merge-audiobook", index, total, book_title, "success", f"Merged {len(chapters)} chapters"
+                    "merge-audiobook", index, total, book_title, "success", f"Merged {len(chapter_files)} chapters"
                 ),
             )
         else:

@@ -481,14 +481,17 @@ def merge_command(
     if dry_run:
         console.print("[yellow]DRY RUN MODE - No files will be modified[/yellow]\n")
 
-        # Show what would be merged
-        book_chapters = detect_chapter_files(
-            source_dir,
+        preview = merge_audiobook_library(
+            input_dir=source_dir,
+            output_dir=target_dir,
+            format=format,
             grouping_strategy=grouping,
+            overwrite=overwrite,
+            dry_run=True,
             progress_callback=reporter,
         )
 
-        if not book_chapters:
+        if preview["books_found"] == 0:
             console.print("[yellow]No chapter files detected.[/yellow]")
             return
 
@@ -498,29 +501,27 @@ def merge_command(
         table.add_column("Total Size", justify="right")
         table.add_column("Output File", style="green", max_width=50)
 
-        for book_title, chapters in book_chapters.items():
-            if len(chapters) < 2:
-                continue
+        for book in preview["merged_books"]:
+            output_name = Path(book["output_file"]).name
 
-            # Calculate total size
-            total_size = sum(chapter[0].stat().st_size for chapter in chapters)
+            # Estimate total source size from selected chapters is not available in dry-run result,
+            # so keep the preview table simple and deterministic.
+            total_size = 0
+            chapter_count = int(book["chapters"])
+            if chapter_count > 0:
+                # Fallback size indicator for UI compatibility.
+                total_size = 0
             size_mb = total_size / 1_048_576  # Convert to MB
 
-            # Generate output filename
-            safe_title = _sanitize_filename(book_title)
-            output_name = f"{safe_title}.{format}"
-
             table.add_row(
-                book_title,
-                str(len(chapters)),
-                f"{size_mb:.1f} MB",
+                book["title"],
+                str(chapter_count),
+                "n/a",
                 output_name,
             )
 
         console.print(table)
-        console.print(
-            f"\n[dim]Total books that would be merged: {len([b for b in book_chapters.values() if len(b) >= 2])}[/dim]"
-        )
+        console.print(f"\n[dim]Total books that would be merged: {len(preview['merged_books'])}[/dim]")
         return
 
     try:
