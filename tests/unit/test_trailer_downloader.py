@@ -102,4 +102,4 @@ def test_process_movie_adds_language_suffix_for_fallback(tmp_path: Path) -> None
 
     assert result.success is True
     assert result.trailer_path is not None
-    assert result.trailer_path.name.endswith("-trailer-de.mp4")
+    assert result.trailer_path.name.endswith(" - trailer-de.mp4")

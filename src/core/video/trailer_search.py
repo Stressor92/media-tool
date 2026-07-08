@@ -45,7 +45,7 @@ class TrailerSearchService:
         movie_name: str,
         year: int | None = None,
         preferred_languages: tuple[str, ...] = ("en", "de"),
-        max_results_per_language: int = 8,
+        max_results_per_language: int = 4,
     ) -> TrailerSearchResult:
         for language in preferred_languages:
             query = self._build_search_query(movie_name, year, language)
@@ -53,11 +53,20 @@ class TrailerSearchService:
                 candidates = self.ytdlp_runner.search(
                     query=query,
                     max_results=max_results_per_language,
+                    timeout_seconds=12,
                 )
             except YtDlpError as exc:
                 logger.warning(
-                    "Trailer search failed",
-                    extra={"movie_name": movie_name, "language": language, "error": str(exc)},
+                    "Trailer search failed: %s",
+                    str(exc),
+                    extra={
+                        "context": {
+                            "movie_name": movie_name,
+                            "language": language,
+                            "query": query,
+                            "max_results": max_results_per_language,
+                        }
+                    },
                 )
                 continue
 

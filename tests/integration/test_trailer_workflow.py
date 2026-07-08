@@ -50,4 +50,4 @@ def test_trailer_workflow_dry_run(tmp_path: Path) -> None:
     assert len(success_results) == 1
     assert len(failed_results) == 1
     assert success_results[0].trailer_path is not None
-    assert success_results[0].trailer_path.name.endswith("-trailer.mp4")
+    assert success_results[0].trailer_path.name.endswith(" - trailer.mp4")

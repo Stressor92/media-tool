@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from utils.jellyfin_naming import JellyfinNaming
 logger = logging.getLogger(__name__)
 
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".m4v", ".webm"}
+_TRAILER_SUFFIX_PATTERN = re.compile(r"\s*-\s*\[?trailer\]?($|-[a-z]{2,3}$)", re.IGNORECASE)
 
 
 @dataclass(slots=True)
@@ -40,9 +42,20 @@ class MovieFolderScanner:
                 continue
 
             movie_name, year = JellyfinNaming.parse_movie_folder_name(directory.name)
-            has_trailer = self._has_existing_trailer(directory)
+            existing_trailer = self._find_existing_trailer(directory)
+            has_trailer = existing_trailer is not None
 
             if skip_with_trailer and has_trailer:
+                logger.warning(
+                    "Skipping folder because trailer already exists",
+                    extra={
+                        "context": {
+                            "folder": str(directory),
+                            "movie_name": movie_name,
+                            "existing_trailer": existing_trailer.name if existing_trailer is not None else "-",
+                        }
+                    },
+                )
                 continue
 
             movie_folders.append(
@@ -62,11 +75,18 @@ class MovieFolderScanner:
 
     @staticmethod
     def _has_existing_trailer(folder_path: Path) -> bool:
-        return any(
-            file.suffix.lower() == ".mp4" and "-trailer" in file.stem.lower()
-            for file in folder_path.iterdir()
-            if file.is_file()
-        )
+        return MovieFolderScanner._find_existing_trailer(folder_path) is not None
+
+    @staticmethod
+    def _find_existing_trailer(folder_path: Path) -> Path | None:
+        for file in folder_path.iterdir():
+            if not file.is_file():
+                continue
+            if file.suffix.lower() != ".mp4":
+                continue
+            if _TRAILER_SUFFIX_PATTERN.search(file.stem.lower()) is not None:
+                return file
+        return None
 
     @staticmethod
     def _contains_primary_movie_file(folder_path: Path) -> bool:
@@ -75,7 +95,7 @@ class MovieFolderScanner:
                 continue
             if file.suffix.lower() not in VIDEO_EXTENSIONS:
                 continue
-            if "-trailer" in file.stem.lower():
+            if _TRAILER_SUFFIX_PATTERN.search(file.stem.lower()) is not None:
                 continue
             return True
         return False
