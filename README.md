@@ -136,6 +136,7 @@ Merge multiple audio tracks (typically German + English) into a single file with
   - `<title>-de.mp4` + `<title>-en.mp4` -> `<title>/<title>.mkv` with DE+EN audio
   - Series pattern `<name> - S01E02 - <lang>.mp4` (also `S0102`, `S1E2`) -> `<name>/Season 01/<name> -S01E02.mkv`
   - only one file for a series episode -> `<name>/Season 01/<name> -S01E02 - <lang>.mkv` (for example `- de`, `- en`, `- spa`) with audio language from stream metadata (fallback: filename suffix)
+  - live per-group trace is printed during processing (`[index/total]`, action, outcome) so long batches show progress immediately
 - `media-tool merge batch "C:\Movies" --output-dir "D:\MergedMovies"` — Write output MKVs to another drive
 - `media-tool merge auto "C:\Movies"` — Auto-detect and merge one DE/EN pair in a folder
 - `media-tool merge manual "movie_german.mp4" "movie_english.mp4" --target movie_merged.mkv` — Merge specific files
@@ -171,7 +172,9 @@ Convert, inspect, merge, add/translate subtitles, download trailers, upscale.
 - `media-tool video merge "german.mkv" "english.mkv"` — Merge language variants
 - `media-tool video subtitle "movie.mkv" "subs.srt" --language en` — Embed subtitle track
 - `media-tool video subtitle-auto "E:\Movies" --recursive --languages en,de` — Auto-download and embed missing subtitles
-- `media-tool video download-trailers "movie.mkv"` — Fetch trailer from TMDB and embed
+- `media-tool video download-trailers "Y:\\" --skip-existing` — Download missing trailers for movie folders only (creates `<Movie (Year)> - trailer.mp4`)
+  - logs explicit skip reasons per folder when a trailer already exists
+  - trailer search failures now include detailed yt-dlp error text (timeout/engine errors)
 - `media-tool video upscale "dvd.mp4" --profile dvd-balanced` — Upscale to 720p/1080p
 - `media-tool video encode "movie.mkv" --profile brrip --encoder auto` — Re-encode video to H.265, keep all other streams
 - `media-tool video encode-batch "E:\BRRips" --recursive --profile brrip --encoder auto` — Batch H.265 transcode without resolution changes
