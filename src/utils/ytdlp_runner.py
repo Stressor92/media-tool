@@ -77,9 +77,13 @@ class YtDlpRunner:
             self.ytdlp_binary,
             search_query,
             "--dump-json",
+            "--flat-playlist",
             "--no-playlist",
             "--skip-download",
             "--ignore-errors",
+            "--no-warnings",
+            "--extractor-args",
+            "youtube:player_client=web;skip=dash,hls",
         ]
 
         try:
@@ -93,11 +97,11 @@ class YtDlpRunner:
         except FileNotFoundError as exc:
             raise YtDlpNotFoundError(f"yt-dlp executable not found: {self.ytdlp_binary}") from exc
         except subprocess.TimeoutExpired as exc:
-            raise YtDlpError(f"yt-dlp search timed out for query '{query}'") from exc
+            raise YtDlpError(f"yt-dlp search timed out after {timeout_seconds}s for query '{query}'") from exc
 
         if completed.returncode != 0:
-            stderr = completed.stderr.strip()
-            raise YtDlpError(f"yt-dlp search failed for query '{query}': {stderr or 'unknown error'}")
+            stderr = self._summarize_stderr(completed.stderr)
+            raise YtDlpError(f"yt-dlp search failed for query '{query}': {stderr}")
 
         videos: list[VideoInfo] = []
         for line in completed.stdout.splitlines():
@@ -118,6 +122,20 @@ class YtDlpRunner:
                 videos.append(video)
 
         return videos
+
+    @staticmethod
+    def _summarize_stderr(stderr: str) -> str:
+        lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+        if not lines:
+            return "unknown error"
+
+        interesting = [
+            line
+            for line in lines
+            if any(token in line.lower() for token in ("error", "failed", "timeout", "sign in", "cookies", "429"))
+        ]
+        selected = interesting[-1] if interesting else lines[-1]
+        return selected[:400]
 
     def download(
         self,

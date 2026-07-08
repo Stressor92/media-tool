@@ -61,6 +61,18 @@ For CLI batch usage (`media-tool merge batch`), series-like names are normalized
 - episode patterns like `Show - S01E02 - en.mp4` and `Show - S0102 - de.mp4` are treated as series episodes
 - outputs are written to `Show/Season 01/Show -S01E02.mkv`
 - single-file groups set audio metadata from probed stream language when available (fallback to filename suffix)
+- processing prints live step traces per group (`[i/n] Processing`, action type, final status) so long runs are visible from start to finish
+
+For trailer downloads (`media-tool video download-trailers`), existing trailer detection now accepts these filename variants as "already present":
+
+- `Movie (Year) - trailer.mp4`
+- `Movie (Year)-trailer.mp4`
+- `Movie (Year) - [trailer].mp4`
+- `Movie (Year)-[trailer].mp4`
+
+Newly created trailer files are normalized to `Movie (Year) - trailer.mp4` (and `Movie (Year) - trailer-<lang>.mp4` for language fallback outputs).
+
+Trailer search now uses lighter yt-dlp query settings (`--flat-playlist` and reduced search depth) to keep large-library scans responsive. When a search attempt fails, warning logs include the concrete yt-dlp error details. Folder skips due to already existing trailers are logged with folder path and detected trailer filename.
 
 ### 3. DVD upscale pipeline
 

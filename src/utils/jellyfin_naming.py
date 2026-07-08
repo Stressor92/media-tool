@@ -32,7 +32,7 @@ class JellyfinNaming:
         if year is not None:
             base = f"{base} ({year})"
 
-        suffix = "-trailer"
+        suffix = " - trailer"
         if language:
             suffix = f"{suffix}-{language.lower()}"
 

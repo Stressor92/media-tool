@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -47,8 +48,8 @@ def test_search_raises_error_on_nonzero_exit() -> None:
 
 
 def test_download_finalizes_output_file(tmp_path: Path) -> None:
-    output_file = tmp_path / "Movie (2020)-trailer.mp4"
-    temp_file = tmp_path / "Movie (2020)-trailer-temp123.mp4"
+    output_file = tmp_path / "Movie (2020) - trailer.mp4"
+    temp_file = tmp_path / "Movie (2020) - trailer-temp123.mp4"
 
     def _fake_run(*args: Any, **kwargs: Any) -> _Completed:
         del args, kwargs
@@ -67,7 +68,7 @@ def test_download_finalizes_output_file(tmp_path: Path) -> None:
 
 
 def test_download_returns_error_on_failure(tmp_path: Path) -> None:
-    output_file = tmp_path / "Movie (2020)-trailer.mp4"
+    output_file = tmp_path / "Movie (2020) - trailer.mp4"
 
     with patch(
         "utils.ytdlp_runner.subprocess.run",
@@ -79,3 +80,31 @@ def test_download_returns_error_on_failure(tmp_path: Path) -> None:
     assert result.success is False
     assert result.error is not None
     assert "download failed" in result.error
+
+
+def test_search_uses_flat_fast_flags() -> None:
+    captured_cmd: list[str] = []
+
+    def _fake_run(cmd: list[str], *args: Any, **kwargs: Any) -> _Completed:
+        del args, kwargs
+        captured_cmd.extend(cmd)
+        return _Completed(0, stdout="")
+
+    with patch("utils.ytdlp_runner.subprocess.run", side_effect=_fake_run):
+        runner = YtDlpRunner(verify_installation=False)
+        runner.search("Movie trailer", max_results=3)
+
+    assert "--flat-playlist" in captured_cmd
+    assert "--no-warnings" in captured_cmd
+    assert "--extractor-args" in captured_cmd
+
+
+def test_search_timeout_error_contains_seconds() -> None:
+    timeout_exc = subprocess.TimeoutExpired(cmd=["yt-dlp"], timeout=9)
+    with patch("utils.ytdlp_runner.subprocess.run", side_effect=timeout_exc):
+        runner = YtDlpRunner(verify_installation=False)
+        try:
+            runner.search("Movie trailer", timeout_seconds=9)
+            assert False, "Expected YtDlpError"
+        except YtDlpError as exc:
+            assert "9s" in str(exc)
