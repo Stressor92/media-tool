@@ -207,11 +207,23 @@ def batch_command(
     output_root.mkdir(parents=True, exist_ok=True)
     if output_dir is not None:
         console.print(f"[dim]Output:[/dim] {output_root}")
+    logger.info(
+        "Starting merge batch",
+        extra={
+            "context": {
+                "directory": str(directory),
+                "output_dir": str(output_root),
+                "overwrite": overwrite,
+            }
+        },
+    )
 
     mp4_files = sorted(directory.glob("*.mp4"))
     if not mp4_files:
+        logger.warning("Merge batch started without MP4 inputs", extra={"context": {"directory": str(directory)}})
         console.print("[yellow]No .mp4 files found.[/yellow]")
         raise typer.Exit(code=0)
+    logger.info("Discovered %d MP4 input files", len(mp4_files))
 
     groups: dict[str, dict[str, list[Path]]] = defaultdict(
         lambda: {"deu": [], "eng": [], "spa": [], "jpn": [], "other": []}
@@ -231,6 +243,8 @@ def batch_command(
         else:
             groups[group_key]["other"].append(file_path)
 
+    logger.info("Prepared %d merge groups", len(groups))
+
     table = Table(title="Merge Batch Summary", box=box.ROUNDED, show_lines=True, expand=True)
     table.add_column("Title", style="cyan")
     table.add_column("Status", justify="center")
@@ -242,7 +256,8 @@ def batch_command(
     failed_count = 0
     skipped_count = 0
 
-    for title in sorted(groups):
+    total_groups = len(groups)
+    for index, title in enumerate(sorted(groups), start=1):
         group = groups[title]
         series_name, season_number, episode_token = _parse_series_episode(title)
         de_files = sorted(group["deu"])
@@ -250,6 +265,21 @@ def batch_command(
         spa_files = sorted(group["spa"])
         jp_files = sorted(group["jpn"])
         other_files = sorted(group["other"])
+        console.print(f"[dim][{index}/{total_groups}] Processing:[/dim] {title}")
+        logger.info(
+            "Processing merge group",
+            extra={
+                "context": {
+                    "position": f"{index}/{total_groups}",
+                    "title": title,
+                    "de_count": len(de_files),
+                    "en_count": len(en_files),
+                    "jp_count": len(jp_files),
+                    "spa_count": len(spa_files),
+                    "other_count": len(other_files),
+                }
+            },
+        )
         if series_name and season_number is not None:
             folder_name = series_name
             season_folder = f"Season {season_number:02d}"
@@ -260,57 +290,114 @@ def batch_command(
             output_basename = episode_token
             target = output_root / folder_name / f"{output_basename}.mkv"
 
-        if de_files and en_files:
-            # Deterministic selection if duplicates exist.
-            de_file = de_files[0]
-            en_file = en_files[0]
-            result = merge_dual_audio(de_file, en_file, target, overwrite=overwrite)
-            status = "merged" if result.succeeded else ("skipped" if result.skipped else "failed")
-            source_text = f"{de_file.name} + {en_file.name}"
-            message = result.message
-        elif de_files and jp_files:
-            # Merge German + Japanese audio.
-            de_file = de_files[0]
-            jp_file = jp_files[0]
-            result = merge_dual_audio(de_file, jp_file, target, overwrite=overwrite)
-            status = "merged" if result.succeeded else ("skipped" if result.skipped else "failed")
-            source_text = f"{de_file.name} + {jp_file.name}"
-            message = result.message
-        else:
-            candidates = de_files + jp_files + en_files + spa_files + other_files
-            if len(candidates) == 1:
-                source = candidates[0]
-                # Prefer stream metadata, fallback to filename suffix, default to German.
-                audio_lang = _detect_audio_language_from_metadata(source)
-                if audio_lang is None:
-                    lang_from_name, _ = _detect_lang_and_basename(source)
-                    audio_lang = lang_from_name or "deu"
-                audio_title = _audio_title_for_language(audio_lang)
-                if series_name and season_number is not None:
-                    target = (
-                        output_root
-                        / folder_name
-                        / f"Season {season_number:02d}"
-                        / f"{output_basename} - {_language_filename_suffix(audio_lang)}.mkv"
-                    )
-                else:
-                    target = (
-                        output_root / folder_name / f"{output_basename} - {_language_filename_suffix(audio_lang)}.mkv"
-                    )
-                conv = convert_mp4_to_mkv(
-                    source=source,
-                    target=target,
-                    audio_language=audio_lang,
-                    audio_title=audio_title,
-                    overwrite=overwrite,
+        try:
+            if de_files and en_files:
+                # Deterministic selection if duplicates exist.
+                de_file = de_files[0]
+                en_file = en_files[0]
+                logger.info(
+                    "Merging DE+EN pair",
+                    extra={
+                        "context": {
+                            "title": title,
+                            "source_de": de_file.name,
+                            "source_en": en_file.name,
+                            "target": str(target),
+                        }
+                    },
                 )
-                status = "single" if conv.succeeded else ("skipped" if conv.skipped else "failed")
-                source_text = source.name
-                message = conv.message
+                result = merge_dual_audio(de_file, en_file, target, overwrite=overwrite)
+                status = "merged" if result.succeeded else ("skipped" if result.skipped else "failed")
+                source_text = f"{de_file.name} + {en_file.name}"
+                message = result.message
+            elif de_files and jp_files:
+                # Merge German + Japanese audio.
+                de_file = de_files[0]
+                jp_file = jp_files[0]
+                logger.info(
+                    "Merging DE+JP pair",
+                    extra={
+                        "context": {
+                            "title": title,
+                            "source_de": de_file.name,
+                            "source_jp": jp_file.name,
+                            "target": str(target),
+                        }
+                    },
+                )
+                result = merge_dual_audio(de_file, jp_file, target, overwrite=overwrite)
+                status = "merged" if result.succeeded else ("skipped" if result.skipped else "failed")
+                source_text = f"{de_file.name} + {jp_file.name}"
+                message = result.message
             else:
-                status = "skipped"
-                source_text = ", ".join(f.name for f in candidates) if candidates else "-"
-                message = "No clear DE/EN or DE/JP pair and not a single-file group."
+                candidates = de_files + jp_files + en_files + spa_files + other_files
+                if len(candidates) == 1:
+                    source = candidates[0]
+                    # Prefer stream metadata, fallback to filename suffix, default to German.
+                    audio_lang = _detect_audio_language_from_metadata(source)
+                    if audio_lang is None:
+                        lang_from_name, _ = _detect_lang_and_basename(source)
+                        audio_lang = lang_from_name or "deu"
+                    audio_title = _audio_title_for_language(audio_lang)
+                    if series_name and season_number is not None:
+                        target = (
+                            output_root
+                            / folder_name
+                            / f"Season {season_number:02d}"
+                            / f"{output_basename} - {_language_filename_suffix(audio_lang)}.mkv"
+                        )
+                    else:
+                        target = (
+                            output_root
+                            / folder_name
+                            / f"{output_basename} - {_language_filename_suffix(audio_lang)}.mkv"
+                        )
+                    logger.info(
+                        "Converting single file to MKV",
+                        extra={
+                            "context": {
+                                "title": title,
+                                "source": source.name,
+                                "detected_language": audio_lang,
+                                "target": str(target),
+                            }
+                        },
+                    )
+                    conv = convert_mp4_to_mkv(
+                        source=source,
+                        target=target,
+                        audio_language=audio_lang,
+                        audio_title=audio_title,
+                        overwrite=overwrite,
+                    )
+                    status = "single" if conv.succeeded else ("skipped" if conv.skipped else "failed")
+                    source_text = source.name
+                    message = conv.message
+                else:
+                    status = "skipped"
+                    source_text = ", ".join(f.name for f in candidates) if candidates else "-"
+                    message = "No clear DE/EN or DE/JP pair and not a single-file group."
+                    logger.warning(
+                        "Skipping ambiguous merge group",
+                        extra={
+                            "context": {
+                                "title": title,
+                                "candidates": source_text,
+                            }
+                        },
+                    )
+        except Exception as exc:
+            status = "failed"
+            source_text = ", ".join(f.name for f in (de_files + en_files + jp_files + spa_files + other_files)) or "-"
+            message = f"Unexpected error while processing group: {exc}"
+            logger.exception(
+                "Unhandled error in merge group",
+                extra={
+                    "context": {
+                        "title": title,
+                    }
+                },
+            )
 
         if status in {"merged", "single"}:
             success_count += 1
@@ -318,6 +405,15 @@ def batch_command(
             failed_count += 1
         else:
             skipped_count += 1
+
+        if status == "failed":
+            logger.error("Group failed: %s", title, extra={"context": {"message": message}})
+        elif status == "skipped":
+            logger.info("Group skipped: %s", title, extra={"context": {"message": message}})
+        else:
+            logger.info("Group processed successfully: %s", title, extra={"context": {"message": message}})
+
+        console.print(f"[dim]    -> {status.upper()}[/dim] {message}")
 
         table.add_row(title, _status_text(status), source_text, target.name, message)
 
@@ -330,7 +426,30 @@ def batch_command(
     )
 
     if failed_count > 0:
+        logger.error(
+            "Merge batch finished with failures",
+            extra={
+                "context": {
+                    "groups": len(groups),
+                    "processed": success_count,
+                    "skipped": skipped_count,
+                    "failed": failed_count,
+                }
+            },
+        )
         raise typer.Exit(code=1)
+
+    logger.info(
+        "Merge batch finished successfully",
+        extra={
+            "context": {
+                "groups": len(groups),
+                "processed": success_count,
+                "skipped": skipped_count,
+                "failed": failed_count,
+            }
+        },
+    )
 
 
 @app.command("manual")
