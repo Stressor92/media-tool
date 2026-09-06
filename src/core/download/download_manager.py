@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -91,11 +92,18 @@ class DownloadManager:
             raise last_error from exc
 
     def _extract_info(self, request: DownloadRequest) -> dict[str, Any]:
+        youtube_extract_opts: dict[str, Any] = {}
+        if self._looks_like_youtube_url(request.url):
+            js_runtimes = self._default_js_runtimes()
+            if js_runtimes is not None:
+                youtube_extract_opts["js_runtimes"] = js_runtimes
+
         if self._uses_playlist_tolerant_mode(request):
+            extra_opts = {"extract_flat": "in_playlist", "ignoreerrors": True, **youtube_extract_opts}
             info = self._runner.extract_info(
                 request.url,
                 download=False,
-                extra_opts={"extract_flat": "in_playlist", "ignoreerrors": True},
+                extra_opts=extra_opts,
             )
             if not isinstance(info, dict) or not info:
                 raise RuntimeError(self._nothing_to_download_message(request))
@@ -106,6 +114,9 @@ class DownloadManager:
                 raise RuntimeError(self._nothing_to_download_message(request))
 
             return info
+
+        if youtube_extract_opts:
+            return self._runner.extract_info(request.url, download=False, extra_opts=youtube_extract_opts)
         return self._runner.extract_info(request.url, download=False)
 
     @staticmethod
@@ -235,6 +246,15 @@ class DownloadManager:
         if self._is_missing_po_token_error(exc):
             return self._youtube_po_token_help() + " " + self._youtube_recovery_order()
 
+        if self._is_youtube_signature_challenge_error(exc):
+            return (
+                "YouTube signature/challenge verification failed before media download started. "
+                "Install a supported JavaScript runtime (Node.js or Deno) and update yt-dlp, then retry. "
+                "Use a fresh private/incognito cookie export with --cookies-file <path>. "
+                "If needed, enable --youtube-use-po-token-provider for harder YouTube cases. "
+                + self._youtube_recovery_order()
+            )
+
         if self._is_rate_limit_error(exc):
             return (
                 "YouTube temporarily rate-limited this session. Wait up to an hour before retrying. "
@@ -276,10 +296,22 @@ class DownloadManager:
             or self._is_geo_error(exc)
             or self._is_network_error(exc)
             or self._is_missing_po_token_error(exc)
+            or self._is_youtube_signature_challenge_error(exc)
             or self._is_rate_limit_error(exc)
             or self._is_availability_error(exc)
             or self._is_no_downloadable_items_error(exc)
         )
+
+    def _is_youtube_signature_challenge_error(self, exc: Exception) -> bool:
+        message = self._clean_error_text(str(exc)).lower()
+        signature_fragments = (
+            "signature solving failed",
+            "n challenge solving failed",
+            "the page needs to be reloaded",
+            "unable to download video data: http error 403: forbidden",
+            "yt-dlp/wiki/ejs",
+        )
+        return any(fragment in message for fragment in signature_fragments)
 
     def _is_auth_error(self, exc: Exception) -> bool:
         message = self._clean_error_text(str(exc)).lower()
@@ -427,6 +459,12 @@ class DownloadManager:
             if token:
                 youtube_args["po_token"] = [token]
 
+    @staticmethod
+    def _default_js_runtimes() -> dict[str, dict[str, Any]] | None:
+        if shutil.which("node"):
+            return {"node": {}}
+        return None
+
     def _enrich_request(self, request: DownloadRequest, info: dict[str, Any]) -> DownloadRequest:
         extra: dict[str, Any] = {
             **request.extra_yt_dlp_opts,
@@ -444,6 +482,10 @@ class DownloadManager:
             extra.setdefault("sleep_interval", 5)
             extra.setdefault("max_sleep_interval", 10)
             extra.setdefault("sleep_interval_requests", 1)
+            if "js_runtimes" not in extra:
+                js_runtimes = self._default_js_runtimes()
+                if js_runtimes is not None:
+                    extra["js_runtimes"] = js_runtimes
             self._apply_youtube_extractor_args(request, extra)
 
         if self._looks_like_soundcloud_url(request.url):

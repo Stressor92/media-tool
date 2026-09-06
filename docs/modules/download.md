@@ -46,6 +46,8 @@ The manager intentionally switches into a playlist-friendly mode when:
 
 In that mode it requests flattened metadata and logs per-item progress instead of assuming a single-track response.
 
+For YouTube URLs, the manager also applies gentle pacing defaults and auto-enables the `node` JS runtime for yt-dlp EJS challenge solving when `node` is available on `PATH` (unless `js_runtimes` was explicitly provided).
+
 ---
 
 ## Error Normalization Strategy
@@ -57,6 +59,7 @@ The manager explicitly classifies errors such as:
 - authentication/login requirements
 - stale browser cookies
 - missing PO token cases for harder YouTube scenarios
+- YouTube signature/challenge solving failures (EJS warnings such as `Signature solving failed`)
 - provider rate limiting
 - geo restrictions
 - general availability failures (`private video`, `unsupported URL`, etc.)

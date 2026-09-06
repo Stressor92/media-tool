@@ -33,6 +33,11 @@ class _YtDlpLogger:
                 "YouTube extraction is running without a JavaScript runtime; some formats may be missing. "
                 "Install Deno/Node.js or configure yt-dlp js runtimes for best compatibility."
             )
+        elif "Signature solving failed" in normalized or "n challenge solving failed" in normalized:
+            normalized = (
+                "YouTube signature/challenge solving failed; some formats may be missing. "
+                "Install Node.js or Deno, keep yt-dlp updated, and use --youtube-use-po-token-provider for harder cases."
+            )
         elif "The extractor specified to use impersonation for this download" in normalized:
             normalized = (
                 "The site requested yt-dlp impersonation support, but no impersonation backend is installed. "
@@ -64,6 +69,8 @@ class _YtDlpLogger:
 
     def error(self, message: str) -> None:
         normalized = self._normalize(message)
+        if "The page needs to be reloaded." in normalized:
+            normalized = "YouTube returned 'The page needs to be reloaded', which usually means signature/challenge or session-state protection."
         if self._remember_issue is not None:
             self._remember_issue(normalized)
         # DownloadManager converts the final exception into a cleaner user-facing message.

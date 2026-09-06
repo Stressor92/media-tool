@@ -137,7 +137,7 @@ class SubtitleDownloadManager:
             except Exception as e:
                 logger.warning(f"Format conversion failed: {e}, using original")
 
-        timing_ok, timing_note, timing_fallback = self._validate_and_sync_subtitle(
+        timing_result = self._validate_and_sync_subtitle(
             subtitle_path=subtitle_path,
             video_path=video_path,
             video_duration=movie_info.duration,
@@ -145,6 +145,11 @@ class SubtitleDownloadManager:
             verify_with_whisper=verify_with_whisper,
             verify_model=verify_model,
         )
+        if len(timing_result) == 2:
+            timing_ok, timing_note = timing_result
+            timing_fallback = None
+        else:
+            timing_ok, timing_note, timing_fallback = timing_result
         if not timing_ok:
             return DownloadResult(
                 success=False,

@@ -33,6 +33,7 @@ _LANG_SUFFIX_PATTERN = re.compile(
 _SERIES_EPISODE_PATTERN = re.compile(
     r"^(?P<series>.+?)\s*-\s*[sS](?P<season>\d{1,2})(?:[eE](?P<episode>\d{1,2})|(?P<compact_episode>\d{2}))$"
 )
+_TRAILING_BRACKET_TOKEN_PATTERN = re.compile(r"^(?P<base>.*?)(?:\s*[-_]?\s*\[(?P<token>[^\[\]]+)\])$")
 
 
 def _normalize_language_code(raw: str | None) -> str | None:
@@ -40,15 +41,24 @@ def _normalize_language_code(raw: str | None) -> str | None:
         return None
 
     token = raw.strip().lower()
-    if token in {"de", "deu", "ger", "german", "deutsch"}:
-        return "deu"
-    if token in {"en", "eng", "english"}:
-        return "eng"
-    if token in {"es", "spa", "spanish", "espanol", "castellano"}:
-        return "spa"
-    if token in {"jp", "jpn", "japanese", "nihongo"}:
-        return "jpn"
+    token_parts = [part for part in re.split(r"[^a-z]+", token) if part]
+    candidates = [token, *token_parts]
+
+    for candidate in candidates:
+        if candidate in {"de", "deu", "ger", "german", "deutsch"}:
+            return "deu"
+        if candidate in {"en", "eng", "english"}:
+            return "eng"
+        if candidate in {"es", "spa", "spanish", "espanol", "castellano"}:
+            return "spa"
+        if candidate in {"jp", "jpn", "japanese", "nihongo"}:
+            return "jpn"
     return None
+
+
+def _token_marks_subtitle(raw: str) -> bool:
+    token = raw.strip().lower()
+    return "sub" in token
 
 
 def _audio_title_for_language(lang_code: str) -> str:
@@ -71,13 +81,14 @@ def _language_filename_suffix(lang_code: str) -> str:
 
 def _parse_series_episode(base_name: str) -> tuple[str | None, int | None, str]:
     """Return (series_name, season_number, episode_token_or_original)."""
-    match = _SERIES_EPISODE_PATTERN.match(base_name.strip())
+    normalized_base = base_name.strip()
+    match = _SERIES_EPISODE_PATTERN.match(normalized_base)
     if not match:
-        return None, None, base_name
+        return None, None, normalized_base
 
     series_name = match.group("series").strip(" -_")
     if not series_name:
-        return None, None, base_name
+        return None, None, normalized_base
 
     season = int(match.group("season"))
     episode_raw = match.group("episode") or match.group("compact_episode")
@@ -104,15 +115,27 @@ def _detect_audio_language_from_metadata(file_path: Path) -> str | None:
 
 def _detect_lang_and_basename(file_path: Path) -> tuple[str | None, str]:
     """Return (lang, base_name) from a file stem based on known suffix patterns."""
-    stem = file_path.stem
+    stem = file_path.stem.strip()
     match = _LANG_SUFFIX_PATTERN.search(stem)
-    if not match:
-        return None, stem
+    if match:
+        lang = _normalize_language_code(match.group("lang"))
+        # Only trim separators, not title punctuation like closing ')' in years.
+        base = _LANG_SUFFIX_PATTERN.sub("", stem).strip(" -_")
+        return (lang or None), (base or stem)
 
-    lang = _normalize_language_code(match.group("lang"))
-    # Only trim separators, not title punctuation like closing ')' in years.
-    base = _LANG_SUFFIX_PATTERN.sub("", stem).strip(" -_")
-    return (lang or None), (base or stem)
+    detected_lang: str | None = None
+    base = stem
+    while True:
+        bracket_match = _TRAILING_BRACKET_TOKEN_PATTERN.match(base)
+        if not bracket_match:
+            break
+        token = bracket_match.group("token")
+        base = bracket_match.group("base").rstrip(" -_")
+        normalized = _normalize_language_code(token)
+        if normalized and detected_lang is None and not _token_marks_subtitle(token):
+            detected_lang = normalized
+
+    return detected_lang, (base or stem)
 
 
 def _status_text(status: str) -> Text:

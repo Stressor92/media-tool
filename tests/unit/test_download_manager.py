@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -147,11 +147,12 @@ class TestDownloadManager:
         )
         manager.download(request)
 
-        mock_runner.extract_info.assert_called_once_with(
-            "https://example.com/episode",
-            download=False,
-            extra_opts={"extract_flat": "in_playlist", "ignoreerrors": True},
-        )
+        called_url = mock_runner.extract_info.call_args.args[0]
+        called_kwargs = mock_runner.extract_info.call_args.kwargs
+        assert called_url == "https://example.com/episode"
+        assert called_kwargs["download"] is False
+        assert called_kwargs["extra_opts"]["extract_flat"] == "in_playlist"
+        assert called_kwargs["extra_opts"]["ignoreerrors"] is True
         call = mock_runner.download.call_args
         enriched_request: DownloadRequest = call[0][0]
         outtmpl = enriched_request.extra_yt_dlp_opts.get("outtmpl", "")
@@ -194,6 +195,37 @@ class TestDownloadManager:
         assert enriched_request.extra_yt_dlp_opts.get("sleep_interval") == 5
         assert enriched_request.extra_yt_dlp_opts.get("max_sleep_interval") == 10
         assert enriched_request.extra_yt_dlp_opts.get("sleep_interval_requests") == 1
+
+    def test_youtube_defaults_js_runtime_to_node_when_available(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        request = DownloadRequest(
+            url="https://www.youtube.com/watch?v=abc123",
+            media_type=MediaType.VIDEO,
+            output_dir=tmp_path,
+        )
+
+        with patch("core.download.download_manager.shutil.which", return_value="C:/Program Files/nodejs/node.exe"):
+            manager.download(request)
+
+        enriched_request: DownloadRequest = mock_runner.download.call_args[0][0]
+        assert enriched_request.extra_yt_dlp_opts.get("js_runtimes") == {"node": {}}
+
+    def test_youtube_keeps_explicit_js_runtime_setting(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        request = DownloadRequest(
+            url="https://www.youtube.com/watch?v=abc123",
+            media_type=MediaType.VIDEO,
+            output_dir=tmp_path,
+            extra_yt_dlp_opts={"js_runtimes": {"quickjs": {}}},
+        )
+
+        with patch("core.download.download_manager.shutil.which", return_value="C:/Program Files/nodejs/node.exe"):
+            manager.download(request)
+
+        enriched_request: DownloadRequest = mock_runner.download.call_args[0][0]
+        assert enriched_request.extra_yt_dlp_opts.get("js_runtimes") == {"quickjs": {}}
 
     def test_youtube_po_token_provider_settings_are_forwarded(
         self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
@@ -282,10 +314,28 @@ class TestDownloadManager:
 
         manager.download(request)
 
+        called_url = mock_runner.extract_info.call_args.args[0]
+        called_kwargs = mock_runner.extract_info.call_args.kwargs
+        assert called_url == "https://soundcloud.com/example/sets/mix"
+        assert called_kwargs["download"] is False
+        assert called_kwargs["extra_opts"] == {"extract_flat": "in_playlist", "ignoreerrors": True}
+
+    def test_youtube_extract_info_uses_node_runtime_when_available(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        request = DownloadRequest(
+            url="https://www.youtube.com/watch?v=abc123",
+            media_type=MediaType.VIDEO,
+            output_dir=tmp_path,
+        )
+
+        with patch("core.download.download_manager.shutil.which", return_value="C:/Program Files/nodejs/node.exe"):
+            manager.download(request)
+
         mock_runner.extract_info.assert_called_once_with(
-            "https://soundcloud.com/example/sets/mix",
+            "https://www.youtube.com/watch?v=abc123",
             download=False,
-            extra_opts={"extract_flat": "in_playlist", "ignoreerrors": True},
+            extra_opts={"js_runtimes": {"node": {}}},
         )
 
     def test_geo_restriction_error_is_user_friendly(
@@ -389,6 +439,28 @@ class TestDownloadManager:
         assert "PO Token" in result.error_message
         assert "--youtube-use-po-token-provider" in result.error_message
         assert "--youtube-po-token" in result.error_message
+
+    def test_youtube_signature_challenge_error_is_actionable(
+        self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path
+    ) -> None:
+        mock_runner.download.side_effect = RuntimeError(
+            "yt-dlp reported download errors and no files were saved "
+            "(Last reported issue: ERROR: [youtube] abc123: The page needs to be reloaded.)"
+        )
+        request = DownloadRequest(
+            url="https://youtube.com/playlist?list=PL123",
+            media_type=MediaType.SERIES,
+            output_dir=tmp_path,
+        )
+
+        result = manager.download(request)
+
+        assert result.status == DownloadStatus.FAILED
+        assert result.error_message is not None
+        assert "signature/challenge" in result.error_message
+        assert "Node.js or Deno" in result.error_message
+        assert "--cookies-file" in result.error_message
+        assert "--youtube-use-po-token-provider" in result.error_message
 
     def test_youtube_country_block_error_is_user_friendly(
         self, manager: DownloadManager, mock_runner: MagicMock, tmp_path: Path

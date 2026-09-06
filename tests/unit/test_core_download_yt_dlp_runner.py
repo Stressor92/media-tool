@@ -191,3 +191,16 @@ def test_series_download_failure_includes_last_reported_issue(tmp_path: Path) ->
             runner.download(request)
 
     assert "available in your country" in str(exc_info.value)
+
+
+def test_logger_normalizes_and_deduplicates_signature_challenge_warnings(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    runner = YtDlpRunner()
+
+    with caplog.at_level(logging.WARNING):
+        runner._yt_logger.warning("[youtube] id-a: Signature solving failed")
+        runner._yt_logger.warning("[youtube] id-b: Signature solving failed")
+
+    expected = "YouTube signature/challenge solving failed; some formats may be missing"
+    assert caplog.text.count(expected) == 1

@@ -59,6 +59,8 @@ The helper `detect_language_files()` identifies the pair from filename suffix pa
 For CLI batch usage (`media-tool merge batch`), series-like names are normalized as well:
 
 - episode patterns like `Show - S01E02 - en.mp4` and `Show - S0102 - de.mp4` are treated as series episodes
+- bracketed suffixes like `Show - S04E01 - [en][de-sub].mp4` are reduced to episode base `Show - S04E01`; subtitle markers like `de-sub` are ignored for audio-language detection
+- leading and trailing whitespace in derived base names is trimmed before output path creation (for example `Die Firma (1993) .mp4`)
 - outputs are written to `Show/Season 01/Show -S01E02.mkv`
 - single-file groups set audio metadata from probed stream language when available (fallback to filename suffix)
 
