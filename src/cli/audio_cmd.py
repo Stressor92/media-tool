@@ -19,8 +19,12 @@ from core.audio import (
     AudioFileMetadata,
     CSVExporter,
     CSVExportError,
+    GenreNormalizationStatus,
+    GenreNormalizer,
     LibraryScanner,
     MetadataExtractor,
+    MP3GainNormalizer,
+    MP3GainStatus,
     convert_audio,
     improve_audio_file,
     improve_audio_library,
@@ -560,6 +564,272 @@ def auto_tag_command(
     console.print(f"[dim]Title:[/dim] {metadata.title}")
     console.print(f"[dim]Artist:[/dim] {metadata.artist}")
     console.print(f"[dim]Album:[/dim] {metadata.album}")
+
+
+@app.command("tag-bpm")
+def tag_bpm_command(
+    path: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        help="MP3 file or directory containing MP3 files.",
+    ),
+    recursive: bool = typer.Option(
+        True,
+        "--recursive/--no-recursive",
+        "-r",
+        help="When PATH is a directory, include subdirectories.",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite existing BPM tag (TBPM) if present.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Analyze BPM only and show what would be written.",
+    ),
+) -> None:
+    """Analyze BPM for MP3 files and write TBPM metadata without re-encoding audio."""
+    from core.audio import BPMTagger, BPMTaggingStatus
+
+    console.rule("[bold cyan]media-tool · audio tag-bpm[/bold cyan]")
+    console.print(f"[dim]Path      :[/dim] {path}")
+    console.print(f"[dim]Recursive :[/dim] {'Yes' if recursive else 'No'}")
+    console.print(f"[dim]Overwrite :[/dim] {'Yes' if overwrite else 'No'}")
+    if dry_run:
+        console.print("[yellow]DRY RUN MODE - No metadata will be modified[/yellow]")
+
+    tagger = BPMTagger()
+    if path.is_file():
+        results = [tagger.tag_file(path, overwrite=overwrite, dry_run=dry_run)]
+    else:
+        results = tagger.tag_directory(path, recursive=recursive, overwrite=overwrite, dry_run=dry_run)
+
+    if not results:
+        console.print("[yellow]No MP3 files found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    updated = skipped = failed = 0
+    for result in results:
+        relative_name = str(result.path)
+        if path.is_dir():
+            try:
+                relative_name = str(result.path.relative_to(path))
+            except ValueError:
+                relative_name = str(result.path)
+
+        if result.status == BPMTaggingStatus.UPDATED:
+            action_word = "Would set" if dry_run else "Set"
+            console.print(f"[green]✓[/green] {action_word} BPM {result.bpm} for {relative_name}")
+            updated += 1
+            continue
+
+        if result.status == BPMTaggingStatus.SKIPPED:
+            reason = result.error or "Skipped"
+            if result.existing_bpm is not None:
+                reason = f"{reason} (current: {result.existing_bpm})"
+            console.print(f"[yellow]•[/yellow] {relative_name}: {reason}")
+            skipped += 1
+            continue
+
+        reason = result.error or "Unknown error"
+        console.print(f"[red]✘[/red] {relative_name}: {reason}")
+        failed += 1
+
+    console.print(f"\n[bold]Summary:[/bold] " f"Updated: {updated}  " f"Skipped: {skipped}  " f"Failed: {failed}")
+
+    if failed > 0:
+        raise typer.Exit(code=1)
+
+
+@app.command("mp3gain")
+def mp3gain_command(
+    path: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        help="MP3 file or directory containing MP3 files.",
+    ),
+    recursive: bool = typer.Option(
+        True,
+        "--recursive/--no-recursive",
+        "-r",
+        help="When PATH is a directory, include subdirectories.",
+    ),
+    album_mode: bool = typer.Option(
+        False,
+        "--album-mode/--track-mode",
+        help="Use album gain per folder instead of track gain.",
+    ),
+    target_db: float = typer.Option(
+        89.0,
+        "--target-db",
+        min=80.0,
+        max=100.0,
+        help="Target loudness in MP3Gain reference dB (default: 89.0).",
+    ),
+    prevent_clipping: bool = typer.Option(
+        True,
+        "--prevent-clipping/--allow-clipping",
+        help="Enable mp3gain clipping protection (-k).",
+    ),
+) -> None:
+    """Normalize MP3 loudness in-place via MP3Gain without re-encoding."""
+    console.rule("[bold cyan]media-tool · audio mp3gain[/bold cyan]")
+    console.print(f"[dim]Path              :[/dim] {path}")
+    console.print(f"[dim]Recursive         :[/dim] {'Yes' if recursive else 'No'}")
+    console.print(f"[dim]Mode              :[/dim] {'Album' if album_mode else 'Track'}")
+    console.print(f"[dim]Target dB         :[/dim] {target_db:.1f}")
+    console.print(f"[dim]Clip protection   :[/dim] {'Yes' if prevent_clipping else 'No'}")
+
+    normalizer = MP3GainNormalizer()
+    results = normalizer.normalize_path(
+        path=path,
+        recursive=recursive,
+        album_mode=album_mode,
+        target_db=target_db,
+        prevent_clipping=prevent_clipping,
+    )
+
+    if not results:
+        console.print("[yellow]No MP3 files found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    updated = skipped = failed = 0
+    for result in results:
+        relative_name = str(result.path)
+        if path.is_dir():
+            try:
+                relative_name = str(result.path.relative_to(path))
+            except ValueError:
+                relative_name = str(result.path)
+
+        if result.status == MP3GainStatus.UPDATED:
+            console.print(f"[green]✓[/green] MP3Gain adjusted: {relative_name}")
+            updated += 1
+            continue
+
+        if result.status == MP3GainStatus.SKIPPED:
+            console.print(f"[yellow]•[/yellow] {relative_name}: {result.error or 'Skipped'}")
+            skipped += 1
+            continue
+
+        console.print(f"[red]✘[/red] {relative_name}: {result.error or 'Unknown error'}")
+        failed += 1
+
+    console.print(f"\n[bold]Summary:[/bold] " f"Updated: {updated}  " f"Skipped: {skipped}  " f"Failed: {failed}")
+
+    if failed > 0:
+        raise typer.Exit(code=1)
+
+
+@app.command("normalize-genres")
+def normalize_genres_command(
+    path: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        help="Audio file or directory containing audio files.",
+    ),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Write normalized GENRE tags. Without this flag, only a dry-run is executed.",
+    ),
+    recursive: bool = typer.Option(
+        True,
+        "--recursive/--no-recursive",
+        "-r",
+        help="When PATH is a directory, include subdirectories.",
+    ),
+    genres_config: Path | None = typer.Option(
+        None,
+        "--genres-config",
+        help="Path to genres.json taxonomy config.",
+    ),
+    aliases_config: Path | None = typer.Option(
+        None,
+        "--aliases-config",
+        help="Path to genre_aliases.json config.",
+    ),
+    reports_dir: Path = typer.Option(
+        Path("reports"),
+        "--reports-dir",
+        help="Directory where CSV reports are written.",
+    ),
+) -> None:
+    """Normalize GENRE tags via taxonomy + aliases and generate CSV reports."""
+    console.rule("[bold cyan]media-tool · audio normalize-genres[/bold cyan]")
+    console.print(f"[dim]Path          :[/dim] {path}")
+    console.print(f"[dim]Recursive     :[/dim] {'Yes' if recursive else 'No'}")
+    console.print(f"[dim]Reports dir   :[/dim] {reports_dir}")
+    if not apply:
+        console.print("[yellow]DRY RUN MODE - No metadata will be modified[/yellow]")
+
+    try:
+        normalizer = GenreNormalizer(taxonomy_path=genres_config, aliases_path=aliases_config)
+        run_result = normalizer.normalize_path(path, apply=apply, recursive=recursive, reports_dir=reports_dir)
+    except ValueError as exc:
+        err_console.print(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    except Exception as exc:
+        err_console.print(f"Error: {exc}")
+        raise typer.Exit(code=1)
+
+    if not run_result.results:
+        console.print("[yellow]No supported audio files found.[/yellow]")
+
+    updated = skipped = failed = 0
+    unknown_total = 0
+
+    for result in run_result.results:
+        relative_name = str(result.path)
+        if path.is_dir():
+            try:
+                relative_name = str(result.path.relative_to(path))
+            except ValueError:
+                relative_name = str(result.path)
+
+        unknown_total += len(result.unknown_genres)
+
+        if result.status == GenreNormalizationStatus.UPDATED:
+            action_word = "Would set" if not apply else "Set"
+            console.print(
+                f"[green]✓[/green] {action_word} GENRE for {relative_name}: "
+                f"{result.original_genre} -> {result.normalized_genre}"
+            )
+            updated += 1
+            continue
+
+        if result.status == GenreNormalizationStatus.SKIPPED:
+            message = result.message or "Skipped"
+            console.print(f"[yellow]•[/yellow] {relative_name}: {message}")
+            skipped += 1
+            continue
+
+        message = result.message or "Unknown error"
+        console.print(f"[red]✘[/red] {relative_name}: {message}")
+        failed += 1
+
+    console.print(
+        f"\n[bold]Summary:[/bold] "
+        f"Updated: {updated}  "
+        f"Skipped: {skipped}  "
+        f"Failed: {failed}  "
+        f"Unknown values: {unknown_total}"
+    )
+
+    console.print(
+        "[dim]Reports:[/dim] "
+        f"{run_result.reports.changes_csv} | "
+        f"{run_result.reports.unknown_genres_csv} | "
+        f"{run_result.reports.genre_statistics_csv}"
+    )
+
+    if failed > 0:
+        raise typer.Exit(code=1)
 
 
 @app.command("workflow")

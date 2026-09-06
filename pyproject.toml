@@ -20,11 +20,12 @@ dependencies = [
     "pysubs2>=1.7",
     # "PySide6",  # future GUI — install separately
     "mutagen>=1.47",  # For advanced audio metadata
+    "librosa>=0.10",  # Reliable BPM analysis for MP3 tagging
     "faster-whisper>=1.0",  # For GPU-accelerated Whisper transcription
     "requests>=2.31.0",  # For OpenSubtitles API
     "pyacoustid>=1.1",  # AcoustID fingerprint lookup
     "musicbrainzngs>=0.7",  # MusicBrainz metadata lookup
-    "yt-dlp>=2024.11.0",  # Downloader backend for web media sources
+    "yt-dlp[default]>=2024.11.0",  # Downloader backend + EJS solver scripts for YouTube
     "Pillow>=11.0",  # Cover image processing for ebook enrichment
 ]
 

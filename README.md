@@ -23,6 +23,7 @@ Prerequisites:
 
 - Python 3.11+
 - ffmpeg and ffprobe available on PATH
+- mp3gain available on PATH (required for `audio mp3gain`)
 - git
 
 ```bash
@@ -51,7 +52,7 @@ copy media-tool.example.toml media-tool.toml
 Important sections:
 
 - `[api]`: API keys (OpenSubtitles, AcoustID, TMDB).
-- `[tools]`: binary names/paths (`ffmpeg`, `ffprobe`, `yt_dlp`).
+- `[tools]`: binary names/paths (`ffmpeg`, `ffprobe`, `yt_dlp`, `mp3gain`).
 - `[download]`: default output paths and yt-dlp defaults.
 - `[ebook]`: ebook defaults (format, cover download, provider order).
 - `[ebook.organization]`: output folder structure template.
@@ -134,7 +135,9 @@ Merge multiple audio tracks (typically German + English) into a single file with
 
 - `media-tool merge batch "C:\Movies"` — Process many MP4 files in one folder:
   - `<title>-de.mp4` + `<title>-en.mp4` -> `<title>/<title>.mkv` with DE+EN audio
+  - surrounding whitespace in derived titles is trimmed (for example `Die Firma (1993) .mp4` -> folder `Die Firma (1993)`)
   - Series pattern `<name> - S01E02 - <lang>.mp4` (also `S0102`, `S1E2`) -> `<name>/Season 01/<name> -S01E02.mkv`
+  - Bracketed language tags are supported in series names, e.g. `<name> - S04E01 - [en][de-sub].mp4` -> single-file conversion under `<name>/Season 04/`
   - only one file for a series episode -> `<name>/Season 01/<name> -S01E02 - <lang>.mkv` (for example `- de`, `- en`, `- spa`) with audio language from stream metadata (fallback: filename suffix)
 - `media-tool merge batch "C:\Movies" --output-dir "D:\MergedMovies"` — Write output MKVs to another drive
 - `media-tool merge auto "C:\Movies"` — Auto-detect and merge one DE/EN pair in a folder
@@ -151,6 +154,9 @@ Scan, organize, tag, convert, and enhance audio files.
 - `media-tool audio convert "M:\Music" --recursive --format mp3 --bitrate 320k` — Convert FLAC to MP3
 - `media-tool audio improve "song.flac"` — Remove silence, normalize loudness
 - `media-tool audio auto-tag "D:\Musik\Unsortiert" --recursive` — Tag with AcoustID + MusicBrainz
+- `media-tool audio normalize-genres "M:\Music"` — Dry-run genre normalization with taxonomy and alias mapping
+- `media-tool audio tag-bpm "M:\Music" --recursive` — Analyze BPM and write MP3 TBPM tags in-place
+- `media-tool audio mp3gain "M:\Music" --recursive --target-db 89` — Normalize MP3 loudness in-place without re-encoding
 - `media-tool audio detect-language "song.mp3"` — Identify language (heuristic or Whisper)
 
 **Common workflow:**
@@ -158,9 +164,42 @@ Scan, organize, tag, convert, and enhance audio files.
 # Process your music library end-to-end
 media-tool --verbose audio scan "M:\Music"
 media-tool audio auto-tag "M:\Music" --recursive
+media-tool audio normalize-genres "M:\Music"
+media-tool audio tag-bpm "M:\Music" --recursive
+media-tool audio mp3gain "M:\Music" --recursive --target-db 89
 media-tool audio organize "M:\Music" --output "M:\Music_Tagged" --structure "{artist}/{album}/{track_number} - {title}"
 media-tool audio convert "M:\Music_Tagged" --recursive --format mp3 --bitrate 320k --output "M:\Music_MP3"
 ```
+
+#### Helper script: sort D:\\Musik\\Unsortiert by artist/album thresholds
+
+For quick local cleanup outside the CLI command group, use the helper script:
+
+```bash
+python scripts/sort_unsorted_music.py --dry-run
+python scripts/sort_unsorted_music.py
+```
+
+Rules:
+- Existing artist folders in `D:\Musik\Interpreten` are always preferred.
+- New artist folders are created when at least 5 tracks for one artist are found.
+- Existing album folders under an artist are preferred.
+- New album folders are created when at least 5 tracks from the same album are found.
+
+#### Helper script: remove duplicate audio copies with metadata checks
+
+For quick duplicate cleanup in music folders, use:
+
+```bash
+python scripts/remove_duplicate_files.py "D:\Musik" --dry-run
+python scripts/remove_duplicate_files.py "D:\Musik"
+```
+
+Behavior:
+- Uses soft name matching where shared name parts/tokens are sufficient (no strict full filename equality).
+- Requires matching technical signals: same format, codec, sample rate, and channel count plus close file size and duration.
+- Deletes only high-confidence copy variants (for example names with `(1)`, `(2)`, `copy`, `kopie`).
+- Ambiguous matches are reported and skipped.
 
 ### video — Video-specific operations
 
@@ -255,6 +294,24 @@ Download video, music, or entire series from YouTube, Soundcloud, and 1000+ site
 Behavior note for audio series downloads:
 
 - `media-tool download series ... --format mp3` uses a music-oriented output template: `Author/Album/Song.mp3`
+
+Troubleshooting note for YouTube:
+
+- If you see `Signature solving failed`, `n challenge solving failed`, `The page needs to be reloaded`, or repeated 403 errors, install Node.js or Deno, update yt-dlp, then retry with a fresh private/incognito `--cookies-file` export.
+- `media-tool download` now auto-enables Node as yt-dlp JS runtime for YouTube when `node` is available on `PATH`.
+- For harder cases, enable PO-token provider flow with `--youtube-use-po-token-provider` (alias: `--po-token-provider`).
+
+Helper script for bulk YouTube links with Firefox cookies:
+
+```bash
+python scripts/download_youtube_list.py
+```
+
+Behavior:
+- Extracts YouTube URLs from mixed input formats (Markdown links and plain URLs) inside the script.
+- De-duplicates links while preserving order.
+- Runs `media-tool download series <url> --format mp3 --cookies-from-browser firefox` for each entry.
+- Waits 5 seconds between downloads to reduce rate-limit pressure.
 
 **Use case:** Download a movie, music video, or educational series before processing with other commands.
 
@@ -394,6 +451,8 @@ media-tool audit run "Y:\Jellyfin\Movies"
 # Discover + tag
 media-tool audio scan "M:\Music"
 media-tool audio auto-tag "M:\Music" --recursive
+media-tool audio normalize-genres "M:\Music"
+media-tool audio tag-bpm "M:\Music" --recursive
 
 # Organize by metadata
 media-tool audio organize "M:\Music" --output "M:\Music_Tagged" \
@@ -458,6 +517,8 @@ media-tool jellyfin inspect "Y:\Jellyfin\Movies"
 
 # Music and audio
 media-tool audio auto-tag "M:\Music" --recursive
+media-tool audio normalize-genres "M:\Music"
+media-tool audio tag-bpm "M:\Music" --recursive
 media-tool audio organize "M:\Music" --output "M:\Music_Organized" --structure "{artist}/{album}/{title}"
 media-tool audio convert "M:\Music" --recursive --format mp3 --bitrate 320k --output "M:\Music_MP3"
 

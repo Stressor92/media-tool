@@ -53,8 +53,9 @@ class ToolConfig(BaseModel):
     ffmpeg: str = "ffmpeg"
     ffprobe: str = "ffprobe"
     yt_dlp: str = "yt-dlp"
+    mp3gain: str = "mp3gain"
 
-    @field_validator("ffmpeg", "ffprobe", "yt_dlp")
+    @field_validator("ffmpeg", "ffprobe", "yt_dlp", "mp3gain")
     @classmethod
     def _validate_tool_command(cls, value: str) -> str:
         normalized = value.strip()
@@ -517,6 +518,7 @@ def _legacy_env_mapping(key: str) -> list[str] | None:
         "GOOGLEBOOKS_API_KEY": ["api", "googlebooks_api_key"],
         "FFMPEG_BIN": ["tools", "ffmpeg"],
         "FFPROBE_BIN": ["tools", "ffprobe"],
+        "MP3GAIN_BIN": ["tools", "mp3gain"],
     }
     return mapping.get(key)
 
@@ -575,4 +577,5 @@ def _is_relevant_env_var(key: str) -> bool:
         "GOOGLEBOOKS_API_KEY",
         "FFMPEG_BIN",
         "FFPROBE_BIN",
+        "MP3GAIN_BIN",
     }

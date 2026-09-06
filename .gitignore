@@ -154,7 +154,10 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-scripts/
+scripts/*
+!scripts/download_youtube_list.py
+!scripts/remove_duplicate_files.py
+!scripts/sort_unsorted_music.py
 
 # Spyder project settings
 .spyderproject

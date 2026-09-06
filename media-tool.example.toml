@@ -13,6 +13,7 @@ opensubtitles_user_agent = "media-tool v1.0"
 ffmpeg = "ffmpeg"
 ffprobe = "ffprobe"
 yt_dlp = "yt-dlp"
+mp3gain = "mp3gain"
 
 [paths]
 library_root = ""

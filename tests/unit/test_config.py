@@ -9,6 +9,7 @@ import pytest
 from utils.config import ConfigError, build_missing_config_hint, get_config, reset_config_cache
 from utils.ffmpeg_runner import run_ffmpeg
 from utils.ffprobe_runner import probe_file
+from utils.mp3gain_runner import run_mp3gain
 
 
 @pytest.fixture(autouse=True)
@@ -22,6 +23,7 @@ def clear_config_cache(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "GOOGLEBOOKS_API_KEY",
         "FFMPEG_BIN",
         "FFPROBE_BIN",
+        "MP3GAIN_BIN",
     ]:
         monkeypatch.delenv(key, raising=False)
     reset_config_cache()
@@ -35,6 +37,7 @@ def test_get_config_uses_defaults_when_file_missing(tmp_path: Path) -> None:
     assert config.tools.ffmpeg == "ffmpeg"
     assert config.tools.ffprobe == "ffprobe"
     assert config.tools.yt_dlp == "yt-dlp"
+    assert config.tools.mp3gain == "mp3gain"
     assert config.defaults.subtitles.languages == ["en"]
     assert config.api.opensubtitles_api_key is None
     assert config.api.googlebooks_api_key is None
@@ -56,6 +59,7 @@ googlebooks_api_key = "from-file-google"
 [tools]
 ffmpeg = "C:/tools/ffmpeg.exe"
 yt_dlp = "C:/tools/yt-dlp.exe"
+mp3gain = "C:/tools/mp3gain.exe"
 
 [defaults.subtitles]
 languages = ["en", "de"]
@@ -86,6 +90,7 @@ target_format = "mobi"
     assert config.api.googlebooks_api_key == "from-env-google"
     assert config.tools.ffmpeg == "C:/tools/ffmpeg.exe"
     assert config.tools.yt_dlp == "C:/tools/yt-dlp.exe"
+    assert config.tools.mp3gain == "C:/tools/mp3gain.exe"
     assert config.defaults.subtitles.languages == ["de", "fr"]
     assert config.ebook.preferred_format == "mobi"
     assert config.ebook.download_cover is False
@@ -98,12 +103,14 @@ def test_get_config_supports_legacy_environment_variables(monkeypatch: pytest.Mo
     monkeypatch.setenv("OPENSUBTITLES_API_KEY", "legacy-key")
     monkeypatch.setenv("GOOGLEBOOKS_API_KEY", "legacy-google-key")
     monkeypatch.setenv("FFMPEG_BIN", "D:/portable/ffmpeg.exe")
+    monkeypatch.setenv("MP3GAIN_BIN", "D:/portable/mp3gain.exe")
 
     config = get_config()
 
     assert config.api.opensubtitles_api_key == "legacy-key"
     assert config.api.googlebooks_api_key == "legacy-google-key"
     assert config.tools.ffmpeg == "D:/portable/ffmpeg.exe"
+    assert config.tools.mp3gain == "D:/portable/mp3gain.exe"
 
 
 def test_get_config_invalid_toml_raises_config_error(tmp_path: Path) -> None:
@@ -166,3 +173,22 @@ ffprobe = "C:/custom/ffprobe.exe"
 
     assert result.success is True
     assert mock_run.call_args.args[0][0] == "C:/custom/ffprobe.exe"
+
+
+def test_run_mp3gain_uses_configured_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config_path = tmp_path / "media-tool.toml"
+    config_path.write_text(
+        """
+[tools]
+mp3gain = "C:/custom/mp3gain.exe"
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MEDIA_TOOL_CONFIG", str(config_path))
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stderr=b"", stdout=b"")
+
+        result = run_mp3gain(["-v"])
+
+    assert result.command[0] == "C:/custom/mp3gain.exe"

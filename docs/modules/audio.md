@@ -20,9 +20,13 @@ The design separates **read-heavy discovery** from **write-heavy mutation**, whi
 | `library_scanner.py` | recursive discovery and parallel extraction of audio metadata |
 | `metadata_extractor.py` | technical and tag-level inspection per file |
 | `audio_tagger.py` | identify candidate track metadata and write tags |
+| `genre_normalizer.py` | normalize GENRE tags via explicit taxonomy, alias mapping, and CSV reporting |
+| `bpm_tagger.py` | analyze tempo from MP3 audio and write TBPM metadata tags |
+| `mp3gain_normalizer.py` | normalize MP3 loudness via MP3Gain without re-encoding |
 | `conversion.py` | codec/container conversion workflows |
 | `enhancement.py` | loudness, cleanup, and ffmpeg-based enhancement filters |
 | `organization.py` | filesystem organization of audio collections |
+| `unsorted_music_organizer.py` | threshold-based sorting from unsorted folders into artist/album trees |
 | `workflow.py` | higher-level orchestration across audio operations |
 
 ---
@@ -63,6 +67,57 @@ High-level sequence:
 5. emit `EventType.AUDIO_TAGGED` on success
 
 This design reduces accidental tag pollution in ambiguous cases.
+
+### BPM metadata tagging (MP3)
+
+`BPMTagger` adds a dedicated path for BPM maintenance on MP3 files:
+
+1. inspect existing `TBPM` values
+2. analyze tempo from the audio signal (librosa)
+3. cross-check independent tempo estimates for stability
+4. write only the `TBPM` ID3 frame in-place
+
+Safety characteristics:
+
+- no re-encoding and no container conversion
+- non-MP3 files are skipped
+- existing BPM values are preserved unless overwrite is requested
+- batch mode processes directories recursively with per-file status reporting
+- when direct MP3 decoding fails in the analysis backend, a temporary ffmpeg WAV fallback is used for robust tempo extraction
+
+### Genre normalization (MP3/FLAC/M4A/OGG)
+
+`GenreNormalizer` provides deterministic GENRE normalization for curated libraries:
+
+1. parse incoming genre tags with separator cleanup (`/`, `\\`, `,`, and spaced `&`)
+2. map known spelling variants via `config/genre_aliases.json`
+3. resolve canonical values from `config/genres.json`
+4. expand explicit parent genres before child genres
+5. preserve unknown values while reporting them in `unknown_genres.csv`
+6. write tags only in apply mode; default mode stays dry-run
+
+Outputs per run:
+
+- `changes.csv` (old -> new genre values)
+- `unknown_genres.csv` (unknown value frequency + sample file)
+- `genre_statistics.csv` (canonical genre counts)
+
+### Loudness normalization with MP3Gain (MP3)
+
+`MP3GainNormalizer` provides a large-library safe path for in-place MP3 loudness alignment:
+
+1. filter supported files (`.mp3`)
+2. run MP3Gain in track mode (`-r`) or album mode (`-a`)
+3. apply clipping protection (`-k`) by default
+4. process files in argument-length-safe chunks for Windows compatibility
+5. on batch failure, retry per file to isolate damaged tracks
+
+Safety characteristics:
+
+- no audio re-encoding
+- no container conversion
+- per-file status results (updated/skipped/failed)
+- configurable target offset relative to MP3Gain reference level (89 dB)
 
 ### Trade-off
 
@@ -114,3 +169,20 @@ The audio module is consumed by:
 - statistics aggregation for conversion, normalization, and tagging events
 
 Where exact provider behavior varies by backend or available credentials, the result should be treated as **implementation-dependent** rather than guaranteed.
+
+---
+
+## Unsorted Sorting Helper
+
+`unsorted_music_organizer.py` provides rule-based sorting used by the helper script under `scripts/`.
+
+Behavior:
+
+- scans an unsorted source folder recursively for supported audio files
+- reads artist/album tags via mutagen
+- checks existing artist folders in `D:\Musik\Interpreten` first
+- creates artist folders only when the artist reaches a minimum track threshold
+- checks existing album folders under the artist first
+- creates album folders only when the album reaches a minimum track threshold
+
+This allows gradual sorting without forcing one-off tracks into new artist folders too early.

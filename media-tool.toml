@@ -22,6 +22,7 @@ googlebooks_api_key = ""
 ffmpeg  = "ffmpeg"
 ffprobe = "ffprobe"
 yt_dlp  = "yt-dlp"
+mp3gain = "C:/Program Files (x86)/MP3Gain/mp3gain.exe"
 
 # ---------------------------------------------------------------------------
 # Pfade
